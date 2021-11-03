@@ -22,12 +22,10 @@ _CoqProject:
 Makefile.coq: Makefile _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
 
-clean: Makefile.coq
-	$(MAKE) -f Makefile.coq clean
+clean:
+	[ ! -f Makefile.coq ] || $(MAKE) -f Makefile.coq clean
 	rm -f `find ./ -name "*Makefile.coq*"`
-	rm -f `find ./ -name "*.lia.cache"`
+	rm -f `find ./ -name ".*.cache"`
 	rm -f `find ./ -name "*.aux"`
 	rm -f `find ./ -name "*.glob"`
-	rm -f `find ./ -name "*.vo"`
-	rm -f `find ./ -name "*.vok"`
-	rm -f `find ./ -name "*.vos"`
+	rm -f `find ./ -name "*.vo*"`

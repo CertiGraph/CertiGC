@@ -320,12 +320,9 @@ Proof.
               ** rewrite sublist_all; trivial. rewrite Z.le_lteq. right.
                  subst z. rewrite !Zlength_correct, nat_inc_list_length. reflexivity.
            ++ Intros.
-              change (Tpointer tvoid {| attr_volatile := false;
-                                        attr_alignas := Some 2%N |}) with
-                  int_or_ptr_type.
-              change (Tpointer tvoid {| attr_volatile := false;
-                                        attr_alignas := Some 3%N |}) with
-                  int_or_ptr_type.
+              change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with tvalue.
+              change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with tvalue.
+              change (tptr tvoid) with tvalue.
               assert (isptr (vertex_address g3 {| addr_gen := to ; addr_block := index |})). {
                 erewrite <- svfl_vertex_address; eauto. rewrite <- H18 in H21.
                 2: apply graph_has_v_in_closure; assumption. clear -H21 H14.
@@ -404,24 +401,21 @@ Proof.
                    if Archi.ptr64 then Int64.max_signed else Int.max_signed)
              by (vm_compute; reflexivity). cbv [Archi.ptr64] in H37. clear -H37 H32.
            first [rewrite Int.signed_repr | rewrite Int64.signed_repr]; rep_lia.
-        -- change (Tpointer tvoid {| attr_volatile := false;
-                                     attr_alignas := Some 2%N |}) with int_or_ptr_type.
-           change (Tpointer tvoid {| attr_volatile := false;
-                                     attr_alignas := Some 3%N |}) with int_or_ptr_type.
+        -- change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with tvalue.
+           change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with tvalue.
+           change (tptr tvoid) with tvalue.
            cbv [Archi.ptr64]. simpl sem_binary_operation'.
            first [rewrite add_repr | rewrite add64_repr].
            try (rewrite Int.signed_repr; [|rep_lia]).
            assert (force_val
                      (if Archi.ptr64 then
-                        (sem_add_ptr_long
-                           int_or_ptr_type
+                        (sem_add_ptr_long tvalue
                            (offset_val (-8) (vertex_address g'' {| addr_gen := to ; addr_block := index |}))
                            (Vlong
                               (Int64.repr
                                  (1 + Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))))
                       else
-                        (sem_add_ptr_int
-                           int_or_ptr_type Unsigned
+                        (sem_add_ptr_int tvalue Unsigned
                            (offset_val (-4)
                                        (vertex_address g'' {| addr_gen := to ; addr_block := index |}))
                            (vint (1 + Zlength

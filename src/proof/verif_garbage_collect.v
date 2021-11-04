@@ -5,7 +5,7 @@ Local Open Scope logic.
 Lemma sem_sub_pp_total_space: forall s,
     isptr (space_start s) ->
     force_val
-      (sem_sub_pp int_or_ptr_type
+      (sem_sub_pp (tptr tvoid)
                   (offset_val (WORD_SIZE * total_space s) (space_start s))
                   (space_start s)) =
     if Archi.ptr64 then Vlong (Int64.repr (total_space s)) else
@@ -27,7 +27,7 @@ Qed.
 Lemma sem_sub_pp_rest_space: forall s,
     isptr (space_start s) ->
     force_val
-      (sem_sub_pp int_or_ptr_type
+      (sem_sub_pp (tptr tvoid)
                   (offset_val (WORD_SIZE * total_space s) (space_start s))
                   (offset_val (WORD_SIZE * used_space s) (space_start s))) =
     if Archi.ptr64 then Vlong (Int64.repr (total_space s - used_space s)) else
@@ -151,8 +151,8 @@ Proof.
       * simpl in H15. subst i0. simpl. entailer!.
       * simpl. entailer!. assert (isptr (Vptr b i0)) by exact I. rewrite Heqv0 in *.
         pull_left (heap_rest_rep (ti_heap t_info')). pull_left (graph_rep g').
-        destruct H8. rewrite <- (space_start_isptr_iff g') in H23 by assumption.
-        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ H23); auto.
+        destruct H8. rewrite <- (space_start_isptr_iff g') in H22 by assumption.
+        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ H22); auto.
         1: destruct H9 as [? [? [? [? ?]]]]; assumption.
         rewrite nth_space_Znth, Z2Nat.id by lia.
         sep_apply (valid_pointer_weak
@@ -170,8 +170,9 @@ Proof.
         try contradiction; simpl; unfold denote_tc_samebase;
           apply prop_right; simpl; destruct (peq b b); simpl; [|apply n]; auto.
       simpl sem_binary_operation'.
-      change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |})
-        with int_or_ptr_type. remember (Znth i (spaces (ti_heap t_info'))).
+      change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with tvalue.
+      change (tptr tvoid) with tvalue.
+      remember (Znth i (spaces (ti_heap t_info'))).
       rewrite sem_sub_pp_total_space by assumption. subst s.
       pose proof H9. destruct H19 as [_ [_ [_ [_ ?]]]].
       pose proof (ti_size_gen _ _ _ (proj1 H8) H13 H19). unfold gen_size in H20.
@@ -218,13 +219,13 @@ Proof.
             (subst g1; apply firstn_gen_clear_add; assumption).
         assert (new_gen_relation (Z.to_nat (i + 1)) g' g1). {
           subst g1. red. rewrite if_false by assumption. exists gi. split; auto. }
-        gather_SEP (malloc_token Ews (tarray int_or_ptr_type (nth_gen_size (Z.to_nat (i + 1)))) p) (ti_token_rep t_info').
+        gather_SEP (malloc_token Ews (tarray tvalue (nth_gen_size (Z.to_nat (i + 1)))) p) (ti_token_rep t_info').
         assert (total_space sp = nth_gen_size (Z.to_nat (i + 1))) by
             (subst sp; simpl; reflexivity). rewrite <- H29.
         assert (space_start sp = p) by (subst sp; simpl; reflexivity). rewrite <- H30.
         assert (space_start sp <> nullval) by
             (rewrite H30; destruct p; try contradiction; intro; inversion H31).
-        sep_apply (ti_token_rep_add t_info' sp (i + 1) H20); auto.
+        sep_apply (ti_token_rep_add t_info' sp (i + 1) H20 H24 H31); auto.
         replace (space_start sp,
                  (space_start sp,
                   offset_val (WORD_SIZE * total_space sp) (space_start sp))) with
@@ -342,7 +343,7 @@ Proof.
         unfold denote_tc_samebase. simpl. Opaque denote_tc_samebase. entailer!.
       * change (Tpointer tvoid
                          {| attr_volatile := false; attr_alignas := Some 2%N |})
-          with int_or_ptr_type in H39.
+          with tvalue in H39.
         rewrite sem_sub_pp_total_space, sem_sub_pp_rest_space in H40; auto.
         simpl in H40. apply typed_true_of_bool in H40. rewrite negb_true_iff in H40.
         match goal with
@@ -363,7 +364,7 @@ Proof.
         -- rewrite H23 in H38. eapply safe_to_copy_complete; eauto.
       * forward. Intros. Exists g2 roots2 t_info2. rewrite <- H23 in *. entailer!.
   - Intros g2 roots2 t_info2. unfold all_string_constants. Intros.
-    forward_call ((gv ___stringlit_13),
-                  (map init_data2byte (gvar_init v___stringlit_13)), rsh).
+    forward_call ((gv ___stringlit_12),
+                  (map init_data2byte (gvar_init v___stringlit_12)), rsh).
     exfalso; assumption.
 Qed.

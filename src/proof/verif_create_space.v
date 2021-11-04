@@ -17,15 +17,15 @@ Proof.
       [unfold MAX_SPACE_SIZE in *; lia | vm_compute; easy |
        now apply MSS_max_unsigned_range].                                        
   - forward. entailer!.
-  - forward_call (Tarray int_or_ptr_type n noattr, gv).
+  - forward_call (Tarray (tptr tvoid) n noattr, gv).
     + entailer!. simpl. rewrite Z.max_r by lia. now rewrite Z.mul_comm.
     + simpl. replace (Z.max 0 n) with n. 1: apply MSS_max_wordsize_unsigned_range, H.
       rewrite Z.max_r; [reflexivity | destruct H; assumption].
     + Intros p. if_tac.
       * subst p. forward_if False.
         -- unfold all_string_constants. Intros.
-           forward_call ((gv ___stringlit_7),
-                         (map init_data2byte (gvar_init v___stringlit_7)), rsh).
+           forward_call ((gv ___stringlit_6),
+                         (map init_data2byte (gvar_init v___stringlit_6)), rsh).
            exfalso; assumption.
         -- first [exfalso; now apply H0 | inversion H0 ].
       * Intros. forward_if (
@@ -34,8 +34,8 @@ Proof.
                            temp _n (if Archi.ptr64 then Vlong (Int64.repr n)
                                     else Vint (Int.repr n)))
                     SEP (mem_mgr gv; all_string_constants rsh gv;
-                         malloc_token Ews (Tarray int_or_ptr_type n noattr) p;
-                         data_at_ Ews (Tarray int_or_ptr_type n noattr) p;
+                         malloc_token Ews (Tarray (tptr tvoid) n noattr) p;
+                         data_at_ Ews (Tarray (tptr tvoid) n noattr) p;
                          data_at_ sh space_type s; MSS_constant gv)).
         -- contradiction.
         -- forward. unfold MSS_constant. entailer!.

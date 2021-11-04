@@ -8,10 +8,10 @@ all: theories
 theories: Makefile.coq
 	$(MAKE) -f Makefile.coq -j$(J)
 
-# src/ast/x86_64-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
-# 	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize c/gc.c -o src/gc.v
+src/ast/x86_64-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
+	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize c/gc.c -o src/ast/x86_64-linux/gc.v
 
-_CoqProject:
+_CoqProject: src/ast/x86_64-linux/gc.v
 	echo "-Q src/ast CertiGC.ast"                           > _CoqProject
 	echo "-Q src/ast/x86_64-linux CertiGC.ast.clightgen"    >> _CoqProject
 	echo "-Q src/model CertiGC.model"                       >> _CoqProject

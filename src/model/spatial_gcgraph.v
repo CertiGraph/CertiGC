@@ -145,7 +145,7 @@ Definition vertex_at (sh: share) (p: val) (header: Z) (lst_fields: list val) :=
          in
          (data_at sh (if Archi.ptr64 then tulong else tuint)
                   (Z2val header) (offset_val (- WORD_SIZE) p) *
-          data_at sh (tarray int_or_ptr_type (Zlength lst_fields)) lst_fields p).
+          data_at sh (tarray tvalue (Zlength lst_fields)) lst_fields p).
 
 
 Definition vertex_rep (sh: share) (g: LGraph) (v: Addr): mpred :=
@@ -171,7 +171,7 @@ Definition space_rest_rep (sp: space): mpred :=
   if (Val.eq sp.(space_start) nullval)
   then emp
   else data_at_ (space_sh sp)
-                (tarray int_or_ptr_type (sp.(total_space) - sp.(used_space)))
+                (tarray tvalue (sp.(total_space) - sp.(used_space)))
                 (offset_val (WORD_SIZE * used_space sp) sp.(space_start)).
 
 Definition heap_rest_rep (hp: heap): mpred :=
@@ -203,7 +203,7 @@ Definition thread_info_rep (sh: share) (ti: thread_info) (t: val) :=
 
 Definition single_outlier_rep (p: GC_Pointer) :=
   EX sh: share, !!(readable_share sh) &&
-                  (data_at_ sh (tptr tvoid) (GC_Pointer2val p) * TT).
+                  (data_at_ sh tvalue (GC_Pointer2val p) * TT).
 
 Definition outlier_rep (outlier: outlier_t) :=
   fold_right andp TT (map single_outlier_rep outlier).
@@ -254,7 +254,7 @@ Proof.
     rewrite H6, Ptrofs.unsigned_repr_eq. apply Z.mod_small.
     destruct (Ptrofs.unsigned_range i0). rewrite <- Heqofs in *. unfold WORD_SIZE. lia.
   } rewrite H6. assert (0 <= z0) by (subst z0; apply Zlength_nonneg).
-  assert ((@Zlength (@reptype CompSpecs int_or_ptr_type)
+  assert ((@Zlength (@reptype CompSpecs tvalue)
                     (make_fields_vals g {| addr_gen := gen; addr_block := num |})) =
           (@Zlength val (make_fields_vals g {| addr_gen := gen; addr_block := num |}))) by reflexivity.
   rewrite H9 in H3. clear H9. rewrite <- Heqz0 in *.
@@ -264,7 +264,7 @@ Proof.
                (Z2val (make_header g {| addr_gen := gen; addr_block := num |})) (Vptr b (Ptrofs.repr ofs))).
   simpl sizeof. unfold WORD_SIZE. apply cancel_left. fold WORD_SIZE.
   sep_apply (data_at_memory_block
-               sh (tarray int_or_ptr_type z0) (make_fields_vals g {| addr_gen := gen; addr_block := num |})
+               sh (tarray tvalue z0) (make_fields_vals g {| addr_gen := gen; addr_block := num |})
                (Vptr b (Ptrofs.repr (ofs + WORD_SIZE)))).
   unfold WORD_SIZE. simpl sizeof. rewrite Z.max_r; auto.
 Qed.
@@ -290,7 +290,7 @@ Proof.
    unfold vertex_size. rewrite <- fields_eq_length.
   rewrite Z.mul_add_distr_l, Z.mul_1_r, Z.add_assoc in H4.
   rewrite Ptrofs.unsigned_repr_eq in H4. rewrite Z.mod_small in H4 by rep_lia.
-   assert ((@Zlength (@reptype CompSpecs int_or_ptr_type)
+   assert ((@Zlength (@reptype CompSpecs tvalue)
                      (make_fields_vals g {| addr_gen := gen; addr_block := num |})) =
           (@Zlength val (make_fields_vals g {| addr_gen := gen; addr_block := num |}))) by reflexivity.
   rewrite H5 in *. rep_lia.
@@ -335,7 +335,7 @@ Qed.
 Lemma generation_rep_align_compatible: forall g gen,
     graph_has_gen g gen ->
     generation_rep g gen |--
-                   !! (align_compatible (tarray int_or_ptr_type (graph_gen_size g gen))
+                   !! (align_compatible (tarray tvalue (graph_gen_size g gen))
                                         (gen_start g gen)).
 Proof.
   intros. apply graph_has_gen_start_isptr in H.
@@ -363,13 +363,13 @@ Proof.
 Qed.
 
 Lemma sizeof_tarray_int_or_ptr: forall n,
-    0 <= n -> sizeof (tarray int_or_ptr_type n) = (WORD_SIZE * n)%Z.
+    0 <= n -> sizeof (tarray tvalue n) = (WORD_SIZE * n)%Z.
 Proof. intros. simpl. rewrite Z.max_r by assumption. unfold WORD_SIZE. rep_lia. Qed.
 
 Lemma generation_rep_field_compatible: forall g gen,
     graph_has_gen g gen ->
     generation_rep g gen |--
-                   !! (field_compatible (tarray int_or_ptr_type (graph_gen_size g gen))
+                   !! (field_compatible (tarray tvalue (graph_gen_size g gen))
                                         [] (gen_start g gen)).
 Proof.
   intros. pose proof H. apply graph_has_gen_start_isptr in H.
@@ -384,7 +384,7 @@ Lemma generation_rep_data_at_: forall g gen,
     graph_has_gen g gen ->
     generation_rep g gen |--
                    data_at_ (nth_sh g gen)
-                   (tarray int_or_ptr_type (graph_gen_size g gen))
+                   (tarray tvalue (graph_gen_size g gen))
                    (gen_start g gen).
 Proof.
   intros. sep_apply (generation_rep_field_compatible g gen H). Intros.
@@ -480,9 +480,9 @@ Lemma data_at_tarray_value: forall sh n n1 p (v v' v1 v2: list val),
     v = sublist 0 n v' ->
     v1 = sublist 0 n1 v' ->
     v2 = sublist n1 n v' ->
-    data_at sh (tarray int_or_ptr_type n) v p =
-    data_at sh (tarray int_or_ptr_type n1) v1 p *
-    data_at sh (tarray int_or_ptr_type (n - n1)) v2 (offset_val (WORD_SIZE * n1) p).
+    data_at sh (tarray tvalue n) v p =
+    data_at sh (tarray tvalue n1) v1 p *
+    data_at sh (tarray tvalue (n - n1)) v2 (offset_val (WORD_SIZE * n1) p).
 Proof. intros. eapply data_at_tarray_split; eauto. Qed.
 
 Lemma data_at_tarray_space: forall sh n n1 p (v: list (reptype space_type)),
@@ -499,12 +499,12 @@ Qed.
 
 Lemma data_at__tarray_value: forall sh n n1 p,
     0 <= n1 <= n ->
-    data_at_ sh (tarray int_or_ptr_type n) p =
-    data_at_ sh (tarray int_or_ptr_type n1) p *
-    data_at_ sh (tarray int_or_ptr_type (n - n1)) (offset_val (WORD_SIZE * n1) p).
+    data_at_ sh (tarray tvalue n) p =
+    data_at_ sh (tarray tvalue n1) p *
+    data_at_ sh (tarray tvalue (n - n1)) (offset_val (WORD_SIZE * n1) p).
 Proof.
   intros. rewrite !data_at__eq.
-  apply data_at_tarray_value with (default_val (tarray int_or_ptr_type n));
+  apply data_at_tarray_value with (default_val (tarray tvalue n));
     [assumption | unfold default_val; simpl; autorewrite with sublist..];
     [lia | reflexivity..].
 Qed.
@@ -672,7 +672,7 @@ Qed.
 
 Definition heap_rest_gen_data_at_ (g: LGraph) (t_info: thread_info) (gen: nat) :=
   data_at_ (nth_sh g gen)
-           (tarray int_or_ptr_type
+           (tarray tvalue
                    (total_space (nth_space t_info gen) - graph_gen_size g gen))
            (offset_val (WORD_SIZE * graph_gen_size g gen) (gen_start g gen)).
 
@@ -727,7 +727,7 @@ Qed.
 
 Definition generation_data_at_ g t_info gen :=
   data_at_ (nth_sh g gen)
-           (tarray int_or_ptr_type (gen_size t_info gen)) (gen_start g gen).
+           (tarray tvalue (gen_size t_info gen)) (gen_start g gen).
 
 Lemma gr_hrgda_data_at_: forall g t_info gen,
     graph_has_gen g gen ->
@@ -786,7 +786,7 @@ Proof.
   unfold generation_data_at_. destruct (gt_gs_compatible _ _ H1 _ H) as [? [? ?]].
   sep_apply (data_at__memory_block_cancel
                (nth_sh g gen)
-               (tarray int_or_ptr_type (gen_size t_info gen)) (gen_start g gen)).
+               (tarray tvalue (gen_size t_info gen)) (gen_start g gen)).
   simpl sizeof. rewrite Z.max_r by
       (unfold gen_size; apply (proj1 (total_space_range (nth_space t_info gen)))).
   unfold gen_start. if_tac. 2: contradiction.
@@ -830,7 +830,7 @@ Lemma single_outlier_rep_valid_pointer: forall p,
     single_outlier_rep p |-- valid_pointer (GC_Pointer2val p) * TT.
 Proof.
   intros. unfold single_outlier_rep. Intros sh. remember (GC_Pointer2val p) as pp.
-  sep_apply (data_at__memory_block_cancel sh (tptr tvoid) pp). simpl sizeof.
+  sep_apply (data_at__memory_block_cancel sh tvalue pp). simpl sizeof.
   fold WORD_SIZE. sep_apply (memory_block_valid_ptr sh WORD_SIZE pp);
                     [apply readable_nonidentity; assumption | apply derives_refl].
 Qed.
@@ -901,7 +901,7 @@ Qed.
 
 Lemma v_in_range_data_at_: forall v p n sh,
     v_in_range v p (WORD_SIZE * n) ->
-    data_at_ sh (tarray int_or_ptr_type n) p |--
+    data_at_ sh (tarray tvalue n) p |--
              EX m: Z, !!(0 < m <= Ptrofs.max_unsigned) && memory_block sh m v * TT.
 Proof.
   intros. destruct H as [o [? ?]]. rewrite data_at__memory_block. Intros.
@@ -919,12 +919,12 @@ Qed.
 
 Lemma single_outlier_rep_memory_block_FF: forall gp p n wsh,
     writable_share wsh -> v_in_range (GC_Pointer2val gp) p (WORD_SIZE * n) ->
-    single_outlier_rep gp * data_at_ wsh (tarray int_or_ptr_type n) p |-- FF.
+    single_outlier_rep gp * data_at_ wsh (tarray tvalue n) p |-- FF.
 Proof.
   intros. unfold single_outlier_rep. Intros rsh. remember (GC_Pointer2val gp) as ggp.
   clear gp Heqggp. rename ggp into gp.
   sep_apply (v_in_range_data_at_ _ _ _ wsh H0). Intros m.
-  sep_apply (data_at__memory_block_cancel rsh (tptr tvoid) gp). simpl sizeof.
+  sep_apply (data_at__memory_block_cancel rsh tvalue gp). simpl sizeof.
   rewrite <- sepcon_assoc. fold WORD_SIZE.
   now sep_apply (readable_writable_memory_block_FF _ _ WORD_SIZE m gp H1 H) ; try entailer.
 Qed.
@@ -996,7 +996,7 @@ Lemma heap_rest_rep_cut: forall (h: heap) i s (H1: 0 <= i < Zlength (spaces h))
                                 (H2: has_space (Znth i (spaces h)) s),
     space_start (Znth i (spaces h)) <> nullval ->
     heap_rest_rep h =
-    data_at_ (space_sh (Znth i (spaces h))) (tarray int_or_ptr_type s)
+    data_at_ (space_sh (Znth i (spaces h))) (tarray tvalue s)
              (offset_val (WORD_SIZE * used_space (Znth i (spaces h)))
                          (space_start (Znth i (spaces h)))) *
     heap_rest_rep (cut_heap h i s H1 H2).
@@ -1012,7 +1012,7 @@ Proof.
     rewrite Zlength_correct in H1. rep_lia. }
   rewrite H0 at 5. rewrite (upd_Znth_char _ _ _ _ _ H3).
   rewrite H0 at 1. rewrite !iter_sepcon_app_sepcon. simpl.
-  remember (data_at_ (space_sh (Znth i (spaces h))) (tarray int_or_ptr_type s)
+  remember (data_at_ (space_sh (Znth i (spaces h))) (tarray tvalue s)
                      (offset_val (WORD_SIZE * used_space (Znth i (spaces h)))
                                  (space_start (Znth i (spaces h))))) as P.
   rewrite (sepcon_comm P), sepcon_assoc. f_equal.
@@ -1034,7 +1034,7 @@ Proof.
 Qed.
 
 Lemma field_compatible_int_or_ptr_integer_iff: forall p,
-    field_compatible int_or_ptr_type [] p <->
+    field_compatible tvalue [] p <->
     field_compatible (if Archi.ptr64 then tulong else tuint) [] p.
 Proof.
   intros. unfold field_compatible. simpl.
@@ -1045,7 +1045,7 @@ Proof.
 Qed.
 
 Lemma data_at__int_or_ptr_integer: forall sh p,
-    data_at_ sh (tarray int_or_ptr_type 1) p =
+    data_at_ sh (tarray tvalue 1) p =
     data_at_ sh (if Archi.ptr64 then tulong else tuint) p.
 Proof.
   intros. rewrite data_at__singleton_array_eq, !data_at__memory_block,
@@ -1156,9 +1156,9 @@ Qed.
 
 Lemma data_at_tarray_value_split_1: forall sh p (l: list val),
     0 < Zlength l ->
-    data_at sh (tarray int_or_ptr_type (Zlength l)) l p =
-    data_at sh int_or_ptr_type (hd nullval l) p *
-    data_at sh (tarray int_or_ptr_type (Zlength l-1)) (tl l) (offset_val WORD_SIZE p).
+    data_at sh (tarray tvalue (Zlength l)) l p =
+    data_at sh tvalue (hd nullval l) p *
+    data_at sh (tarray tvalue (Zlength l-1)) (tl l) (offset_val WORD_SIZE p).
 Proof.
   intros. destruct l. 1: rewrite Zlength_nil in H; lia. clear H. simpl hd.
   simpl tl. rewrite Zlength_cons.
@@ -1171,9 +1171,9 @@ Lemma lmc_vertex_rep_eq: forall sh g v new_v,
     vertex_rep sh (lgraph_mark_copied g v new_v) v =
     data_at sh (if Archi.ptr64 then tulong else tuint) (Z2val 0)
             (offset_val (- WORD_SIZE) (vertex_address g v)) *
-    data_at sh int_or_ptr_type (vertex_address g new_v)
+    data_at sh tvalue (vertex_address g new_v)
             (vertex_address g v) *
-    data_at sh (tarray int_or_ptr_type (Zlength (make_fields_vals g v) - 1))
+    data_at sh (tarray tvalue (Zlength (make_fields_vals g v) - 1))
             (tl (make_fields_vals g v)) (offset_val WORD_SIZE (vertex_address g v)).
 Proof.
   intros. unfold vertex_rep. rewrite lmc_vertex_address. unfold vertex_at.
@@ -1641,7 +1641,7 @@ Qed.
 
 Definition space_token_rep (sp: space): mpred :=
   if Val.eq (space_start sp) nullval then emp
-  else malloc_token Ews (tarray int_or_ptr_type (total_space sp)) (space_start sp).
+  else malloc_token Ews (tarray tvalue (total_space sp)) (space_start sp).
 
 Definition ti_token_rep (ti: thread_info): mpred :=
   malloc_token Ews heap_type (ti_heap_p ti) *
@@ -1660,7 +1660,7 @@ Qed.
 Lemma ti_token_rep_add: forall ti sp i (Hs: 0 <= i < MAX_SPACES),
     space_start (Znth i (spaces (ti_heap ti))) = nullval ->
     space_start sp <> nullval ->
-    malloc_token Ews (tarray int_or_ptr_type (total_space sp)) (space_start sp) *
+    malloc_token Ews (tarray tvalue (total_space sp)) (space_start sp) *
     ti_token_rep ti |-- ti_token_rep (ti_add_new_space ti sp i Hs).
 Proof.
   intros. unfold ti_token_rep. simpl. cancel. remember (spaces (ti_heap ti)).

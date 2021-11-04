@@ -70,8 +70,8 @@ Proof.
   Intros h. if_tac.
   - subst h; forward_if False; [| first [exfalso; now apply H | inversion H ]].
     unfold all_string_constants; Intros;
-      forward_call ((gv ___stringlit_8),
-                    (map init_data2byte (gvar_init v___stringlit_8)), sh);
+      forward_call ((gv ___stringlit_7),
+                    (map init_data2byte (gvar_init v___stringlit_7)), sh);
       exfalso; assumption.
   - Intros. forward_if True; [contradiction | forward; entailer! |]. Intros.
     (* make "data_at sh space_type v h " in SEP *)

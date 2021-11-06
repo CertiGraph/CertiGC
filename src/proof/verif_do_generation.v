@@ -11,15 +11,15 @@ Proof.
       (apply gt_gs_compatible; assumption). destruct H6 as [? [? ?]].
   assert (generation_space_compatible g (to, nth_gen g to, nth_space t_info to)) by
       (apply gt_gs_compatible; assumption). destruct H9 as [? [? ?]].
-  assert (isptr (space_start (nth_space t_info from))) by
-      (rewrite <- H6; apply start_isptr).
-  assert (isptr (space_start (nth_space t_info to))) by
-      (rewrite <- H9; apply start_isptr).
+  assert (isptr (space_base (nth_space t_info from))) by
+      (rewrite <- H6; apply generation_base__isptr).
+  assert (isptr (space_base (nth_space t_info to))) by
+      (rewrite <- H9; apply generation_base__isptr).
   assert (HS: forall gen, graph_has_gen g gen -> Z.of_nat gen < MAX_SPACES). {
     intros. unfold graph_has_gen in H14. destruct H as [[_ [_ ?]] _].
-    rewrite <- (spaces_size (ti_heap t_info)). rewrite Zlength_correct.
+    rewrite <- (heap_spaces__size (ti_heap t_info)). rewrite Zlength_correct.
     apply inj_lt. apply Nat.lt_le_trans with
-                      (Datatypes.length (g_gen (glabel g))); assumption. }
+                      (Datatypes.length (generations (glabel g))); assumption. }
   assert (Z.of_nat from < MAX_SPACES) by (apply HS; assumption).
   assert (Z.of_nat to < MAX_SPACES) by (apply HS; assumption). clear HS.
   freeze [0;1;2;3] FR.
@@ -34,11 +34,11 @@ Proof.
     (unfold space_struct_rep; entailer!).
   unlocalize [thread_info_rep sh t_info ti].
   1: apply thread_info_rep_ramif_stable; assumption.
-  remember (space_start (nth_space t_info from)) as from_p.
-  remember (space_start (nth_space t_info to)) as to_p.
-  remember (WORD_SIZE * used_space (nth_space t_info to))%Z as to_used.
-  remember (WORD_SIZE * total_space (nth_space t_info to))%Z as to_total.
-  remember (WORD_SIZE * used_space (nth_space t_info from))%Z as from_used.
+  remember (space_base (nth_space t_info from)) as from_p.
+  remember (space_base (nth_space t_info to)) as to_p.
+  remember (WORD_SIZE * space_allocated (nth_space t_info to))%Z as to_used.
+  remember (WORD_SIZE * space_capacity (nth_space t_info to))%Z as to_total.
+  remember (WORD_SIZE * space_allocated (nth_space t_info from))%Z as from_used.
   assert (is_true (sameblock (offset_val from_used from_p) from_p)). {
     destruct from_p; try contradiction. simpl.
     destruct peq. 2: contradiction. exact I. }
@@ -55,9 +55,9 @@ Proof.
                       (to_total - to_used) in H18 by lia.
     replace (ofs + from_used - ofs) with from_used in H18 by lia.
     assert (Ptrofs.min_signed <= from_used <= Ptrofs.max_signed) by
-        (subst; apply used_space_signed_range).
+        (subst; apply space_allocated__signed_range).
     assert (Ptrofs.min_signed <= to_total - to_used <= Ptrofs.max_signed) by
-        (subst; apply rest_space_signed_range). unfold Ptrofs.divs in H18.
+        (subst; apply space_remaining__signed_range). unfold Ptrofs.divs in H18.
     rewrite !Ptrofs.signed_repr in H18 by rep_lia. subst. unfold WORD_SIZE in H18.
     rewrite <- Z.mul_sub_distr_l, Z.mul_comm, Z.quot_mul,
     Z.mul_comm, Z.quot_mul in H18 by lia.
@@ -66,22 +66,22 @@ Proof.
     remember (if Archi.ptr64
               then Int64.lt
                      (Int64.repr
-                        (total_space (nth_space t_info to) -
-                         used_space (nth_space t_info to)))
-                     (Int64.repr (used_space (nth_space t_info from)))
+                        (space_capacity (nth_space t_info to) -
+                         space_allocated (nth_space t_info to)))
+                     (Int64.repr (space_allocated (nth_space t_info from)))
               else Int.lt
                      (Int.repr
-                        (total_space (nth_space t_info to) -
-                         used_space (nth_space t_info to)))
-                     (Int.repr (used_space (nth_space t_info from)))) as lte.
+                        (space_capacity (nth_space t_info to) -
+                         space_allocated (nth_space t_info to)))
+                     (Int.repr (space_allocated (nth_space t_info from)))) as lte.
     simpl in Heqlte. rewrite <- Heqlte in H18. destruct lte; simpl in H18.
     2: inversion H18. symmetry in Heqlte.
     match goal with
     | H : Int64.lt _ _ = true |- _ => apply lt64_repr in H
     | H : Int.lt _ _ = true |- _ => apply lt_repr in H
     end.
-    2: apply rest_space_repable_signed.
-    2: apply used_space_repable_signed. clear -H8 H3 Heqlte. red in H3.
+    2: apply space_remaining__repable_signed.
+    2: apply space_allocated__repable_signed. clear -H8 H3 Heqlte. red in H3.
     unfold graph_gen_size, rest_gen_size in H3. rewrite H8 in H3. lia.
   - Intros. localize [space_struct_rep sh t_info from].
     unfold space_struct_rep, space_tri. do 2 (forward; [subst from_p; entailer!|]).
@@ -92,7 +92,7 @@ Proof.
     destruct H0 as [? [? [? ?]]]. rewrite <- Heqfrom_p.
     replace from_p with (gen_start g from) by
         (subst; unfold gen_start; rewrite if_true; assumption).
-    replace (offset_val (WORD_SIZE * total_space (nth_space t_info from))
+    replace (offset_val (WORD_SIZE * space_capacity (nth_space t_info from))
                         (gen_start g from)) with (limit_address g t_info from) by
         (unfold limit_address, gen_size; reflexivity).
     assert_PROP (isptr (space_address t_info to)). {
@@ -110,20 +110,20 @@ Proof.
     simpl snd in *. freeze [0;1;2;3] FR. 
     replace (space_address t_info from) with (space_address t_info1 from) by
         (unfold space_address; rewrite (proj1 H26); reflexivity).
-    assert (space_start (nth_space t_info1 from) = gen_start g1 from). {
+    assert (space_base (nth_space t_info1 from) = gen_start g1 from). {
       destruct H23 as [? _]. destruct H25 as [_ [? _]].
       destruct (gt_gs_compatible _ _ H23 _ H25) as [? _]. rewrite <- H27.
       unfold gen_start. rewrite if_true by assumption. reflexivity. }
-    assert (isptr (space_start (nth_space t_info1 from))). {
+    assert (isptr (space_base (nth_space t_info1 from))). {
       rewrite H27. unfold gen_start. destruct H25 as [_ [? _]].
-      rewrite if_true by assumption. apply start_isptr. }
+      rewrite if_true by assumption. apply generation_base__isptr. }
     localize [space_struct_rep sh t_info1 from].
     unfold space_struct_rep, space_tri. do 2 forward.
     replace_SEP 0 (space_struct_rep sh t_info1 from) by
         (unfold space_struct_rep, space_tri; entailer!).
     unlocalize [thread_info_rep sh t_info1 ti].
     1: apply thread_info_rep_ramif_stable_1; assumption. thaw FR. rewrite H27.
-    replace (offset_val (WORD_SIZE * total_space (nth_space t_info1 from))
+    replace (offset_val (WORD_SIZE * space_capacity (nth_space t_info1 from))
                         (gen_start g1 from)) with (limit_address g1 t_info1 from) by
         (unfold limit_address, gen_size; reflexivity).
     assert_PROP (offset_val WORD_SIZE (space_address t_info to) =
@@ -133,11 +133,11 @@ Proof.
       - simpl. rewrite offset_offset_val. f_equal.
       - unfold field_compatible in *. simpl.
         unfold in_members. simpl. intuition. }
-    assert (closure_has_v g {| addr_gen := to ; addr_block := number_of_vertices (nth_gen g to) |}) by
+    assert (closure_has_v g {| addr_gen := to ; addr_block := generation_block_count (nth_gen g to) |}) by
         (red; simpl; unfold closure_has_index; split; [assumption | lia]).
     replace (offset_val to_used to_p) with
         (offset_val (- WORD_SIZE)
-                    (vertex_address g1 {| addr_gen := to ; addr_block := number_of_vertices (nth_gen g to) |})) by
+                    (vertex_address g1 {| addr_gen := to ; addr_block := generation_block_count (nth_gen g to) |})) by
         (rewrite <- (frr_vertex_address _ _ _ _ _ _ _ H5 H24 _ H30); subst;
          unfold vertex_address, vertex_offset, gen_start; simpl;
          rewrite offset_offset_val, H11, H9, if_true by assumption;
@@ -146,18 +146,18 @@ Proof.
     assert (0 < gen_size t_info1 to) by (rewrite <- (proj1 (proj2 H26)); assumption).
     assert (gen_unmarked g1 to) by (eapply (frr_gen_unmarked _ _ _ _ g _ g1); eauto).
     forward_call (rsh, sh, gv, fi, ti, g1, t_info1, f_info, roots1, outlier,
-                  from, to, number_of_vertices (nth_gen g to)). 1: intuition.
+                  from, to, generation_block_count (nth_gen g to)). 1: intuition.
     Intros vret. destruct vret as [g2 t_info2]. simpl fst in *. simpl snd in *.
     forward_if True; Intros; [contradiction | forward; entailer! |].
     replace (space_address t_info1 from) with (space_address t_info2 from) in * by
         (unfold space_address; rewrite (proj1 H37); reflexivity).
-    assert (space_start (nth_space t_info2 from) = gen_start g2 from). {
+    assert (space_base (nth_space t_info2 from) = gen_start g2 from). {
       destruct H34 as [? _]. destruct H35 as [_ [? _]].
       destruct (gt_gs_compatible _ _ H34 _ H35) as [? _]. rewrite <- H38.
       unfold gen_start. rewrite if_true by assumption. reflexivity. }
-    assert (isptr (space_start (nth_space t_info2 from))). {
+    assert (isptr (space_base (nth_space t_info2 from))). {
       rewrite H38. unfold gen_start. destruct H35 as [_ [? _]].
-      rewrite if_true by assumption. apply start_isptr. } 
+      rewrite if_true by assumption. apply generation_base__isptr. } 
     freeze [0;1;2;3] FR. localize [space_struct_rep sh t_info2 from].
     unfold space_struct_rep, space_tri. forward.
     replace_SEP 0 (space_struct_rep sh t_info2 from) by
@@ -172,7 +172,7 @@ Proof.
       - simpl. f_equal.
       - unfold field_compatible in *. simpl in *. intuition. }
     rewrite H40. clear H40. Opaque Znth. forward. Transparent Znth. 1: entailer!.
-    rewrite Znth_map by (rewrite spaces_size; rep_lia).
+    rewrite Znth_map by (rewrite heap_spaces__size; rep_lia).
     rewrite <- nth_space_Znth. unfold space_tri at 2 3. thaw FR.
     assert (graph_has_gen g2 from) by (destruct H35 as [_ [? _]]; assumption).
     rewrite (graph_rep_reset g2 from) by assumption. Intros.     
@@ -181,7 +181,7 @@ Proof.
     gather_SEP (data_at _ _ _ _) (heap_struct_rep _ _ _) (heap_rest_rep _).
     replace_SEP 0 (thread_info_rep sh (reset_nth_heap_thread_info from t_info2) ti).
     + unfold thread_info_rep. simpl ti_heap_p. simpl ti_args. entailer!.
-      assert (from < length (spaces (ti_heap t_info2)))%nat by
+      assert (from < length (heap_spaces (ti_heap t_info2)))%nat by
           (destruct H34 as [[_ [_ ?]] _]; red in H40; lia). simpl.
       rewrite (reset_nth_space_Znth _ _ H53), <- nth_space_Znth, <- upd_Znth_map.
       unfold space_tri at 3. simpl. replace (WORD_SIZE * 0)%Z with 0 by lia.

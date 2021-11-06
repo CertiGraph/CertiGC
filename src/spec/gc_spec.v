@@ -10,7 +10,7 @@ From CertiGC Require Export ast.env_graph_gc.
 
 Local Open Scope logic.
 
-Identity Coercion LGraph_LabeledGraph: LGraph >-> LabeledGraph.
+Identity Coercion HeapGraph_LabeledGraph: HeapGraph >-> LabeledGraph.
 Coercion pg_lg: LabeledGraph >-> PreGraph.
 
 Definition init_data2byte (d: init_data) : byte :=
@@ -172,7 +172,7 @@ Proof.
 Qed.
 
 Definition forward_p_address
-           (p: forward_p_type) (ti: val) (f_info: fun_info) (g: LGraph) :=
+           (p: forward_p_type) (ti: val) (f_info: fun_info) (g: HeapGraph) :=
   match p with
   | inl root_index => field_address
                         thread_info_type
@@ -192,7 +192,7 @@ Definition next_address t_info to :=
 Definition forward_spec :=
   DECLARE _forward
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
-       g: LGraph, t_info: thread_info, f_info: fun_info,
+       g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots : roots_t, outlier: outlier_t,
        from: nat, to: nat, depth: Z, forward_p: forward_p_type
   PRE [tptr tvalue,
@@ -218,7 +218,7 @@ Definition forward_spec :=
          graph_rep g;
          thread_info_rep sh t_info ti)
   POST [tvoid]
-    EX g': LGraph, EX t_info': thread_info, EX roots': roots_t,
+    EX g': HeapGraph, EX t_info': thread_info, EX roots': roots_t,
     PROP (super_compatible (g', t_info', roots') f_info outlier;
           roots' = upd_roots from to forward_p g roots f_info;
           forward_relation from to (Z.to_nat depth)
@@ -235,7 +235,7 @@ Definition forward_spec :=
 Definition forward_roots_spec :=
   DECLARE _forward_roots
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
-       g: LGraph, t_info: thread_info, f_info: fun_info,
+       g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots: roots_t, outlier: outlier_t, from: nat, to: nat
   PRE [tptr tvalue,
        tptr tvalue,
@@ -257,7 +257,7 @@ Definition forward_roots_spec :=
          graph_rep g;
          thread_info_rep sh t_info ti)
   POST [tvoid]
-    EX g' : LGraph, EX t_info': thread_info, EX roots': roots_t,
+    EX g' : HeapGraph, EX t_info': thread_info, EX roots': roots_t,
     PROP (super_compatible (g', t_info', roots') f_info outlier;
           forward_roots_relation from to f_info roots g roots' g';
           forward_condition g' t_info' from to;
@@ -272,7 +272,7 @@ Definition forward_roots_spec :=
 Definition do_scan_spec :=
   DECLARE _do_scan
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
-       g: LGraph, t_info: thread_info, f_info: fun_info,
+       g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots : roots_t, outlier: outlier_t,
        from: nat, to: nat, to_index: nat
   PRE [tptr tvalue,
@@ -295,7 +295,7 @@ Definition do_scan_spec :=
          graph_rep g;
          thread_info_rep sh t_info ti)
   POST [tvoid]
-    EX g': LGraph, EX t_info': thread_info,
+    EX g': HeapGraph, EX t_info': thread_info,
     PROP (super_compatible (g', t_info', roots) f_info outlier;
           forward_condition g' t_info' from to;
           do_scan_relation from to to_index g g';
@@ -310,7 +310,7 @@ Definition do_scan_spec :=
 Definition do_generation_spec :=
   DECLARE _do_generation
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
-       g: LGraph, t_info: thread_info, f_info: fun_info,
+       g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots: roots_t, outlier: outlier_t, from: nat, to: nat
   PRE [tptr space_type,
        tptr space_type,
@@ -330,7 +330,7 @@ Definition do_generation_spec :=
          graph_rep g;
          thread_info_rep sh t_info ti)
   POST [tvoid]
-    EX g' : LGraph, EX t_info': thread_info, EX roots': roots_t,
+    EX g' : HeapGraph, EX t_info': thread_info, EX roots': roots_t,
     PROP (super_compatible (g', t_info', roots') f_info outlier;
           thread_info_relation t_info t_info';
           do_generation_relation from to f_info roots roots' g g')
@@ -407,7 +407,7 @@ Definition make_tinfo_spec :=
 Definition resume_spec :=
   DECLARE _resume
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
-       g: LGraph, t_info: thread_info, f_info: fun_info,
+       g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots : roots_t
   PRE [tptr (if Archi.ptr64 then tulong else tuint),
        tptr thread_info_type]
@@ -421,7 +421,7 @@ Definition resume_spec :=
          graph_rep g;
          thread_info_rep sh t_info ti)
   POST [tvoid]
-    PROP (fun_word_size f_info <= total_space (heap_head (ti_heap t_info)))
+    PROP (fun_word_size f_info <= space_capacity (heap_head (ti_heap t_info)))
     LOCAL ()
     SEP (all_string_constants rsh gv;
          fun_info_rep rsh f_info fi;
@@ -431,7 +431,7 @@ Definition resume_spec :=
 Definition garbage_collect_spec :=
   DECLARE _garbage_collect
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
-       g: LGraph, t_info: thread_info, f_info: fun_info,
+       g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots : roots_t, outlier: outlier_t
   PRE [tptr (if Archi.ptr64 then tulong else tuint),
        tptr thread_info_type]
@@ -448,7 +448,7 @@ Definition garbage_collect_spec :=
          before_gc_thread_info_rep sh t_info ti;
          ti_token_rep t_info)
   POST [tvoid]
-    EX g': LGraph, EX t_info': thread_info, EX roots': roots_t,
+    EX g': HeapGraph, EX t_info': thread_info, EX roots': roots_t,
     PROP (super_compatible (g', t_info', roots') f_info outlier;
           garbage_collect_relation f_info roots roots' g g';
           garbage_collect_condition g' t_info' roots' f_info;

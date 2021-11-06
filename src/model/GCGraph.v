@@ -24,282 +24,27 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Export graph.graph_gen.
 
 From CertiGC Require Import model.constants.
-
-
-Record Addr: Type := {
-    addr_gen: nat;
-    addr_block: nat;
-}.
-Instance Addr_EqDec: EqDec Addr eq.
-Proof.
-    intros [gen_x block_x] [gen_y block_y].
-    destruct (equiv_dec gen_x gen_y) as [ H1 | H1 ] ;
-    destruct (equiv_dec block_x block_y) as [ H2 | H2 ].
-    all:
-      cbv in * ; subst ; try firstorder ;
-      right ; intro F ; congruence.
-Defined.
-
-
-Record Field: Type := {
-    field_addr: Addr;
-    field_index: nat;
-}.
-Instance Field_EqDec: EqDec Field eq.
-Proof.
-    intros [addr_x index_x] [addr_y index_y].
-    destruct (equiv_dec addr_x addr_y) as [ H1 | H1 ] ;
-    destruct (equiv_dec index_x index_y) as [ H2 | H2 ].
-    all:
-      cbv in * ; subst ; try firstorder ;
-      right ; intro F ; congruence.
-Defined.
-
+From CertiGC Require Export model.graph.
+From CertiGC Require Export model.heap.
+From CertiGC Require Export model.util.
+From CertiGC Require Export model.thread_info.
 
 Import ListNotations.
-
-
-Inductive GC_Pointer := | GCPtr: block -> ptrofs -> GC_Pointer.
-
-Definition raw_field: Type := option (Z + GC_Pointer).
-
-Instance raw_field_inhabitant: Inhabitant raw_field := None.
-
-Definition odd_Z2val (x: Z) : val :=
-  Eval cbv delta [Archi.ptr64] match
-         in (if Archi.ptr64 then Vlong (Int64.repr (2 * x + 1)%Z)
-              else Vint (Int.repr (2 * x + 1)%Z)).
-
-Definition Z2val (x: Z) : val :=
-  Eval cbv delta [Archi.ptr64] match
-         in if Archi.ptr64 then Vlong (Int64.repr x) else Vint (Int.repr x).
 
 Definition GC_Pointer2val (x: GC_Pointer) : val :=
   match x with | GCPtr b z => Vptr b z end.
 
-Record raw_vertex_block : Type :=
-  {
-    raw_mark: bool;
-    copied_vertex: Addr;
-    raw_fields: list raw_field;
-    raw_color: Z;
-    raw_tag: Z;
-    raw_tag_range: 0 <= raw_tag < 256;
-    raw_color_range: 0 <= raw_color < 4;
-    raw_fields_range: 0 < Zlength raw_fields < two_p (WORD_SIZE * 8 - 10);
-    tag_no_scan: NO_SCAN_TAG <= raw_tag -> ~ In None raw_fields;
-    (* what's up with this? why can raw_f be None at all? *)
-  }.
-
-Local Close Scope Z_scope.
-
-Lemma raw_fields_not_nil: forall rvb, raw_fields rvb <> nil.
-Proof.
-  intros. pose proof (raw_fields_range rvb). destruct (raw_fields rvb).
-  - simpl in H. rewrite Zlength_nil in H. exfalso; lia.
-  - intro. inversion H0.
-Qed.
-
-Definition raw_fields_head (rvb: raw_vertex_block): raw_field :=
-  match rvb.(raw_fields) as l return (raw_fields rvb = l -> raw_field) with
-  | nil => fun m => False_rect _ (raw_fields_not_nil _ m)
-  | r :: _ => fun _ => r
-  end eq_refl.
-
-Lemma raw_fields_head_cons:
-  forall rvb, exists r l, raw_fields rvb = r :: l /\ raw_fields_head rvb = r.
-Proof.
-  intros. destruct rvb eqn:? . simpl. unfold raw_fields_head; simpl.
-  destruct raw_fields0.
-  - exfalso. clear Heqr. rewrite Zlength_nil in raw_fields_range0. lia.
-  - exists r, raw_fields0. split; reflexivity.
-Qed.
-
 Local Open Scope Z_scope.
-
-Record generation_info: Type :=
-  {
-    start_address: val;
-    number_of_vertices: nat;
-    generation_sh: share;
-    start_isptr: isptr start_address;
-    generation_share_writable: writable_share generation_sh;
-  }.
-
-Definition IMPOSSIBLE_VAL := Vptr xH Ptrofs.zero.
-Lemma IMPOSSIBLE_ISPTR: isptr IMPOSSIBLE_VAL. Proof. exact I. Qed.
-Global Opaque IMPOSSIBLE_VAL.
-
-Definition null_info: generation_info :=
-  Build_generation_info IMPOSSIBLE_VAL O Tsh IMPOSSIBLE_ISPTR writable_share_top.
-
-Instance gen_info_inhabitant: Inhabitant generation_info := null_info.
-
-Record graph_info : Type :=
-  {
-    g_gen: list generation_info;
-    g_gen_not_nil: g_gen <> nil;
-  }.
-
-Definition graph_info_head (gi: graph_info): generation_info :=
-  match gi.(g_gen) as l return (g_gen gi = l -> generation_info) with
-  | nil => fun m => False_rect _ (g_gen_not_nil _ m)
-  | s :: _ => fun _ => s
-  end eq_refl.
-
-Lemma graph_info_head_cons:
-  forall gi, exists s l, g_gen gi = s :: l /\ graph_info_head gi = s.
-Proof.
-  intros. destruct gi eqn:? . simpl. unfold graph_info_head. simpl. destruct g_gen0.
-  1: contradiction. exists g, g_gen0. split; reflexivity.
-Qed.
-
-Definition LGraph := LabeledGraph Addr Field raw_vertex_block unit graph_info.
 
 Local Coercion pg_lg: LabeledGraph >-> PreGraph.
 
-Record space: Type :=
-  {
-    space_start: val;
-    used_space: Z;
-    total_space: Z;
-    space_sh: share;
-    space_order: 0 <= used_space <= total_space;
-    space_upper_bound: total_space < MAX_SPACE_SIZE;
-  }.
 
-Definition null_space: space.
-Proof.
-  refine (Build_space nullval 0 0 emptyshare _ _).
-  - split; apply Z.le_refl.
-  - unfold MAX_SPACE_SIZE. vm_compute; reflexivity.
-Defined.
-
-Instance space_inhabitant: Inhabitant space := null_space.
-
-Lemma total_space_tight_range: forall sp, 0 <= total_space sp < MAX_SPACE_SIZE.
-Proof.
-  intros. split.
-  - destruct (space_order sp). transitivity (used_space sp); assumption.
-  - apply space_upper_bound.
-Qed.
-
-Lemma total_space_range: forall sp, 0 <= total_space sp <= (if Archi.ptr64 then Int64.max_unsigned else Int.max_unsigned).
-Proof. intros. apply MSS_max_unsigned_range, total_space_tight_range. Qed.
-
-Lemma total_space_signed_range: forall sp,
-    Ptrofs.min_signed <= WORD_SIZE * total_space sp <= Ptrofs.max_signed.
-Proof. intros. apply MSS_max_wordsize_signed_range, total_space_tight_range. Qed.
-
-Lemma used_space_signed_range: forall sp,
-    Ptrofs.min_signed <= WORD_SIZE * used_space sp <= Ptrofs.max_signed.
-Proof.
-  intros. apply MSS_max_wordsize_signed_range. destruct (space_order sp). split.
-  1: assumption. apply Z.le_lt_trans with (total_space sp). 1: assumption.
-  apply (proj2 (total_space_tight_range sp)).
-Qed.
-
-Lemma rest_space_signed_range: forall sp,
-    Ptrofs.min_signed <=
-    WORD_SIZE * total_space sp - WORD_SIZE * used_space sp <=
-    Ptrofs.max_signed.
-Proof.
-  intros. rewrite <- Z.mul_sub_distr_l. apply MSS_max_wordsize_signed_range.
-  destruct (space_order sp). pose proof (total_space_tight_range sp). lia.
-Qed.
-
-Definition range_signed (z: Z) :=
-  (if Archi.ptr64 then Int64.min_signed else Int.min_signed) <= z <=
-  (if Archi.ptr64 then Int64.max_signed else Int.max_signed).
-
-Lemma signed_range_repable_signed: forall z,
-    Ptrofs.min_signed <= z <= Ptrofs.max_signed <-> range_signed z.
-Proof.
-  intros. unfold range_signed.
-  replace Ptrofs.max_signed with
-      (if Archi.ptr64 then Int64.max_signed else Int.max_signed) by
-      (vm_compute; reflexivity).
-  replace Ptrofs.min_signed with
-      (if Archi.ptr64 then Int64.min_signed else Int.min_signed) by
-      (vm_compute; reflexivity).
-  reflexivity.
-Qed.
-
-Lemma used_space_repable_signed: forall sp, range_signed (used_space sp).
-Proof.
-  intros. rewrite <- signed_range_repable_signed.
-  pose proof (used_space_signed_range sp). unfold WORD_SIZE in H. rep_lia.
-Qed.
-
-Lemma total_space_repable_signed: forall sp, range_signed (total_space sp).
-Proof.
-  intros. rewrite <- signed_range_repable_signed.
-  pose proof (total_space_signed_range sp). unfold WORD_SIZE in H. rep_lia.
-Qed.
-
-Lemma rest_space_repable_signed: forall sp,
-    range_signed (total_space sp - used_space sp).
-Proof.
-  intros. rewrite <- signed_range_repable_signed.
-  pose proof (rest_space_signed_range sp). unfold WORD_SIZE in H. rep_lia.
-Qed.
-
-Definition repable64_signed (z: Z) :=
-  Int64.min_signed <= z <= Int64.max_signed.
-  
-Lemma lt64_repr: forall i j,
-    repable64_signed i -> repable64_signed j ->
-    Int64.lt (Int64.repr i) (Int64.repr j) = true -> i < j.
-Proof.
-  intros. unfold Int64.lt in H1. if_tac in H1. 2: inversion H1.
-  rewrite !Int64.signed_repr in H2; auto.
-Qed.
-
-Lemma lt64_repr_false: forall i j,
-    repable64_signed i -> repable64_signed j ->
-    Int64.lt (Int64.repr i) (Int64.repr j) = false -> i >= j.
-Proof.
-  intros. unfold Int64.lt in H1. if_tac in H1. 1: inversion H1.
-  rewrite !Int64.signed_repr in H2; auto.
-Qed.
-
-Record heap: Type :=
-  {
-    spaces: list space;
-    spaces_size: Zlength spaces = MAX_SPACES;
-  }.
-
-Lemma heap_spaces_nil: forall h: heap, nil = spaces h -> False.
-Proof.
-  intros. pose proof (spaces_size h). rewrite <- H, Zlength_nil in H0. discriminate.
-Qed.
-
-Definition heap_head (h: heap) : space :=
-  match h.(spaces) as l return (l = spaces h -> space) with
-  | nil => fun m => False_rect space (heap_spaces_nil h m)
-  | s :: _ => fun _ => s
-  end eq_refl.
-
-Lemma heap_head_cons: forall h, exists s l, spaces h = s :: l /\ heap_head h = s.
-Proof.
-  intros. destruct h eqn:? . simpl. unfold heap_head. simpl. destruct spaces0.
-  1: inversion spaces_size0. exists s, spaces0. split; reflexivity.
-Qed.
-
-Record thread_info: Type :=
-  {
-    ti_heap_p: val;
-    ti_heap: heap;
-    ti_args: list val;
-    arg_size: Zlength ti_args = MAX_ARGS;
-  }.
-
-Definition vertex_size (g: LGraph) (v: Addr): Z :=
-  Zlength (vlabel g v).(raw_fields) + 1.
+Definition vertex_size (g: HeapGraph) (v: Addr): Z :=
+  Zlength (vlabel g v).(block_fields) + 1.
 
 Lemma svs_gt_one: forall g v, 1 < vertex_size g v.
 Proof.
-  intros. unfold vertex_size. pose proof (raw_fields_range (vlabel g v)). lia.
+  intros. unfold vertex_size. pose proof (block_fields__range (vlabel g v)). lia.
 Qed.
 
 Fixpoint nat_seq (s: nat) (total: nat): list nat :=
@@ -385,7 +130,7 @@ Local Open Scope Z_scope.
 
 Definition vertex_size_accum g gen (s: Z) (n: nat) := s + vertex_size g {| addr_gen := gen; addr_block := n |}.
 
-Definition previous_vertices_size (g: LGraph) (gen i: nat): Z :=
+Definition previous_vertices_size (g: HeapGraph) (gen i: nat): Z :=
   fold_left (vertex_size_accum g gen) (nat_inc_list i) 0.
 
 Lemma vsa_mono: forall g gen s n, s < vertex_size_accum g gen s n.
@@ -423,24 +168,24 @@ Qed.
 Lemma pvs_ge_zero: forall g gen i, 0 <= previous_vertices_size g gen i.
 Proof. intros. unfold previous_vertices_size. apply vs_accum_list_le. Qed.
 
-Definition generation_space_compatible (g: LGraph)
-           (tri: nat * generation_info * space) : Prop :=
+Definition generation_space_compatible (g: HeapGraph)
+           (tri: nat * Generation * Space) : Prop :=
   match tri with
   | (gen, gi, sp) =>
-    gi.(start_address) = sp.(space_start) /\
-    gi.(generation_sh) = sp.(space_sh) /\
-    previous_vertices_size g gen gi.(number_of_vertices) = sp.(used_space)
+    generation_base gi = sp.(space_base) /\
+    generation_sh gi = sp.(space_sh) /\
+    previous_vertices_size g gen gi.(generation_block_count) = sp.(space_allocated)
   end.
 
 Local Close Scope Z_scope.
 
-Definition graph_thread_info_compatible (g: LGraph) (ti: thread_info): Prop :=
+Definition graph_thread_info_compatible (g: HeapGraph) (ti: thread_info): Prop :=
   Forall (generation_space_compatible g)
-         (combine (combine (nat_inc_list (length g.(glabel).(g_gen)))
-                           g.(glabel).(g_gen)) ti.(ti_heap).(spaces)) /\
+         (combine (combine (nat_inc_list (length g.(glabel).(generations)))
+                           g.(glabel).(generations)) ti.(ti_heap).(heap_spaces)) /\
   Forall (eq nullval)
-         (skipn (length g.(glabel).(g_gen)) (map space_start ti.(ti_heap).(spaces))) /\
-  length g.(glabel).(g_gen) <= length ti.(ti_heap).(spaces).
+         (skipn (length g.(glabel).(generations)) (map space_base ti.(ti_heap).(heap_spaces))) /\
+  length g.(glabel).(generations) <= length ti.(ti_heap).(heap_spaces).
 
 Record fun_info : Type :=
   {
@@ -451,47 +196,47 @@ Record fun_info : Type :=
     word_size_range: (0 <= fun_word_size <= MAX_UINT)%Z;
   }.
 
-Definition vertex_offset (g: LGraph) (v: Addr): Z :=
+Definition vertex_offset (g: HeapGraph) (v: Addr): Z :=
   previous_vertices_size g (addr_gen v) (addr_block v) + 1.
 
-Definition nth_gen (g: LGraph) (gen: nat): generation_info :=
-  nth gen g.(glabel).(g_gen) null_info.
+Definition nth_gen (g: HeapGraph) (gen: nat): Generation :=
+  nth gen g.(glabel).(generations) null_generation.
 
 Definition graph_gen_size g gen :=
-  previous_vertices_size g gen (number_of_vertices (nth_gen g gen)).
+  previous_vertices_size g gen (generation_block_count (nth_gen g gen)).
 
-Definition graph_has_gen (g: LGraph) (n: nat): Prop := n < length g.(glabel).(g_gen).
+Definition graph_has_gen (g: HeapGraph) (n: nat): Prop := n < length g.(glabel).(generations).
 
-Definition gen_has_index (g: LGraph) (gen index: nat): Prop :=
-  index < number_of_vertices (nth_gen g gen).
+Definition gen_has_index (g: HeapGraph) (gen index: nat): Prop :=
+  index < generation_block_count (nth_gen g gen).
 
-Definition graph_has_v (g: LGraph) (v: Addr): Prop :=
+Definition graph_has_v (g: HeapGraph) (v: Addr): Prop :=
   graph_has_gen g (addr_gen v) /\ gen_has_index g (addr_gen v) (addr_block v).
 
 Lemma graph_has_gen_O: forall g, graph_has_gen g O.
 Proof.
-  intros. hnf. destruct (g_gen (glabel g)) eqn:? ; simpl; try lia.
-  pose proof (g_gen_not_nil (glabel g)). contradiction.
+  intros. hnf. destruct (generations (glabel g)) eqn:? ; simpl; try lia.
+  pose proof (generations__not_nil (glabel g)). contradiction.
 Qed.
 
 Definition graph_has_gen_dec g n: {graph_has_gen g n} + {~ graph_has_gen g n} :=
-  lt_dec n (length (g_gen (glabel g))).
+  lt_dec n (length (generations (glabel g))).
 
-Definition gen_start (g: LGraph) (gen: nat): val :=
-  if graph_has_gen_dec g gen then start_address (nth_gen g gen) else Vundef.
+Definition gen_start (g: HeapGraph) (gen: nat): val :=
+  if graph_has_gen_dec g gen then generation_base (nth_gen g gen) else Vundef.
 
 Lemma graph_has_gen_start_isptr: forall g n,
     graph_has_gen g n -> isptr (gen_start g n).
-Proof. intros. unfold gen_start. if_tac; [apply start_isptr | contradiction]. Qed.
+Proof. intros. unfold gen_start. if_tac; [apply generation_base__isptr | contradiction]. Qed.
 
-Definition vertex_address (g: LGraph) (v: Addr): val :=
+Definition vertex_address (g: HeapGraph) (v: Addr): val :=
   offset_val (WORD_SIZE * vertex_offset g v) (gen_start g (addr_gen v)).
 
 Definition root_t: Type := Z + GC_Pointer + Addr.
 
 Instance root_t_inhabitant: Inhabitant root_t := inl (inl Z.zero).
 
-Definition root2val (g: LGraph) (fd: root_t) : val :=
+Definition root2val (g: HeapGraph) (fd: root_t) : val :=
   match fd with
   | inl (inl z) => odd_Z2val z
   | inl (inr p) => GC_Pointer2val p
@@ -503,30 +248,30 @@ Definition roots_t: Type := list root_t.
 Definition outlier_t: Type := list GC_Pointer.
 
 Definition fun_thread_arg_compatible
-           (g: LGraph) (ti: thread_info) (fi: fun_info) (roots: roots_t) : Prop :=
+           (g: HeapGraph) (ti: thread_info) (fi: fun_info) (roots: roots_t) : Prop :=
   map (root2val g) roots = map ((flip Znth) ti.(ti_args)) fi.(live_roots_indices).
 
 Definition roots_outlier_compatible (roots: roots_t) (outlier: outlier_t): Prop :=
   incl (filter_sum_right (filter_sum_left roots)) outlier.
 
-Definition roots_graph_compatible (roots: roots_t) (g: LGraph): Prop :=
+Definition roots_graph_compatible (roots: roots_t) (g: HeapGraph): Prop :=
   Forall (graph_has_v g) (filter_sum_right roots).
 
-Definition roots_compatible (g: LGraph) (outlier: outlier_t) (roots: roots_t): Prop :=
+Definition roots_compatible (g: HeapGraph) (outlier: outlier_t) (roots: roots_t): Prop :=
   roots_outlier_compatible roots outlier /\ roots_graph_compatible roots g.
 
-Definition outlier_compatible (g: LGraph) (outlier: outlier_t): Prop :=
+Definition outlier_compatible (g: HeapGraph) (outlier: outlier_t): Prop :=
   forall v,
     graph_has_v g v ->
-    incl (filter_sum_right (filter_option (vlabel g v).(raw_fields))) outlier.
+    incl (filter_sum_right (filter_option (vlabel g v).(block_fields))) outlier.
 
-Definition copy_compatible (g: LGraph): Prop :=
-  forall v, graph_has_v g v -> (vlabel g v).(raw_mark) = true ->
-            graph_has_v g (vlabel g v).(copied_vertex) /\
-            addr_gen v <> addr_gen (vlabel g v).(copied_vertex).
+Definition copy_compatible (g: HeapGraph): Prop :=
+  forall v, graph_has_v g v -> (vlabel g v).(block_mark) = true ->
+            graph_has_v g (vlabel g v).(block_copied_vertex) /\
+            addr_gen v <> addr_gen (vlabel g v).(block_copied_vertex).
 Definition
   super_compatible
-  (g_ti_r: LGraph * thread_info * roots_t) (fi: fun_info) (out: outlier_t) : Prop :=
+  (g_ti_r: HeapGraph * thread_info * roots_t) (fi: fun_info) (out: outlier_t) : Prop :=
   let (g_ti, r) := g_ti_r in
   let (g, ti) := g_ti in
   graph_thread_info_compatible g ti /\
@@ -534,12 +279,16 @@ Definition
   roots_compatible g out r /\
   outlier_compatible g out.
 
-Definition reset_gen_info (gi: generation_info) : generation_info :=
-  Build_generation_info (start_address gi) O (generation_sh gi) (start_isptr gi)
-                        (generation_share_writable gi).
+Definition reset_gen_info (gi: Generation) : Generation := {|
+  generation_base := generation_base gi;
+  generation_block_count := O;
+  generation_sh := generation_sh gi;
+  generation_base__isptr := generation_base__isptr gi;
+  generation_sh__writable := generation_sh__writable gi;
+|}.
 
 Fixpoint reset_nth_gen_info
-         (n: nat) (gi: list generation_info) : list generation_info :=
+         (n: nat) (gi: list Generation) : list Generation :=
   match n with
   | O => match gi with
          | nil => nil
@@ -558,9 +307,9 @@ Proof.
                       [| | | rewrite IHgl]; reflexivity.
 Qed.
 
-Lemma reset_nth_gen_info_not_nil: forall n g, reset_nth_gen_info n (g_gen g) <> nil.
+Lemma reset_nth_gen_info_not_nil: forall n g, reset_nth_gen_info n (generations g) <> nil.
 Proof.
-  intros. pose proof (g_gen_not_nil g). destruct (g_gen g).
+  intros. pose proof (generations__not_nil g). destruct (generations g).
   - contradiction.
   - destruct n; simpl; discriminate.
 Qed.
@@ -574,7 +323,7 @@ Proof.
 Qed.
 
 Lemma reset_nth_gen_info_same: forall gl i,
-    nth i (reset_nth_gen_info i gl) null_info = reset_gen_info (nth i gl null_info).
+    nth i (reset_nth_gen_info i gl) null_generation = reset_gen_info (nth i gl null_generation).
 Proof.
   intros. revert gl. induction i; intros; destruct gl; simpl in *; try reflexivity.
   apply IHi.
@@ -604,17 +353,24 @@ Proof.
   1: lia. rewrite Zlength_cons; lia.
 Qed.
 
-Definition reset_nth_graph_info (n: nat) (g: graph_info) : graph_info :=
-  Build_graph_info (reset_nth_gen_info n g.(g_gen)) (reset_nth_gen_info_not_nil n g).
+Definition reset_nth_graph_info (n: nat) (g: Generations) : Generations := {|
+  generations := reset_nth_gen_info n g.(generations);
+  generations__not_nil := reset_nth_gen_info_not_nil n g;
+|}.
 
-Lemma reset_space_order: forall sp, (0 <= 0 <= total_space sp)%Z.
-Proof. intros. pose proof (space_order sp). lia. Qed.
+Lemma reset_space__order: forall sp, (0 <= 0 <= space_capacity sp)%Z.
+Proof. intros. pose proof (space__order sp). lia. Qed.
 
-Definition reset_space (sp: space) : space :=
-  Build_space (space_start sp) 0 (total_space sp) (space_sh sp) (reset_space_order sp)
-              (space_upper_bound sp).
+Definition reset_space (sp: Space) : Space := {|
+    space_base := space_base sp;
+    space_allocated := 0;
+    space_capacity := space_capacity sp;
+    space_sh := space_sh sp;
+    space__order := reset_space__order sp;
+    space__upper_bound := space__upper_bound sp;
+|}.
 
-Fixpoint reset_nth_space (n: nat) (s: list space): list space :=
+Fixpoint reset_nth_space (n: nat) (s: list Space): list Space :=
   match n with
   | O => match s with
          | nil => nil
@@ -637,8 +393,8 @@ Lemma reset_nth_space_Zlength: forall n s, Zlength s = Zlength (reset_nth_space 
 Proof. intros. rewrite !Zlength_correct, reset_nth_space_length. reflexivity. Qed.
 
 Lemma reset_nth_heap_Zlength: forall n h,
-    Zlength (reset_nth_space n (spaces h)) = MAX_SPACES.
-Proof. intros. rewrite <- reset_nth_space_Zlength. apply spaces_size. Qed.
+    Zlength (reset_nth_space n (heap_spaces h)) = MAX_SPACES.
+Proof. intros. rewrite <- reset_nth_space_Zlength. apply heap_spaces__size. Qed.
 
 Lemma reset_nth_space_Permutation: forall n s,
     n < length s -> exists l, Permutation (reset_nth_space n s)
@@ -696,56 +452,58 @@ Proof.
   - apply IHi. lia.
 Qed.
 
-Definition reset_nth_heap (n: nat) (h: heap) : heap :=
-  Build_heap (reset_nth_space n (spaces h)) (reset_nth_heap_Zlength n h).
+Definition reset_nth_heap (n: nat) (h: Heap) : Heap := {|
+  heap_spaces := reset_nth_space n (heap_spaces h);
+  heap_spaces__size := reset_nth_heap_Zlength n h;
+|}.
 
 Definition reset_nth_heap_thread_info (n: nat) (ti: thread_info) :=
   Build_thread_info (ti_heap_p ti) (reset_nth_heap n (ti_heap ti))
                     (ti_args ti) (arg_size ti).
 
 Lemma reset_thread_info_overflow: forall n ti,
-    length (spaces (ti_heap ti)) <= n -> reset_nth_heap_thread_info n ti = ti.
+    length (heap_spaces (ti_heap ti)) <= n -> reset_nth_heap_thread_info n ti = ti.
 Proof.
   intros. unfold reset_nth_heap_thread_info. destruct ti. f_equal.
-  simpl. unfold reset_nth_heap. destruct ti_heap0. simpl in *.
-  assert (spaces0 = reset_nth_space n spaces0) by
+  simpl. unfold reset_nth_heap. destruct ti_heap. simpl in *.
+  assert (heap_spaces = reset_nth_space n heap_spaces) by
       (rewrite reset_nth_space_overflow; [reflexivity | assumption]).
   apply EqdepFacts.f_eq_dep_non_dep, EqdepFacts.eq_dep1_dep.
   apply (EqdepFacts.eq_dep1_intro _ _ _ _ _ _ H0). apply proof_irr.
 Qed.
 
-Definition make_header (g: LGraph) (v: Addr): Z:=
-  let vb := vlabel g v in if vb.(raw_mark)
+Definition make_header (g: HeapGraph) (v: Addr): Z:=
+  let vb := vlabel g v in if vb.(block_mark)
                           then 0 else
-                            vb.(raw_tag) + (Z.shiftl vb.(raw_color) 8) +
-                            (Z.shiftl (Zlength vb.(raw_fields)) 10).
+                            vb.(block_tag) + (Z.shiftl vb.(block_color) 8) +
+                            (Z.shiftl (Zlength vb.(block_fields)) 10).
 
 Local Open Scope Z_scope.
 
 Lemma make_header_mark_iff: forall g v,
-    make_header g v = 0 <-> raw_mark (vlabel g v) = true.
+    make_header g v = 0 <-> block_mark (vlabel g v) = true.
 Proof.
-  intros. unfold make_header. destruct (raw_mark (vlabel g v)). 1: intuition.
+  intros. unfold make_header. destruct (block_mark (vlabel g v)). 1: intuition.
   split; intros. 2: inversion H. exfalso.
-  destruct (raw_tag_range (vlabel g v)) as [? _].
-  assert (0 <= Z.shiftl (raw_color (vlabel g v)) 8). {
-    rewrite Z.shiftl_nonneg. apply (proj1 (raw_color_range (vlabel g v))).
-  } assert (Z.shiftl (Zlength (raw_fields (vlabel g v))) 10 <= 0) by lia.
-  clear -H2. assert (0 <= Z.shiftl (Zlength (raw_fields (vlabel g v))) 10) by
+  destruct (block_tag__range (vlabel g v)) as [? _].
+  assert (0 <= Z.shiftl (block_color (vlabel g v)) 8). {
+    rewrite Z.shiftl_nonneg. apply (proj1 (block_color__range (vlabel g v))).
+  } assert (Z.shiftl (Zlength (block_fields (vlabel g v))) 10 <= 0) by lia.
+  clear -H2. assert (0 <= Z.shiftl (Zlength (block_fields (vlabel g v))) 10) by
       (rewrite Z.shiftl_nonneg; apply Zlength_nonneg).
-  assert (Z.shiftl (Zlength (raw_fields (vlabel g v))) 10 = 0) by lia. clear -H0.
+  assert (Z.shiftl (Zlength (block_fields (vlabel g v))) 10 = 0) by lia. clear -H0.
   rewrite Z.shiftl_eq_0_iff in H0 by lia.
-  pose proof (proj1 (raw_fields_range (vlabel g v))). lia.
+  pose proof (proj1 (block_fields__range (vlabel g v))). lia.
 Qed.
 
 Lemma make_header_range: forall g v, 0 <= make_header g v < two_p (WORD_SIZE * 8).
 Proof.
-  intros. unfold make_header. destruct (raw_mark (vlabel g v)).
+  intros. unfold make_header. destruct (block_mark (vlabel g v)).
   - pose proof (two_p_gt_ZERO (WORD_SIZE * 8)). unfold WORD_SIZE in *; lia.
-  - pose proof (raw_tag_range (vlabel g v)). pose proof (raw_color_range (vlabel g v)).
-    pose proof (raw_fields_range (vlabel g v)). remember (raw_tag (vlabel g v)) as z1.
-    clear Heqz1. remember (raw_color (vlabel g v)) as z2. clear Heqz2.
-    remember (Zlength (raw_fields (vlabel g v))) as z3. clear Heqz3.
+  - pose proof (block_tag__range (vlabel g v)). pose proof (block_color__range (vlabel g v)).
+    pose proof (block_fields__range (vlabel g v)). remember (block_tag (vlabel g v)) as z1.
+    clear Heqz1. remember (block_color (vlabel g v)) as z2. clear Heqz2.
+    remember (Zlength (block_fields (vlabel g v))) as z3. clear Heqz3.
     assert (0 <= 8) by lia. apply (Zbits.Zshiftl_mul_two_p z2) in H2. rewrite H2.
     clear H2. assert (0 <= 10) by lia. apply (Zbits.Zshiftl_mul_two_p z3) in H2.
     rewrite H2. clear H2. assert (two_p 10 > 0) by (apply two_p_gt_ZERO; lia).
@@ -768,7 +526,7 @@ Qed.
 Lemma make_header_int_rep_mark_iff: forall g v,
     (if Archi.ptr64 then Int64.repr (make_header g v) = Int64.repr 0
      else Int.repr (make_header g v) = Int.repr 0) <->
-    raw_mark (vlabel g v) = true.
+    block_mark (vlabel g v) = true.
 Proof.
   intros. rewrite <- make_header_mark_iff. split; intros; [|rewrite H; reflexivity].
   cbv delta [Archi.ptr64] in H. simpl in H. Transparent Int.repr Int64.repr.
@@ -781,13 +539,13 @@ Proof.
 Qed.
 
 Lemma make_header_Wosize: forall g v,
-    raw_mark (vlabel g v) = false ->
+    block_mark (vlabel g v) = false ->
     if Archi.ptr64 then
       Int64.shru (Int64.repr (make_header g v)) (Int64.repr 10) =
-      Int64.repr (Zlength (raw_fields (vlabel g v)))
+      Int64.repr (Zlength (block_fields (vlabel g v)))
     else
       Int.shru (Int.repr (make_header g v)) (Int.repr 10) =
-      Int.repr (Zlength (raw_fields (vlabel g v))).
+      Int.repr (Zlength (block_fields (vlabel g v))).
 Proof.
   intros. cbv delta [Archi.ptr64]. simpl.
   match goal with
@@ -796,15 +554,15 @@ Proof.
   | |- Int.shru _ _ = Int.repr _ => rewrite Int.shru_div_two_p, !Int.unsigned_repr
   end.
   - f_equal. unfold make_header.
-    remember (vlabel g v). clear Heqr.
+    remember (vlabel g v) as r eqn:E. clear E.
     rewrite H, !Zbits.Zshiftl_mul_two_p by lia. rewrite Z.div_add. 2: compute; lia.
-    pose proof (raw_tag_range r). pose proof (raw_color_range r).
-    cut ((raw_tag r + raw_color r * two_p 8) / two_p 10 = 0). 1: intros; lia.
+    pose proof (block_tag__range r). pose proof (block_color__range r).
+    cut ((block_tag r + block_color r * two_p 8) / two_p 10 = 0). 1: intros; lia.
     apply Z.div_small. change 256 with (two_p 8) in H0. change 4 with (two_p 2) in H1.
-    assert (0 <= raw_tag r <= two_p 8 - 1) by lia. clear H0. destruct H2.
-    assert (0 <= raw_color r <= two_p 2 - 1) by lia. clear H1. destruct H3.
+    assert (0 <= block_tag r <= two_p 8 - 1) by lia. clear H0. destruct H2.
+    assert (0 <= block_color r <= two_p 2 - 1) by lia. clear H1. destruct H3.
     assert (two_p 8 > 0) by (apply two_p_gt_ZERO; lia). split.
-    + assert (0 <= raw_color r * two_p 8) by (apply Z.mul_nonneg_nonneg; lia). lia.
+    + assert (0 <= block_color r * two_p 8) by (apply Z.mul_nonneg_nonneg; lia). lia.
     + apply Z.mul_le_mono_nonneg_r with (p := two_p 8) in H3. 2: lia.
       rewrite Z.mul_sub_distr_r, <- two_p_is_exp in H3 by lia. simpl Z.add in H3. lia.
   - rep_lia.
@@ -821,14 +579,14 @@ Definition field_t: Type := Z + GC_Pointer + Field.
 
 Instance field_t_inhabitant: Inhabitant field_t := inl (inl Z.zero).
 
-Definition field2val (g: LGraph) (fd: field_t) : val :=
+Definition field2val (g: HeapGraph) (fd: field_t) : val :=
   match fd with
   | inl (inl z) => odd_Z2val z
   | inl (inr p) => GC_Pointer2val p
   | inr e => vertex_address g (dst g e)
   end.
 
-Fixpoint make_fields' (l_raw: list raw_field) (v: Addr) (n: nat): list field_t :=
+Fixpoint make_fields' (l_raw: list FieldValue) (v: Addr) (n: nat): list field_t :=
   match l_raw with
   | nil => nil
   | Some (inl z) :: l => inl (inl z) :: make_fields' l v (n + 1)
@@ -854,10 +612,10 @@ Lemma make_fields'_edge_depends_on_index:
     e = {| field_addr := v; field_index := n+i |}.
 Proof.
   induction n as [|n' IHn'].
-  - intros. destruct l_raw; try inversion H0.
+  - intros. destruct l_raw as [| r l_raw]; try inversion H0.
     destruct r; [destruct s|]; simpl in H0; inversion H0;
       reflexivity.
-  - intro. destruct l_raw; try inversion 2.
+  - intro. destruct l_raw as [| r l_raw]; try inversion 2.
     replace (S n' + i)%nat with (n' + S i)%nat by lia.
     specialize (IHn' l_raw (S i) v e).
     assert (0 <= Z.of_nat n' < Zlength l_raw) by
@@ -868,23 +626,23 @@ Proof.
       destruct r; [destruct s|]; simpl; apply IHn'; assumption.
 Qed.
 
-Definition make_fields (g: LGraph) (v: Addr): list field_t :=
-  make_fields' (vlabel g v).(raw_fields) v O.
+Definition make_fields (g: HeapGraph) (v: Addr): list field_t :=
+  make_fields' (vlabel g v).(block_fields) v O.
 
-Definition get_edges (g: LGraph) (v: Addr): list Field :=
+Definition get_edges (g: HeapGraph) (v: Addr): list Field :=
   filter_sum_right (make_fields g v).
 
 Definition pregraph_remove_vertex_and_edges
-           (g: LGraph) (v: Addr): PreGraph Addr Field :=
+           (g: HeapGraph) (v: Addr): PreGraph Addr Field :=
   fold_left pregraph_remove_edge (get_edges g v) (pregraph_remove_vertex g v).
 
-Definition lgraph_remove_vertex_and_edges (g: LGraph) (v: Addr): LGraph :=
+Definition lgraph_remove_vertex_and_edges (g: HeapGraph) (v: Addr): HeapGraph :=
   Build_LabeledGraph _ _ _ (pregraph_remove_vertex_and_edges g v)
                      (vlabel g) (elabel g) (glabel g).
 
-Definition remove_nth_gen_ve (g: LGraph) (gen: nat): LGraph :=
+Definition remove_nth_gen_ve (g: HeapGraph) (gen: nat): HeapGraph :=
   let all_nv := map (fun idx => {| addr_gen := gen; addr_block := idx |})
-                    (nat_inc_list (number_of_vertices (nth_gen g gen))) in
+                    (nat_inc_list (generation_block_count (nth_gen g gen))) in
   fold_left lgraph_remove_vertex_and_edges all_nv g.
 
 Lemma remove_ve_glabel_unchanged: forall g gen,
@@ -892,7 +650,7 @@ Lemma remove_ve_glabel_unchanged: forall g gen,
 Proof.
   intros. unfold remove_nth_gen_ve.
   remember (map (fun idx : nat => {| addr_gen := gen; addr_block := idx |})
-                (nat_inc_list (number_of_vertices (nth_gen g gen)))). clear Heql.
+                (nat_inc_list (generation_block_count (nth_gen g gen)))). clear Heql.
   revert g. induction l; intros; simpl. 1: reflexivity. rewrite IHl. reflexivity.
 Qed.
 
@@ -901,7 +659,7 @@ Lemma remove_ve_vlabel_unchanged: forall g gen v,
 Proof.
   intros. unfold remove_nth_gen_ve.
   remember (map (fun idx : nat => {| addr_gen := gen; addr_block := idx |})
-                (nat_inc_list (number_of_vertices (nth_gen g gen)))). clear Heql.
+                (nat_inc_list (generation_block_count (nth_gen g gen)))). clear Heql.
   revert g v. induction l; intros; simpl. 1: reflexivity. rewrite IHl. reflexivity.
 Qed.
 
@@ -910,7 +668,7 @@ Lemma remove_ve_dst_unchanged: forall g gen e,
 Proof.
   intros. unfold remove_nth_gen_ve.
   remember (map (fun idx : nat => {| addr_gen := gen; addr_block := idx |})
-                (nat_inc_list (number_of_vertices (nth_gen g gen)))). clear Heql.
+                (nat_inc_list (generation_block_count (nth_gen g gen)))). clear Heql.
   revert g e. induction l; intros; simpl. 1: reflexivity. rewrite IHl.
   clear. simpl. unfold pregraph_remove_vertex_and_edges.
   transitivity (dst (pregraph_remove_vertex g a) e). 2: reflexivity.
@@ -919,14 +677,14 @@ Proof.
   1: reflexivity. rewrite IHl. reflexivity.
 Qed.
 
-Definition reset_nth_glabel (n: nat) (g: LGraph) : LGraph :=
+Definition reset_nth_glabel (n: nat) (g: HeapGraph) : HeapGraph :=
   Build_LabeledGraph _ _ _ (pg_lg g) (vlabel g) (elabel g)
                      (reset_nth_graph_info n (glabel g)).
 
-Definition reset_graph (n: nat) (g: LGraph) : LGraph :=
+Definition reset_graph (n: nat) (g: HeapGraph) : HeapGraph :=
   reset_nth_glabel n (remove_nth_gen_ve g n).
 
-Lemma graph_has_gen_reset: forall (g: LGraph) gen1 gen2,
+Lemma graph_has_gen_reset: forall (g: HeapGraph) gen1 gen2,
     graph_has_gen (reset_graph gen1 g) gen2 <-> graph_has_gen g gen2.
 Proof.
   intros. unfold graph_has_gen. simpl. rewrite reset_nth_gen_info_length.
@@ -941,33 +699,33 @@ Proof.
   apply reset_nth_gen_info_diff. assumption.
 Qed.
 
-Definition make_fields_vals (g: LGraph) (v: Addr): list val :=
+Definition make_fields_vals (g: HeapGraph) (v: Addr): list val :=
   let vb := vlabel g v in
   let original_fields_val := map (field2val g) (make_fields g v) in
-  if vb.(raw_mark)
-  then vertex_address g vb.(copied_vertex) :: tl original_fields_val
+  if vb.(block_mark)
+  then vertex_address g vb.(block_copied_vertex) :: tl original_fields_val
   else original_fields_val.
 
 Lemma fields_eq_length: forall g v,
-    Zlength (make_fields_vals g v) = Zlength (raw_fields (vlabel g v)).
+    Zlength (make_fields_vals g v) = Zlength (block_fields (vlabel g v)).
 Proof.
   intros. rewrite !Zlength_correct. f_equal. unfold make_fields_vals, make_fields.
-  destruct (raw_mark (vlabel g v)).
-  - destruct (raw_fields_head_cons (vlabel g v)) as [r [l [? ?]]].
+  destruct (block_mark (vlabel g v)).
+  - destruct (block_fields_head__cons (vlabel g v)) as [r [l [? ?]]].
     rewrite H; simpl; destruct r; [destruct s|]; simpl;
       rewrite map_length, make_fields'_eq_length; reflexivity.
   - rewrite map_length, make_fields'_eq_length. reflexivity.
 Qed.
 
 Lemma make_fields_eq_length: forall g v,
-    Zlength (make_fields g v) = Zlength (raw_fields (vlabel g v)).
+    Zlength (make_fields g v) = Zlength (block_fields (vlabel g v)).
 Proof.
   unfold make_fields. intros.
   rewrite !Zlength_correct, make_fields'_eq_length. reflexivity.
 Qed.
 
 Lemma make_fields_Znth_edge: forall g v n e,
-    0 <= n < Zlength (raw_fields (vlabel g v)) ->
+    0 <= n < Zlength (block_fields (vlabel g v)) ->
     Znth n (make_fields g v) = inr e -> e = {| field_addr := v; field_index := Z.to_nat n |}.
 Proof.
   intros. rewrite <- nth_Znth in H0. 2: rewrite make_fields_eq_length; assumption.
@@ -1039,18 +797,18 @@ Lemma make_fields_edge_unique: forall g e v1 v2 n m,
 Proof.
   intros. unfold make_fields in *.
   rewrite make_fields'_eq_Zlength in *.
-  assert (0 <= Z.of_nat (Z.to_nat n) < Zlength (raw_fields (vlabel g v1))) by
+  assert (0 <= Z.of_nat (Z.to_nat n) < Zlength (block_fields (vlabel g v1))) by
       (destruct H; split; rewrite Z2Nat.id; assumption).
   rewrite <- nth_Znth in H1 by
       (rewrite make_fields'_eq_Zlength; assumption).
-  assert (0 <= Z.of_nat (Z.to_nat m) < Zlength (raw_fields (vlabel g v2))) by
+  assert (0 <= Z.of_nat (Z.to_nat m) < Zlength (block_fields (vlabel g v2))) by
        (destruct H0; split; rewrite Z2Nat.id; assumption).
   rewrite <- nth_Znth in H2 by
       (rewrite make_fields'_eq_Zlength; assumption).
   pose proof (make_fields'_edge_depends_on_index
-                (Z.to_nat n) (raw_fields (vlabel g v1)) 0 v1 e H3 H1).
+                (Z.to_nat n) (block_fields (vlabel g v1)) 0 v1 e H3 H1).
   pose proof (make_fields'_edge_depends_on_index
-                (Z.to_nat m) (raw_fields (vlabel g v2)) 0 v2 e H4 H2).
+                (Z.to_nat m) (block_fields (vlabel g v2)) 0 v2 e H4 H2).
   rewrite H5 in H6. inversion H6.
   rewrite Nat.add_cancel_r, Z2Nat.inj_iff in H9 by lia.
   split; [assumption | reflexivity].
@@ -1059,7 +817,7 @@ Qed.
 Lemma in_gcptr_outlier: forall g gcptr outlier n v,
     graph_has_v g v ->
     outlier_compatible g outlier ->
-    0 <= n < Zlength (raw_fields (vlabel g v)) ->
+    0 <= n < Zlength (block_fields (vlabel g v)) ->
     Znth n (make_fields g v) = inl (inr gcptr) ->
     In gcptr outlier.
 Proof.
@@ -1071,9 +829,9 @@ Proof.
   rewrite <- H2; apply Znth_In; assumption.
 Qed.
 
-Lemma vertex_address_the_same: forall (g1 g2: LGraph) v,
+Lemma vertex_address_the_same: forall (g1 g2: HeapGraph) v,
     (forall v, g1.(vlabel) v = g2.(vlabel) v) ->
-    map start_address g1.(glabel).(g_gen) = map start_address g2.(glabel).(g_gen) ->
+    map generation_base g1.(glabel).(generations) = map generation_base g2.(glabel).(generations) ->
     vertex_address g1 v = vertex_address g2 v.
 Proof.
   intros. unfold vertex_address. f_equal.
@@ -1082,21 +840,21 @@ Proof.
     rewrite H. reflexivity.
   - assert (forall gen, graph_has_gen g1 gen <-> graph_has_gen g2 gen). {
       intros. unfold graph_has_gen.
-      cut (length (g_gen (glabel g1)) = length (g_gen (glabel g2))).
+      cut (length (generations (glabel g1)) = length (generations (glabel g2))).
       - intros. rewrite H1. reflexivity.
-      - do 2 rewrite <- (map_length start_address). rewrite H0. reflexivity.
+      - do 2 rewrite <- (map_length generation_base). rewrite H0. reflexivity.
     } unfold gen_start. do 2 if_tac; [|rewrite H1 in H2; contradiction.. |reflexivity].
-    unfold nth_gen. rewrite <- !(map_nth start_address), H0. reflexivity.
+    unfold nth_gen. rewrite <- !(map_nth generation_base), H0. reflexivity.
 Qed.
 
-Lemma make_fields_the_same: forall (g1 g2: LGraph) v,
+Lemma make_fields_the_same: forall (g1 g2: HeapGraph) v,
     (forall e, dst g1 e = dst g2 e) ->
     (forall v, g1.(vlabel) v = g2.(vlabel) v) ->
-    map start_address g1.(glabel).(g_gen) = map start_address g2.(glabel).(g_gen) ->
+    map generation_base g1.(glabel).(generations) = map generation_base g2.(glabel).(generations) ->
     make_fields_vals g1 v = make_fields_vals g2 v.
 Proof.
   intros. unfold make_fields_vals, make_fields. remember O. clear Heqn. rewrite H0.
-  remember (raw_fields (vlabel g2 v)) as l. clear Heql.
+  remember (block_fields (vlabel g2 v)) as l. clear Heql.
   cut (forall fl, map (field2val g1) fl = map (field2val g2) fl).
   - intros. rewrite H2. rewrite (vertex_address_the_same g1 g2) by assumption.
     reflexivity.
@@ -1104,31 +862,31 @@ Proof.
     rewrite H. apply vertex_address_the_same; assumption.
 Qed.
 
-Lemma start_address_reset: forall n l,
-   map start_address (reset_nth_gen_info n l) = map start_address l.
+Lemma generation_base__reset: forall n l,
+   map generation_base (reset_nth_gen_info n l) = map generation_base l.
 Proof.
   intros. revert n.
   induction l; intros; simpl; destruct n; simpl; [| | | rewrite IHl]; reflexivity.
 Qed.
 
-Lemma vertex_address_reset: forall (g: LGraph) v n,
+Lemma vertex_address_reset: forall (g: HeapGraph) v n,
     vertex_address (reset_graph n g) v = vertex_address g v.
 Proof.
   intros. apply vertex_address_the_same; unfold reset_graph; simpl.
   - intros. rewrite remove_ve_vlabel_unchanged. reflexivity.
-  - rewrite remove_ve_glabel_unchanged, start_address_reset. reflexivity.
+  - rewrite remove_ve_glabel_unchanged, generation_base__reset. reflexivity.
 Qed.
 
-Lemma make_fields_reset: forall (g: LGraph) v n,
+Lemma make_fields_reset: forall (g: HeapGraph) v n,
     make_fields_vals (reset_graph n g) v = make_fields_vals g v.
 Proof.
   intros. apply make_fields_the_same; unfold reset_graph; simpl; intros.
   - apply remove_ve_dst_unchanged.
   - apply remove_ve_vlabel_unchanged.
-  - rewrite remove_ve_glabel_unchanged. apply start_address_reset.
+  - rewrite remove_ve_glabel_unchanged. apply generation_base__reset.
 Qed.
 
-Lemma make_header_reset: forall (g: LGraph) v n,
+Lemma make_header_reset: forall (g: HeapGraph) v n,
     make_header (reset_graph n g) v = make_header g v.
 Proof.
   intros. unfold make_header. simpl vlabel. rewrite remove_ve_vlabel_unchanged.
@@ -1139,32 +897,42 @@ Definition copy_v_add_edge
            (s: Addr) (g: PreGraph Addr Field) (p: Field * Addr):
   PreGraph Addr Field := pregraph_add_edge g (fst p) s (snd p).
 
-Definition pregraph_copy_v (g: LGraph) (old_v new_v: Addr) : PreGraph Addr Field :=
+Definition pregraph_copy_v (g: HeapGraph) (old_v new_v: Addr) : PreGraph Addr Field :=
   let old_edges := get_edges g old_v in
   let new_edges := combine (repeat new_v (length old_edges)) (map field_index old_edges) in
   let new_edge_dst_l := combine new_edges (map (dst g) old_edges) in
   let new_edge_dst_l' := map (fun x => ({| field_addr := fst (fst x); field_index := snd (fst x) |}, snd x)) new_edge_dst_l
   in fold_left (copy_v_add_edge new_v) new_edge_dst_l' (pregraph_add_vertex g new_v).
 
-Definition copy_v_mod_rvb (rvb: raw_vertex_block) (new_v: Addr) : raw_vertex_block :=
-  Build_raw_vertex_block
-    true new_v (raw_fields rvb) (raw_color rvb) (raw_tag rvb) (raw_tag_range rvb)
-    (raw_color_range rvb) (raw_fields_range rvb) (tag_no_scan rvb).
+Definition copy_v_mod_rvb (rvb: Block) (new_v: Addr): Block := {|
+  block_mark := true;
+  block_copied_vertex := new_v;
+  block_fields := block_fields rvb;
+  block_color := block_color rvb;
+  block_tag := block_tag rvb;
+  block_tag__range := block_tag__range rvb;
+  block_color__range := block_color__range rvb;
+  block_fields__range := block_fields__range rvb;
+  tag_no_scan := tag_no_scan rvb;
+|}.
 
-Definition update_copied_new_vlabel (g: LGraph) (old_v new_v: Addr) :=
+Definition update_copied_new_vlabel (g: HeapGraph) (old_v new_v: Addr) :=
   update_vlabel (vlabel g) new_v (vlabel g old_v).
 
-Definition update_copied_old_vlabel (g: LGraph) (old_v new_v: Addr) :=
+Definition update_copied_old_vlabel (g: HeapGraph) (old_v new_v: Addr) :=
   update_vlabel (vlabel g) old_v (copy_v_mod_rvb (vlabel g old_v) new_v).
 
-Definition copy_v_mod_gen_info (gi: generation_info) : generation_info :=
-  Build_generation_info (start_address gi) (number_of_vertices gi + 1)
-                        (generation_sh gi) (start_isptr gi)
-                        (generation_share_writable gi).
+Definition copy_v_mod_gen_info (gi: Generation) : Generation := {|
+  generation_base := generation_base gi;
+  generation_block_count := generation_block_count gi + 1;
+  generation_sh := generation_sh gi;
+  generation_base__isptr := generation_base__isptr gi;
+  generation_sh__writable := generation_sh__writable gi;
+|}.
 
 Definition copy_v_mod_gen_info_list
-           (l: list generation_info) (to: nat) : list generation_info :=
-  firstn to l ++ copy_v_mod_gen_info (nth to l null_info) :: skipn (to + 1) l.
+           (l: list Generation) (to: nat) : list Generation :=
+  firstn to l ++ copy_v_mod_gen_info (nth to l null_generation) :: skipn (to + 1) l.
 
 Lemma copy_v_mod_gen_no_nil: forall l to, copy_v_mod_gen_info_list l to <> nil.
 Proof.
@@ -1172,24 +940,25 @@ Proof.
   destruct H. inversion H0.
 Qed.
 
-Definition copy_v_update_glabel (gi: graph_info) (to: nat): graph_info :=
-  Build_graph_info (copy_v_mod_gen_info_list (g_gen gi) to)
-                   (copy_v_mod_gen_no_nil (g_gen gi) to).
+Definition copy_v_update_glabel (gi: Generations) (to: nat): Generations := {|
+  generations := copy_v_mod_gen_info_list (generations gi) to;
+  generations__not_nil := copy_v_mod_gen_no_nil (generations gi) to;
+|}.
 
-Definition new_copied_v (g: LGraph) (to: nat): Addr :=
-  {| addr_gen := to; addr_block := number_of_vertices (nth_gen g to) |}.
+Definition new_copied_v (g: HeapGraph) (to: nat): Addr :=
+  {| addr_gen := to; addr_block := generation_block_count (nth_gen g to) |}.
 
-Definition lgraph_add_copied_v (g: LGraph) (v: Addr) (to: nat): LGraph :=
+Definition lgraph_add_copied_v (g: HeapGraph) (v: Addr) (to: nat): HeapGraph :=
   let new_v := new_copied_v g to in
   Build_LabeledGraph _ _ _ (pregraph_copy_v g v new_v)
                      (update_copied_new_vlabel g v new_v)
                      (elabel g) (copy_v_update_glabel (glabel g) to).
 
-Definition lgraph_mark_copied (g: LGraph) (old new: Addr): LGraph :=
+Definition lgraph_mark_copied (g: HeapGraph) (old new: Addr): HeapGraph :=
   Build_LabeledGraph _ _ _ (pg_lg g)
                      (update_copied_old_vlabel g old new) (elabel g) (glabel g).
 
-Definition lgraph_copy_v (g: LGraph) (v: Addr) (to: nat): LGraph :=
+Definition lgraph_copy_v (g: HeapGraph) (v: Addr) (to: nat): HeapGraph :=
   lgraph_mark_copied (lgraph_add_copied_v g v to) v (new_copied_v g to).
 
 Definition forward_t: Type := Z + GC_Pointer + Addr + Field.
@@ -1211,65 +980,65 @@ Definition field2forward (f: field_t): forward_t :=
 Definition forward_p_type: Type := Z + (Addr * Z).
 
 Definition forward_p2forward_t
-           (p: forward_p_type) (roots: roots_t) (g: LGraph): forward_t :=
+           (p: forward_p_type) (roots: roots_t) (g: HeapGraph): forward_t :=
   match p with
   | inl root_index => root2forward (Znth root_index roots)
-  | inr (v, n) => if (vlabel g v).(raw_mark) && (n =? 0)
-                  then (inl (inr (vlabel g v).(copied_vertex)))
+  | inr (v, n) => if (vlabel g v).(block_mark) && (n =? 0)
+                  then (inl (inr (vlabel g v).(block_copied_vertex)))
                   else field2forward (Znth n (make_fields g v))
   end.
 
-Definition vertex_pos_pairs (g: LGraph) (v: Addr) : list (forward_p_type) :=
+Definition vertex_pos_pairs (g: HeapGraph) (v: Addr) : list (forward_p_type) :=
   map (fun x => inr (v, Z.of_nat x))
-      (nat_inc_list (length (raw_fields (vlabel g v)))).
+      (nat_inc_list (length (block_fields (vlabel g v)))).
 
 Inductive forward_relation (from to: nat):
-  nat -> forward_t -> LGraph -> LGraph -> Prop :=
+  nat -> forward_t -> HeapGraph -> HeapGraph -> Prop :=
 | fr_z: forall depth z g, forward_relation from to depth (inl (inl (inl z))) g g
 | fr_p: forall depth p g, forward_relation from to depth (inl (inl (inr p))) g g
 | fr_v_not_in: forall depth v g,
     addr_gen v <> from -> forward_relation from to depth (inl (inr v)) g g
 | fr_v_in_forwarded: forall depth v g,
-    addr_gen v = from -> (vlabel g v).(raw_mark) = true ->
+    addr_gen v = from -> (vlabel g v).(block_mark) = true ->
     forward_relation from to depth (inl (inr v)) g g
 | fr_v_in_not_forwarded_O: forall v g,
-    addr_gen v = from -> (vlabel g v).(raw_mark) = false ->
+    addr_gen v = from -> (vlabel g v).(block_mark) = false ->
     forward_relation from to O (inl (inr v)) g (lgraph_copy_v g v to)
 | fr_v_in_not_forwarded_Sn: forall depth v g g',
-    addr_gen v = from -> (vlabel g v).(raw_mark) = false ->
+    addr_gen v = from -> (vlabel g v).(block_mark) = false ->
     let new_g := lgraph_copy_v g v to in
     forward_loop from to depth (vertex_pos_pairs new_g (new_copied_v g to)) new_g g' ->
     forward_relation from to (S depth) (inl (inr v)) g g'
-| fr_e_not_to: forall depth e (g: LGraph),
+| fr_e_not_to: forall depth e (g: HeapGraph),
     addr_gen (dst g e) <> from -> forward_relation from to depth (inr e) g g
-| fr_e_to_forwarded: forall depth e (g: LGraph),
-    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(raw_mark) = true ->
-    let new_g := labeledgraph_gen_dst g e (vlabel g (dst g e)).(copied_vertex) in
+| fr_e_to_forwarded: forall depth e (g: HeapGraph),
+    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(block_mark) = true ->
+    let new_g := labeledgraph_gen_dst g e (vlabel g (dst g e)).(block_copied_vertex) in
     forward_relation from to depth (inr e) g new_g
-| fr_e_to_not_forwarded_O: forall e (g: LGraph),
-    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(raw_mark) = false ->
+| fr_e_to_not_forwarded_O: forall e (g: HeapGraph),
+    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(block_mark) = false ->
     let new_g := labeledgraph_gen_dst (lgraph_copy_v g (dst g e) to) e
                                       (new_copied_v g to) in
     forward_relation from to O (inr e) g new_g
-| fr_e_to_not_forwarded_Sn: forall depth e (g g': LGraph),
-    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(raw_mark) = false ->
+| fr_e_to_not_forwarded_Sn: forall depth e (g g': HeapGraph),
+    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(block_mark) = false ->
     let new_g := labeledgraph_gen_dst (lgraph_copy_v g (dst g e) to) e
                                       (new_copied_v g to) in
     forward_loop from to depth (vertex_pos_pairs new_g (new_copied_v g to)) new_g g' ->
     forward_relation from to (S depth) (inr e) g g'
 with
-forward_loop (from to: nat): nat -> list forward_p_type -> LGraph -> LGraph -> Prop :=
+forward_loop (from to: nat): nat -> list forward_p_type -> HeapGraph -> HeapGraph -> Prop :=
 | fl_nil: forall depth g, forward_loop from to depth nil g g
 | fl_cons: forall depth g1 g2 g3 f fl,
     forward_relation from to depth (forward_p2forward_t f nil g1) g1 g2 ->
     forward_loop from to depth fl g2 g3 -> forward_loop from to depth (f :: fl) g1 g3.
 
 Definition forward_p_compatible
-           (p: forward_p_type) (roots: roots_t) (g: LGraph) (from: nat): Prop :=
+           (p: forward_p_type) (roots: roots_t) (g: HeapGraph) (from: nat): Prop :=
   match p with
   | inl root_index => 0 <= root_index < Zlength roots
-  | inr (v, n) => graph_has_v g v /\ 0 <= n < Zlength (vlabel g v).(raw_fields) /\
-                  (vlabel g v).(raw_mark) = false /\ addr_gen v <> from
+  | inr (v, n) => graph_has_v g v /\ 0 <= n < Zlength (vlabel g v).(block_fields) /\
+                  (vlabel g v).(block_mark) = false /\ addr_gen v <> from
   end.
 
 Fixpoint collect_Z_indices {A} (eqdec: forall (a b: A), {a = b} + {a <> b})
@@ -1541,16 +1310,16 @@ Qed.
 Local Close Scope Z_scope.
 
 Definition upd_roots (from to: nat) (forward_p: forward_p_type)
-           (g: LGraph) (roots: roots_t) (f_info: fun_info): roots_t :=
+           (g: HeapGraph) (roots: roots_t) (f_info: fun_info): roots_t :=
   match forward_p with
   | inr _ => roots
   | inl index => match Znth index roots with
                  | inl (inl z) => roots
                  | inl (inr p) => roots
                  | inr v => if Nat.eq_dec (addr_gen v) from
-                            then if (vlabel g v).(raw_mark)
+                            then if (vlabel g v).(block_mark)
                                  then upd_bunch index f_info roots
-                                                (inr (vlabel g v).(copied_vertex))
+                                                (inr (vlabel g v).(block_copied_vertex))
                                  else upd_bunch index f_info roots
                                                 (inr (new_copied_v g to))
                             else roots
@@ -1558,7 +1327,7 @@ Definition upd_roots (from to: nat) (forward_p: forward_p_type)
   end.
 
 Inductive forward_roots_loop (from to: nat) (f_info: fun_info):
-  list nat -> roots_t -> LGraph -> roots_t -> LGraph -> Prop :=
+  list nat -> roots_t -> HeapGraph -> roots_t -> HeapGraph -> Prop :=
 | frl_nil: forall g roots, forward_roots_loop from to f_info nil roots g roots g
 | frl_cons: forall g1 g2 g3 i il roots1 roots3,
     forward_relation from to O (root2forward (Znth (Z.of_nat i) roots1)) g1 g2 ->
@@ -1570,29 +1339,29 @@ Inductive forward_roots_loop (from to: nat) (f_info: fun_info):
 Definition forward_roots_relation from to f_info roots1 g1 roots2 g2 :=
   forward_roots_loop from to f_info (nat_inc_list (length roots1)) roots1 g1 roots2 g2.
 
-Definition nth_space (t_info: thread_info) (n: nat): space :=
-  nth n t_info.(ti_heap).(spaces) null_space.
+Definition nth_space (t_info: thread_info) (n: nat): Space :=
+  nth n t_info.(ti_heap).(heap_spaces) null_space.
 
 Lemma nth_space_Znth: forall t n,
-    nth_space t n = Znth (Z.of_nat n) (spaces (ti_heap t)).
+    nth_space t n = Znth (Z.of_nat n) (heap_spaces (ti_heap t)).
 Proof.
   intros. unfold nth_space, Znth. rewrite if_false. 2: lia.
   rewrite Nat2Z.id. reflexivity.
 Qed.
 
-Definition gen_size t_info n := total_space (nth_space t_info n).
+Definition gen_size t_info n := space_capacity (nth_space t_info n).
 
-Lemma gsc_iff: forall (g: LGraph) t_info,
-    length (g_gen (glabel g)) <= length (spaces (ti_heap t_info)) ->
+Lemma gsc_iff: forall (g: HeapGraph) t_info,
+    length (generations (glabel g)) <= length (heap_spaces (ti_heap t_info)) ->
     Forall (generation_space_compatible g)
-           (combine (combine (nat_inc_list (length (g_gen (glabel g))))
-                             (g_gen (glabel g))) (spaces (ti_heap t_info))) <->
+           (combine (combine (nat_inc_list (length (generations (glabel g))))
+                             (generations (glabel g))) (heap_spaces (ti_heap t_info))) <->
     forall gen,
       graph_has_gen g gen ->
       generation_space_compatible g (gen, nth_gen g gen, nth_space t_info gen).
 Proof.
-  intros. rewrite Forall_forall. remember (g_gen (glabel g)).
-  remember (nat_inc_list (length l)). remember (spaces (ti_heap t_info)).
+  intros. rewrite Forall_forall. remember (generations (glabel g)).
+  remember (nat_inc_list (length l)). remember (heap_spaces (ti_heap t_info)).
   assert (length (combine l0 l) = length l) by
       (subst; rewrite combine_length, nat_inc_list_length, Nat.min_id; reflexivity).
   assert (length (combine (combine l0 l) l1) = length l) by
@@ -1606,7 +1375,7 @@ Proof.
   - intros.
     assert (forall gen,
                graph_has_gen g gen ->
-               nth gen (combine (combine l0 l) l1) (0, null_info, null_space) =
+               nth gen (combine (combine l0 l) l1) (0, null_generation, null_space) =
                (gen, nth_gen g gen, nth_space t_info gen)). {
       intros. red in H2. rewrite <- Heql in H2.
       rewrite combine_nth_lt; [|rewrite H0; lia | lia].
@@ -1614,7 +1383,7 @@ Proof.
       rewrite Heql0. rewrite nat_inc_list_nth by assumption.
       rewrite Heql. unfold nth_gen, nth_space. rewrite Heql1. reflexivity. }
     split; intros.
-    + apply (In_nth (combine (combine l0 l) l1) x (O, null_info, null_space)) in H3.
+    + apply (In_nth (combine (combine l0 l) l1) x (O, null_generation, null_space)) in H3.
       destruct H3 as [gen [? ?]]. exists gen. rewrite H1 in H3.
       assert (graph_has_gen g gen) by (subst l; assumption). split. 1: assumption.
       rewrite H2 in H4 by assumption. subst x. reflexivity.
@@ -1623,7 +1392,7 @@ Proof.
 Qed.
 
 Lemma gt_gs_compatible:
-  forall (g: LGraph) (t_info: thread_info),
+  forall (g: HeapGraph) (t_info: thread_info),
     graph_thread_info_compatible g t_info ->
     forall gen,
       graph_has_gen g gen ->
@@ -1661,16 +1430,16 @@ Qed.
 Local Open Scope Z_scope.
 
 Definition forward_roots_compatible
-           (from to: nat) (g: LGraph) (ti : thread_info): Prop :=
-  (nth_space ti from).(used_space) <= (nth_space ti to).(total_space) -
-                                      (nth_space ti to).(used_space).
+           (from to: nat) (g: HeapGraph) (ti : thread_info): Prop :=
+  (nth_space ti from).(space_allocated) <= (nth_space ti to).(space_capacity) -
+                                      (nth_space ti to).(space_allocated).
 
 Lemma vo_lt_gs: forall g v,
     gen_has_index g (addr_gen v) (addr_block v) ->
     vertex_offset g v < graph_gen_size g (addr_gen v).
 Proof.
   intros. unfold vertex_offset, graph_gen_size. red in H.
-  remember (number_of_vertices (nth_gen g (addr_gen v))). remember (addr_gen v).
+  remember (generation_block_count (nth_gen g (addr_gen v))). remember (addr_gen v).
   assert (S (addr_block v) <= n)%nat by lia.
   apply Z.lt_le_trans with (previous_vertices_size g n0 (S (addr_block v))).
   - rewrite pvs_S. apply Zplus_lt_compat_l, svs_gt_one.
@@ -1680,7 +1449,7 @@ Qed.
 Definition v_in_range (v: val) (start: val) (n: Z): Prop :=
   exists i, 0 <= i < n /\ v = offset_val i start.
 
-Lemma graph_thread_v_in_range (g: LGraph) (t_info: thread_info) (v: Addr)
+Lemma graph_thread_v_in_range (g: HeapGraph) (t_info: thread_info) (v: Addr)
     (Hcompat: graph_thread_info_compatible g t_info)
     (Hv: graph_has_v g v):
     v_in_range
@@ -1698,8 +1467,8 @@ Proof.
     }
     {
         apply Zmult_lt_compat_l ; try assumption.
-        pose proof (proj2 (space_order (nth_space t_info (addr_gen v)))) as HH'.
-        apply Z.lt_le_trans with (used_space (nth_space t_info (addr_gen v))) ; try assumption.
+        pose proof (proj2 (space__order (nth_space t_info (addr_gen v)))) as HH'.
+        apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v))) ; try assumption.
         destruct Hv as [Hv_gen Hv_index].
         destruct (gt_gs_compatible _ _ Hcompat _ Hv_gen) as [Estart [Esh Eused]].
         rewrite <- Eused.
@@ -1731,10 +1500,10 @@ Proof.
   - rewrite Znth_pos_cons by lia. replace (i + 1 - 1) with i by lia. reflexivity.
 Qed.
 
-Definition unmarked_gen_size (g: LGraph) (gen: nat) :=
+Definition unmarked_gen_size (g: HeapGraph) (gen: nat) :=
   fold_left (vertex_size_accum g gen)
-            (filter (fun i => negb (vlabel g {| addr_gen := gen; addr_block := i |}).(raw_mark))
-                    (nat_inc_list (number_of_vertices (nth_gen g gen)))) 0.
+            (filter (fun i => negb (vlabel g {| addr_gen := gen; addr_block := i |}).(block_mark))
+                    (nat_inc_list (generation_block_count (nth_gen g gen)))) 0.
 
 Lemma unmarked_gen_size_le: forall g n, unmarked_gen_size g n <= graph_gen_size g n.
 Proof.
@@ -1744,12 +1513,12 @@ Proof.
 Qed.
 
 Lemma single_unmarked_le: forall g v,
-    graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
     vertex_size g v <= unmarked_gen_size g (addr_gen v).
 Proof.
   intros. unfold unmarked_gen_size.
-  remember (filter (fun i : nat => negb (raw_mark (vlabel g {| addr_gen := addr_gen v; addr_block := i |})))
-                   (nat_inc_list (number_of_vertices (nth_gen g (addr_gen v))))).
+  remember (filter (fun i : nat => negb (block_mark (vlabel g {| addr_gen := addr_gen v; addr_block := i |})))
+                   (nat_inc_list (generation_block_count (nth_gen g (addr_gen v))))).
   assert (In (addr_block v) l). {
     subst l. rewrite filter_In. split.
     - rewrite nat_inc_list_In_iff. apply (proj2 H).
@@ -1763,12 +1532,12 @@ Proof.
 Qed.
 
 Definition rest_gen_size (t_info: thread_info) (gen: nat): Z :=
-  total_space (nth_space t_info gen) - used_space (nth_space t_info gen).
+  space_capacity (nth_space t_info gen) - space_allocated (nth_space t_info gen).
 
 Definition enough_space_to_copy g t_info from to: Prop :=
   unmarked_gen_size g from <= rest_gen_size t_info to.
 
-Definition no_dangling_dst (g: LGraph): Prop :=
+Definition no_dangling_dst (g: HeapGraph): Prop :=
   forall v, graph_has_v g v ->
             forall e, In e (get_edges g v) -> graph_has_v g (dst g e).
 
@@ -1777,40 +1546,46 @@ Definition forward_condition g t_info from to: Prop :=
   graph_has_gen g from /\ graph_has_gen g to /\
   copy_compatible g /\ no_dangling_dst g.
 
-Definition has_space (sp: space) (s: Z): Prop :=
-  0 <= s <= total_space sp - used_space sp.
+Definition has_space (sp: Space) (s: Z): Prop :=
+  0 <= s <= space_capacity sp - space_allocated sp.
 
-Lemma cut_space_order: forall (sp : space) (s : Z),
-    has_space sp s -> 0 <= used_space sp + s <= total_space sp.
-Proof. intros. pose proof (space_order sp). red in H. lia. Qed.
+Lemma cut_space__order: forall (sp : Space) (s : Z),
+    has_space sp s -> 0 <= space_allocated sp + s <= space_capacity sp.
+Proof. intros. pose proof (space__order sp). red in H. lia. Qed.
 
-Definition cut_space (sp: space) (s: Z) (H: has_space sp s): space :=
-  Build_space (space_start sp) (used_space sp + s) (total_space sp)
-              (space_sh sp) (cut_space_order sp s H) (space_upper_bound sp).
+Definition cut_space (sp: Space) (s: Z) (H: has_space sp s): Space := {|
+    space_base := space_base sp;
+    space_allocated := space_allocated sp + s;
+    space_capacity := space_capacity sp;
+    space_sh := space_sh sp;
+    space__order := cut_space__order sp s H;
+    space__upper_bound := space__upper_bound sp;
+|}.
 
 Lemma cut_heap_size:
-  forall (h : heap) (i s : Z) (H : has_space (Znth i (spaces h)) s),
-    0 <= i < Zlength (spaces h) ->
-    Zlength (upd_Znth i (spaces h) (cut_space (Znth i (spaces h)) s H)) = MAX_SPACES.
-Proof. intros. rewrite upd_Znth_Zlength; [apply spaces_size | assumption]. Qed.
+  forall (h : Heap) (i s : Z) (H : has_space (Znth i (heap_spaces h)) s),
+    0 <= i < Zlength (heap_spaces h) ->
+    Zlength (upd_Znth i (heap_spaces h) (cut_space (Znth i (heap_spaces h)) s H)) = MAX_SPACES.
+Proof. intros. rewrite upd_Znth_Zlength; [apply heap_spaces__size | assumption]. Qed.
 
-Definition cut_heap (h: heap) (i s: Z) (H1: 0 <= i < Zlength (spaces h))
-           (H2: has_space (Znth i (spaces h)) s): heap :=
-  Build_heap (upd_Znth i (spaces h) (cut_space (Znth i (spaces h)) s H2))
-             (cut_heap_size h i s H2 H1).
+Definition cut_heap (h: Heap) (i s: Z) (H1: 0 <= i < Zlength (heap_spaces h))
+           (H2: has_space (Znth i (heap_spaces h)) s): Heap := {|
+  heap_spaces := upd_Znth i (heap_spaces h) (cut_space (Znth i (heap_spaces h)) s H2);
+  heap_spaces__size := cut_heap_size h i s H2 H1
+|}.
 
 Lemma heap_head_cut_thread_info: forall
-    h i s (H1: 0 <= i < Zlength (spaces h)) (H2: has_space (Znth i (spaces h)) s),
+    h i s (H1: 0 <= i < Zlength (heap_spaces h)) (H2: has_space (Znth i (heap_spaces h)) s),
     i <> 0 -> heap_head (cut_heap h i s H1 H2) = heap_head h.
 Proof.
-  intros. destruct (heap_head_cons h) as [hs1 [l1 [? ?]]].
-  destruct (heap_head_cons (cut_heap h i s H1 H2)) as [hs2 [l2 [? ?]]].
+  intros. destruct (heap_head__cons h) as [hs1 [l1 [? ?]]].
+  destruct (heap_head__cons (cut_heap h i s H1 H2)) as [hs2 [l2 [? ?]]].
   rewrite H3, H5. simpl in H4.
   pose proof (split3_full_length_list
-                0 i _ _ H1 (Zminus_0_l_reverse (Zlength (spaces h)))).
+                0 i _ _ H1 (Zminus_0_l_reverse (Zlength (heap_spaces h)))).
   replace (i - 0) with i in H6 by lia. simpl in H6.
-  remember (firstn (Z.to_nat i) (spaces h)) as ls1.
-  remember (skipn (Z.to_nat (i + 1)) (spaces h)) as ls2.
+  remember (firstn (Z.to_nat i) (heap_spaces h)) as ls1.
+  remember (skipn (Z.to_nat (i + 1)) (heap_spaces h)) as ls2.
   assert (Zlength ls1 = i). {
     rewrite Zlength_length by lia. subst ls1. apply firstn_length_le.
     clear H5. rewrite Zlength_correct in H1. rep_lia. }
@@ -1821,14 +1596,14 @@ Proof.
 Qed.
 
 Definition cut_thread_info (t: thread_info) (i s: Z)
-           (H1: 0 <= i < Zlength (spaces (ti_heap t)))
-           (H2: has_space (Znth i (spaces (ti_heap t))) s) : thread_info :=
+           (H1: 0 <= i < Zlength (heap_spaces (ti_heap t)))
+           (H2: has_space (Znth i (heap_spaces (ti_heap t))) s) : thread_info :=
   Build_thread_info (ti_heap_p t) (cut_heap (ti_heap t) i s H1 H2) (ti_args t)
                     (arg_size t).
 
-Lemma cti_eq: forall t i s1 s2 (H1: 0 <= i < Zlength (spaces (ti_heap t)))
-                     (Hs1: has_space (Znth i (spaces (ti_heap t))) s1)
-                     (Hs2: has_space (Znth i (spaces (ti_heap t))) s2),
+Lemma cti_eq: forall t i s1 s2 (H1: 0 <= i < Zlength (heap_spaces (ti_heap t)))
+                     (Hs1: has_space (Znth i (heap_spaces (ti_heap t))) s1)
+                     (Hs2: has_space (Znth i (heap_spaces (ti_heap t))) s2),
     s1 = s2 -> cut_thread_info t i s1 H1 Hs1 = cut_thread_info t i s2 H1 Hs2.
 Proof.
   intros. unfold cut_thread_info. f_equal. subst s1. f_equal. apply proof_irr.
@@ -1855,7 +1630,7 @@ Qed.
 Lemma isptr_is_pointer_or_integer: forall p, isptr p -> is_pointer_or_integer p.
 Proof. intros. destruct p; try contradiction. exact I. Qed.
 
-Lemma mfv_unmarked_all_is_ptr_or_int: forall (g : LGraph) (v : Addr),
+Lemma mfv_unmarked_all_is_ptr_or_int: forall (g : HeapGraph) (v : Addr),
     no_dangling_dst g -> graph_has_v g v ->
     Forall is_pointer_or_integer (map (field2val g) (make_fields g v)).
 Proof.
@@ -1874,7 +1649,7 @@ Lemma mfv_all_is_ptr_or_int: forall g v,
 Proof.
   intros. rewrite Forall_forall. intros f ?. unfold make_fields_vals in H2.
   pose proof (mfv_unmarked_all_is_ptr_or_int _ _ H0 H1). rewrite Forall_forall in H3.
-  specialize (H3 f). destruct (raw_mark (vlabel g v)) eqn:? . 2: apply H3; assumption.
+  specialize (H3 f). destruct (block_mark (vlabel g v)) eqn:? . 2: apply H3; assumption.
   simpl in H2. destruct H2. 2: apply H3, In_tail; assumption.
   subst f. unfold vertex_address. apply isptr_is_pointer_or_integer.
   rewrite isptr_offset_val. apply graph_has_gen_start_isptr, (proj1 (H _ H1 Heqb)).
@@ -1902,7 +1677,7 @@ Qed.
 
 Lemma cvmgil_not_eq: forall to n l,
     n <> to -> to < length l ->
-    nth n (copy_v_mod_gen_info_list l to) null_info = nth n l null_info.
+    nth n (copy_v_mod_gen_info_list l to) null_generation = nth n l null_generation.
 Proof.
   intros. unfold copy_v_mod_gen_info_list.
   assert (length (firstn to l) = to) by (rewrite firstn_length_le; lia).
@@ -1916,8 +1691,8 @@ Proof.
 Qed.
 
 Lemma cvmgil_eq: forall to l,
-    to < length l -> nth to (copy_v_mod_gen_info_list l to) null_info =
-                     copy_v_mod_gen_info (nth to l null_info).
+    to < length l -> nth to (copy_v_mod_gen_info_list l to) null_generation =
+                     copy_v_mod_gen_info (nth to l null_generation).
 Proof.
   intros. unfold copy_v_mod_gen_info_list.
   assert (length (firstn to l) = to) by (rewrite firstn_length_le; lia).
@@ -1929,7 +1704,7 @@ Lemma lacv_nth_gen: forall g v to n,
     n <> to -> graph_has_gen g to ->
     nth_gen (lgraph_add_copied_v g v to) n = nth_gen g n.
 Proof.
-  intros. unfold lgraph_add_copied_v, nth_gen. simpl. remember (g_gen (glabel g)).
+  intros. unfold lgraph_add_copied_v, nth_gen. simpl. remember (generations (glabel g)).
   apply cvmgil_not_eq; [|subst l]; assumption.
 Qed.
 
@@ -1954,7 +1729,7 @@ Proof.
   - reflexivity.
 Qed.
 
-Lemma lacv_vlabel_old: forall (g : LGraph) (v : Addr) (to: nat) x,
+Lemma lacv_vlabel_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
     x <> new_copied_v g to -> vlabel (lgraph_add_copied_v g v to) x = vlabel g x.
 Proof.
   intros. simpl.
@@ -1963,13 +1738,13 @@ Proof.
   inversion S; reflexivity.
 Qed.
 
-Definition closure_has_index (g: LGraph) (gen index: nat) :=
-  index <= number_of_vertices (nth_gen g gen).
+Definition closure_has_index (g: HeapGraph) (gen index: nat) :=
+  index <= generation_block_count (nth_gen g gen).
 
-Definition closure_has_v (g: LGraph) (v: Addr): Prop :=
+Definition closure_has_v (g: HeapGraph) (v: Addr): Prop :=
   graph_has_gen g (addr_gen v) /\ closure_has_index g (addr_gen v) (addr_block v).
 
-Lemma lacv_vertex_address: forall (g : LGraph) (v : Addr) (to: nat) x,
+Lemma lacv_vertex_address: forall (g : HeapGraph) (v : Addr) (to: nat) x,
     closure_has_v g x -> graph_has_gen g to ->
     vertex_address (lgraph_add_copied_v g v to) x = vertex_address g x.
 Proof.
@@ -1989,14 +1764,14 @@ Proof.
   simpl. intros. intuition.
 Qed.
 
-Lemma lacv_vertex_address_old: forall (g : LGraph) (v : Addr) (to: nat) x,
+Lemma lacv_vertex_address_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
     graph_has_v g x -> graph_has_gen g to ->
     vertex_address (lgraph_add_copied_v g v to) x = vertex_address g x.
 Proof.
   intros. apply lacv_vertex_address; [apply graph_has_v_in_closure |]; assumption.
 Qed.
 
-Lemma lacv_vertex_address_new: forall (g : LGraph) (v : Addr) (to: nat),
+Lemma lacv_vertex_address_new: forall (g : HeapGraph) (v : Addr) (to: nat),
     graph_has_gen g to ->
     vertex_address (lgraph_add_copied_v g v to) (new_copied_v g to) =
     vertex_address g (new_copied_v g to).
@@ -2005,7 +1780,7 @@ Proof.
   red. simpl.  split; [assumption | apply Nat.le_refl].
 Qed.
 
-Lemma lacv_make_header_old: forall (g : LGraph) (v : Addr) (to : nat) x,
+Lemma lacv_make_header_old: forall (g : HeapGraph) (v : Addr) (to : nat) x,
     x <> new_copied_v g to ->
     make_header (lgraph_add_copied_v g v to) x = make_header g x.
 Proof.
@@ -2044,7 +1819,7 @@ Proof.
   - apply IHl; [apply NoDup_cons_1 in H|]; assumption.
 Qed.
 
-Lemma pcv_dst_old (g: LGraph) (old new: Addr) (e: Field)
+Lemma pcv_dst_old (g: HeapGraph) (old new: Addr) (e: Field)
     (He: field_addr e <> new):
     dst (pregraph_copy_v g old new) e = dst g e.
 Proof.
@@ -2055,7 +1830,7 @@ Proof.
   repeat apply in_combine_l in F. now apply repeat_spec in F.
 Qed.
 
-Lemma pcv_dst_new (g: LGraph) (old new: Addr) (n: nat)
+Lemma pcv_dst_new (g: HeapGraph) (old new: Addr) (n: nat)
     (Hn: In n (map field_index (get_edges g old))):
     dst (pregraph_copy_v g old new) {| field_addr := new; field_index := n|} = dst g {| field_addr := old; field_index := n|}.
 Proof.
@@ -2080,7 +1855,7 @@ Proof.
       }
       apply NoDup_combine_r.
       unfold get_edges, make_fields.
-      remember (raw_fields (vlabel g old)). clear Heql. remember 0 as m. clear Heqm.
+      remember (block_fields (vlabel g old)). clear Heql. remember 0 as m. clear Heqm.
       revert m. induction l; intros. simpl. 1: constructor.
       simpl. destruct a; [destruct s|]; simpl; try apply IHl. constructor.
       2: apply IHl. clear.
@@ -2113,7 +1888,7 @@ Proof.
   - intro S; inversion S. apply n; assumption.
 Qed.
 
-Lemma lacv_make_fields_not_eq: forall (g : LGraph) (v : Addr) (to : nat) x,
+Lemma lacv_make_fields_not_eq: forall (g : HeapGraph) (v : Addr) (to : nat) x,
     x <> new_copied_v g to ->
     make_fields (lgraph_add_copied_v g v to) x = make_fields g x.
 Proof.
@@ -2121,7 +1896,7 @@ Proof.
   rewrite if_false. 1: reflexivity. intuition.
 Qed.
 
-Lemma lacv_field2val_make_fields_old:  forall (g : LGraph) (v : Addr) (to : nat) x,
+Lemma lacv_field2val_make_fields_old:  forall (g : HeapGraph) (v : Addr) (to : nat) x,
     graph_has_v g x -> graph_has_gen g to -> no_dangling_dst g ->
     map (field2val (lgraph_add_copied_v g v to))
         (make_fields (lgraph_add_copied_v g v to) x) =
@@ -2137,18 +1912,18 @@ Proof.
     unfold new_copied_v in H2. contradiction.
 Qed.
 
-Lemma lacv_make_fields_vals_old: forall (g : LGraph) (v : Addr) (to: nat) x,
+Lemma lacv_make_fields_vals_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
     graph_has_v g x -> graph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
     make_fields_vals (lgraph_add_copied_v g v to) x = make_fields_vals g x.
 Proof.
   intros. pose proof (lacv_field2val_make_fields_old _ v _ _ H H0 H1).
   unfold make_fields_vals. pose proof (graph_has_v_not_eq g to x H).
   rewrite lacv_vlabel_old by assumption. rewrite H3.
-  destruct (raw_mark (vlabel g x)) eqn:? ; [f_equal | reflexivity].
+  destruct (block_mark (vlabel g x)) eqn:? ; [f_equal | reflexivity].
   apply lacv_vertex_address_old; [apply H2|]; assumption.
 Qed.
 
-Lemma lacv_nth_sh: forall (g : LGraph) (v : Addr) (to : nat) n,
+Lemma lacv_nth_sh: forall (g : HeapGraph) (v : Addr) (to : nat) n,
     graph_has_gen g to -> nth_sh (lgraph_add_copied_v g v to) n = nth_sh g n.
 Proof.
   intros. unfold nth_sh, nth_gen. simpl. destruct (Nat.eq_dec n to).
@@ -2174,7 +1949,7 @@ Lemma lacv_field2val_make_fields_new: forall g v to,
     map (field2val g) (make_fields g v).
 Proof.
   intros. unfold make_fields. rewrite lacv_vlabel_new.
-  remember (raw_fields (vlabel g v)). remember 0 as n.
+  remember (block_fields (vlabel g v)). remember 0 as n.
   assert (forall m, In m (map field_index (filter_sum_right (make_fields' l v n))) ->
                     In m (map field_index (get_edges g v))). {
     unfold get_edges, make_fields. subst. intuition. }
@@ -2200,7 +1975,7 @@ Lemma lacv_make_fields_vals_new: forall g v to,
 Proof.
   intros. unfold make_fields_vals. rewrite lacv_vlabel_new.
   rewrite (lacv_field2val_make_fields_new _ _ _ H H0 H1).
-  destruct (raw_mark (vlabel g v)) eqn:? . 2: reflexivity. f_equal.
+  destruct (block_mark (vlabel g v)) eqn:? . 2: reflexivity. f_equal.
   apply lacv_vertex_address_old. 2: assumption. apply H2; assumption.
 Qed.
 
@@ -2236,14 +2011,14 @@ Proof.
   - reflexivity.
 Qed.
 
-Lemma lmc_make_fields: forall (g : LGraph) (old new v: Addr),
+Lemma lmc_make_fields: forall (g : HeapGraph) (old new v: Addr),
     make_fields (lgraph_mark_copied g old new) v = make_fields g v.
 Proof.
   intros. unfold make_fields. simpl. unfold update_copied_old_vlabel, update_vlabel.
   if_tac; [unfold equiv in H; subst v |]; reflexivity.
 Qed.
 
-Lemma lmc_field2val_make_fields: forall (g : LGraph) (v new_v x: Addr),
+Lemma lmc_field2val_make_fields: forall (g : HeapGraph) (v new_v x: Addr),
     map (field2val (lgraph_mark_copied g v new_v))
         (make_fields (lgraph_mark_copied g v new_v) x) =
     map (field2val g) (make_fields g x).
@@ -2259,7 +2034,7 @@ Proof.
   rewrite if_false. 1: reflexivity. unfold equiv. intuition.
 Qed.
 
-Lemma lmc_make_fields_vals_not_eq: forall (g : LGraph) (v new_v : Addr) x,
+Lemma lmc_make_fields_vals_not_eq: forall (g : HeapGraph) (v new_v : Addr) x,
     x <> v -> make_fields_vals (lgraph_mark_copied g v new_v) x = make_fields_vals g x.
 Proof.
   intros. unfold make_fields_vals.
@@ -2267,7 +2042,7 @@ Proof.
     [reflexivity | assumption].
 Qed.
 
-Lemma lmc_make_fields_vals_eq: forall (g : LGraph) (v new_v : Addr),
+Lemma lmc_make_fields_vals_eq: forall (g : HeapGraph) (v new_v : Addr),
     make_fields_vals (lgraph_mark_copied g v new_v) v =
     vertex_address g new_v :: tl (make_fields_vals g v).
 Proof.
@@ -2275,7 +2050,7 @@ Proof.
   unfold update_copied_old_vlabel, graph_gen.update_vlabel.
   rewrite if_true by reflexivity. simpl. rewrite lmc_vertex_address.
   assert (tl (make_fields_vals g v) = tl (map (field2val g) (make_fields g v))) by
-      (unfold make_fields_vals; destruct (raw_mark (vlabel g v)); simpl; reflexivity).
+      (unfold make_fields_vals; destruct (block_mark (vlabel g v)); simpl; reflexivity).
   rewrite H. clear H. do 2 f_equal. apply lmc_field2val_make_fields.
 Qed.
 
@@ -2302,7 +2077,7 @@ Proof.
     apply H1; assumption.
 Qed.
 
-Lemma lacv_graph_has_v_inv: forall (g : LGraph) (v : Addr) (to : nat) (x : Addr),
+Lemma lacv_graph_has_v_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
     graph_has_gen g to -> graph_has_v (lgraph_add_copied_v g v to) x ->
     graph_has_v g x \/ x = new_copied_v g to.
 Proof.
@@ -2315,14 +2090,14 @@ Proof.
       simpl in H1. destruct x as [gen index]. simpl in *. unfold new_copied_v in H2.
       destruct (Nat.eq_dec gen to).
       * subst gen. rewrite cvmgil_eq in H1 by assumption. simpl in H1.
-        change (nth to (g_gen (glabel g)) null_info) with (nth_gen g to) in H1.
-        remember (number_of_vertices (nth_gen g to)).
+        change (nth to (generations (glabel g)) null_generation) with (nth_gen g to) in H1.
+        remember (generation_block_count (nth_gen g to)).
         assert (index <> n) by (intro; apply H2; f_equal; assumption). lia.
       * rewrite cvmgil_not_eq in H1; assumption.
 Qed.
 
-Lemma lacv_copy_compatible: forall (g : LGraph) (v : Addr) (to : nat),
-    raw_mark (vlabel g v) = false -> graph_has_gen g to ->
+Lemma lacv_copy_compatible: forall (g : HeapGraph) (v : Addr) (to : nat),
+    block_mark (vlabel g v) = false -> graph_has_gen g to ->
     copy_compatible g -> copy_compatible (lgraph_add_copied_v g v to).
 Proof.
   repeat intro. destruct (Addr_EqDec v0 (new_copied_v g to)).
@@ -2338,7 +2113,7 @@ Proof.
 Qed.
 
 Lemma lcv_copy_compatible: forall g v to,
-    raw_mark (vlabel g v) = false -> graph_has_gen g to ->
+    block_mark (vlabel g v) = false -> graph_has_gen g to ->
     addr_gen v <> to -> copy_compatible g -> copy_compatible (lgraph_copy_v g v to).
 Proof.
   intros. unfold lgraph_copy_v. apply lmc_copy_compatible. 2: simpl; assumption.
@@ -2349,7 +2124,7 @@ Qed.
 Lemma get_edges_In: forall g v s,
     In {| field_addr := v; field_index := s|} (get_edges g v) <-> In s (map field_index (get_edges g v)).
 Proof.
-  intros. unfold get_edges, make_fields. remember (raw_fields (vlabel g v)).
+  intros. unfold get_edges, make_fields. remember (block_fields (vlabel g v)).
   remember 0 as n. clear Heqn Heql. revert n. induction l; intros; simpl.
   1: reflexivity. destruct a; [destruct s0 |]; simpl; rewrite IHl; try reflexivity.
   intuition. inversion H0. left; reflexivity.
@@ -2357,7 +2132,7 @@ Qed.
 
 Lemma get_edges_fst: forall g v e, In e (get_edges g v) -> field_addr e = v.
 Proof.
-  intros g v e. unfold get_edges, make_fields. remember (raw_fields (vlabel g v)).
+  intros g v e. unfold get_edges, make_fields. remember (block_fields (vlabel g v)).
   remember 0 as n. clear Heqn Heql. revert n. induction l; intros; simpl in *.
   - exfalso; assumption.
   - destruct a; [destruct s|]; simpl in *;
@@ -2376,12 +2151,12 @@ Lemma lacv_get_edges_new: forall g v to,
   map field_index (get_edges g v).
 Proof.
   intros. unfold get_edges, make_fields. rewrite lacv_vlabel_new.
-  remember (raw_fields (vlabel g v)). remember 0. clear Heql Heqn. revert n.
+  remember (block_fields (vlabel g v)). remember 0. clear Heql Heqn. revert n.
   induction l; intros; simpl. 1: reflexivity.
   destruct a; [destruct s|]; simpl; rewrite IHl; reflexivity.
 Qed.
 
-Lemma lacv_no_dangling_dst: forall (g : LGraph) (v : Addr) (to : nat),
+Lemma lacv_no_dangling_dst: forall (g : HeapGraph) (v : Addr) (to : nat),
     no_dangling_dst g -> graph_has_gen g to -> graph_has_v g v ->
     no_dangling_dst (lgraph_add_copied_v g v to).
 Proof.
@@ -2416,7 +2191,7 @@ Proof.
   if_tac; simpl; apply H; [unfold equiv in H1; subst|]; assumption.
 Qed.
 
-Lemma lacv_outlier_compatible: forall (g : LGraph) outlier (v : Addr) (to : nat),
+Lemma lacv_outlier_compatible: forall (g : HeapGraph) outlier (v : Addr) (to : nat),
     graph_has_gen g to -> graph_has_v g v -> outlier_compatible g outlier ->
     outlier_compatible (lgraph_add_copied_v g v to) outlier.
 Proof.
@@ -2444,12 +2219,12 @@ Lemma lacv_unmarked_gen_size: forall g v to from,
     unmarked_gen_size g from = unmarked_gen_size (lgraph_add_copied_v g v to) from.
 Proof.
   intros. unfold unmarked_gen_size. rewrite lacv_nth_gen by assumption.
-  remember (nat_inc_list (number_of_vertices (nth_gen g from))) as l.
+  remember (nat_inc_list (generation_block_count (nth_gen g from))) as l.
   assert (forall i, {| addr_gen := from; addr_block := i |} <> new_copied_v g to). {
     intros. intro. inversion H1. apply H. assumption. }
-  assert (filter (fun i : nat => negb (raw_mark (vlabel g {| addr_gen := from; addr_block := i |}))) l =
+  assert (filter (fun i : nat => negb (block_mark (vlabel g {| addr_gen := from; addr_block := i |}))) l =
           filter (fun i : nat =>
-                    negb(raw_mark(vlabel(lgraph_add_copied_v g v to) {| addr_gen := from; addr_block := i |}))) l). {
+                    negb(block_mark(vlabel(lgraph_add_copied_v g v to) {| addr_gen := from; addr_block := i |}))) l). {
     apply filter_ext. intros. rewrite lacv_vlabel_old by apply H1. reflexivity. }
   rewrite <- H2. apply fold_left_ext. intros. unfold vertex_size_accum. f_equal.
   unfold vertex_size. rewrite lacv_vlabel_old by apply H1. reflexivity.
@@ -2464,7 +2239,7 @@ Proof.
 Qed.
 
 Lemma vsa_fold_left:
-  forall (g : LGraph) (gen : nat) (l : list nat) (z1 z2 : Z),
+  forall (g : HeapGraph) (gen : nat) (l : list nat) (z1 z2 : Z),
     fold_left (vertex_size_accum g gen) l (z2 + z1) =
     fold_left (vertex_size_accum g gen) l z2 + z1.
 Proof.
@@ -2473,20 +2248,20 @@ Proof.
 Qed.
 
 Lemma lmc_unmarked_gen_size: forall g v v',
-    graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
     unmarked_gen_size g (addr_gen v) =
     unmarked_gen_size (lgraph_mark_copied g v v') (addr_gen v) +
      vertex_size g v.
 Proof.
   intros. unfold unmarked_gen_size. unfold nth_gen. simpl glabel.
   destruct v as [gen index]. simpl addr_gen.
-  change (nth gen (g_gen (glabel g)) null_info) with (nth_gen g gen).
-  remember (nat_inc_list (number_of_vertices (nth_gen g gen))).
+  change (nth gen (generations (glabel g)) null_generation) with (nth_gen g gen).
+  remember (nat_inc_list (generation_block_count (nth_gen g gen))).
   rewrite (fold_left_ext (vertex_size_accum (lgraph_mark_copied g {| addr_gen := gen; addr_block := index |} v') gen)
                          (vertex_size_accum g gen)).
-  - simpl. remember (fun i : nat => negb (raw_mark (vlabel g {| addr_gen := gen; addr_block := i |}))) as f1.
+  - simpl. remember (fun i : nat => negb (block_mark (vlabel g {| addr_gen := gen; addr_block := i |}))) as f1.
     remember (fun i : nat =>
-                negb (raw_mark (update_copied_old_vlabel g {| addr_gen := gen; addr_block := index |} v' {| addr_gen := gen; addr_block := i |})))
+                negb (block_mark (update_copied_old_vlabel g {| addr_gen := gen; addr_block := index |} v' {| addr_gen := gen; addr_block := i |})))
       as f2. cut (Permutation (filter f1 l) (index :: filter f2 l)).
     + intros. rewrite (fold_left_comm _ _ (index :: filter f2 l)). 3: assumption.
       * simpl. rewrite <- vsa_fold_left. f_equal.
@@ -2506,8 +2281,8 @@ Qed.
 
 Lemma cti_rest_gen_size:
   forall t_info to s
-         (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-         (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) s),
+         (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+         (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) s),
   rest_gen_size t_info to =
   rest_gen_size (cut_thread_info t_info (Z.of_nat to) s Hi Hh) to + s.
 Proof.
@@ -2516,12 +2291,12 @@ Proof.
 Qed.
 
 Lemma lmc_estc:
-  forall (g : LGraph) (t_info : thread_info) (v v': Addr) (to : nat)
-         (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info))),
+  forall (g : HeapGraph) (t_info : thread_info) (v v': Addr) (to : nat)
+         (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info))),
     enough_space_to_copy g t_info (addr_gen v) to ->
-    graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
     forall
-      Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v),
+      Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v),
       enough_space_to_copy (lgraph_mark_copied g v v')
                            (cut_thread_info
                               t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
@@ -2534,10 +2309,10 @@ Qed.
 
 Lemma forward_estc_unchanged: forall
     g t_info v to
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v)),
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
     addr_gen v <> to -> graph_has_gen g to ->
-    graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
     enough_space_to_copy g t_info (addr_gen v) to ->
     enough_space_to_copy (lgraph_copy_v g v to)
          (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
@@ -2562,11 +2337,11 @@ Qed.
 
 Lemma forward_estc: forall
     g t_info v to index uv
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v))
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
     (Hm : 0 <= index < MAX_ARGS),
     addr_gen v <> to -> graph_has_gen g to ->
-    graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
     enough_space_to_copy g t_info (addr_gen v) to ->
     enough_space_to_copy
       (lgraph_copy_v g v to)
@@ -2580,10 +2355,10 @@ Qed.
 
 Lemma lcv_forward_condition: forall
     g t_info v to index uv
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v))
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
     (Hm : 0 <= index < MAX_ARGS),
-    addr_gen v <> to -> graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    addr_gen v <> to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
     forward_condition g t_info (addr_gen v) to ->
     forward_condition
       (lgraph_copy_v g v to)
@@ -2601,9 +2376,9 @@ Qed.
 
 Lemma lcv_forward_condition_unchanged: forall
     g t_info v to
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v)),
-    addr_gen v <> to -> graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
+    addr_gen v <> to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
     forward_condition g t_info (addr_gen v) to ->
     forward_condition (lgraph_copy_v g v to)
          (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
@@ -2695,8 +2470,8 @@ Qed.
 
 Lemma lcv_fun_thread_arg_compatible_unchanged: forall
     g t_info f_info roots v to i s
-    (Hi : 0 <= i < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i (spaces (ti_heap t_info))) s),
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s),
     graph_has_gen g to ->
     roots_graph_compatible roots g ->
     fun_thread_arg_compatible g t_info f_info roots ->
@@ -2712,8 +2487,8 @@ Qed.
 
 Lemma lcv_fun_thread_arg_compatible: forall
     g t_info f_info roots z v to i s
-    (Hi : 0 <= i < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i (spaces (ti_heap t_info))) s)
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s)
     (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
     graph_has_gen g to -> roots_graph_compatible roots g ->
     fun_thread_arg_compatible g t_info f_info roots ->
@@ -2748,7 +2523,7 @@ Proof.
   rewrite cvmgil_not_eq; [reflexivity | assumption..].
 Qed.
 
-Lemma lcv_vertex_size_new: forall (g : LGraph) (v : Addr) (to : nat),
+Lemma lcv_vertex_size_new: forall (g : HeapGraph) (v : Addr) (to : nat),
     vertex_size (lgraph_copy_v g v to) (new_copied_v g to) = vertex_size g v.
 Proof.
   intros. unfold vertex_size, lgraph_copy_v. simpl.
@@ -2757,7 +2532,7 @@ Proof.
   - rewrite lacv_vlabel_new. reflexivity.
 Qed.
 
-Lemma lcv_vertex_size_old: forall (g : LGraph) (v : Addr) (to : nat) x,
+Lemma lcv_vertex_size_old: forall (g : HeapGraph) (v : Addr) (to : nat) x,
         graph_has_gen g to -> graph_has_v g x ->
         vertex_size (lgraph_copy_v g v to) x = vertex_size g x.
 Proof.
@@ -2771,11 +2546,11 @@ Qed.
 Lemma lcv_pvs_same: forall g v to,
     graph_has_gen g to ->
     previous_vertices_size (lgraph_copy_v g v to) to
-                           (number_of_vertices (nth_gen (lgraph_copy_v g v to) to)) =
-    previous_vertices_size g to (number_of_vertices (nth_gen g to)) + vertex_size g v.
+                           (generation_block_count (nth_gen (lgraph_copy_v g v to) to)) =
+    previous_vertices_size g to (generation_block_count (nth_gen g to)) + vertex_size g v.
 Proof.
   intros. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption. simpl.
-  remember (number_of_vertices (nth to (g_gen (glabel g)) null_info)).
+  remember (generation_block_count (nth to (generations (glabel g)) null_generation)).
   replace (n + 1)%nat with (S n) by lia. rewrite pvs_S. f_equal.
   - unfold previous_vertices_size. apply fold_left_ext. intros.
     unfold vertex_size_accum. f_equal. apply lcv_vertex_size_old. 1: assumption.
@@ -2788,11 +2563,11 @@ Qed.
 Lemma lcv_pvs_old: forall g v to gen,
     gen <> to -> graph_has_gen g to -> graph_has_gen g gen ->
     previous_vertices_size (lgraph_copy_v g v to) gen
-                           (number_of_vertices (nth_gen (lgraph_copy_v g v to) gen)) =
-    previous_vertices_size g gen (number_of_vertices (nth_gen g gen)).
+                           (generation_block_count (nth_gen (lgraph_copy_v g v to) gen)) =
+    previous_vertices_size g gen (generation_block_count (nth_gen g gen)).
 Proof.
   intros. unfold nth_gen. simpl. rewrite cvmgil_not_eq by assumption.
-  remember (number_of_vertices (nth gen (g_gen (glabel g)) null_info)).
+  remember (generation_block_count (nth gen (generations (glabel g)) null_generation)).
   unfold previous_vertices_size. apply fold_left_ext. intros.
   unfold vertex_size_accum. f_equal. apply lcv_vertex_size_old. 1: assumption.
   rewrite nat_inc_list_In_iff in H2. subst. split; simpl; assumption.
@@ -2800,8 +2575,8 @@ Qed.
 
 Lemma lcv_graph_thread_info_compatible: forall
     g t_info v to
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v)),
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
     graph_has_gen g to ->
     graph_thread_info_compatible g t_info ->
     graph_thread_info_compatible (lgraph_copy_v g v to)
@@ -2809,11 +2584,11 @@ Lemma lcv_graph_thread_info_compatible: forall
                        Hi Hh).
 Proof.
   unfold graph_thread_info_compatible. intros. destruct H0 as [? [? ?]].
-  assert (map space_start (spaces (ti_heap t_info)) =
-          map space_start
-              (upd_Znth (Z.of_nat to) (spaces (ti_heap t_info))
+  assert (map space_base (heap_spaces (ti_heap t_info)) =
+          map space_base
+              (upd_Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))
                         (cut_space
-                           (Znth (Z.of_nat to) (spaces (ti_heap t_info)))
+                           (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info)))
                            (vertex_size g v) Hh))). {
     rewrite <- upd_Znth_map. simpl. rewrite <- Znth_map by assumption.
     rewrite upd_Znth_unchanged; [reflexivity | rewrite Zlength_map; assumption]. }
@@ -2827,18 +2602,18 @@ Proof.
         -- subst gen. rewrite cvmgil_eq; simpl; assumption.
         -- rewrite cvmgil_not_eq; assumption.
       * assert (map space_sh
-                    (upd_Znth (Z.of_nat to) (spaces (ti_heap t_info))
+                    (upd_Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))
                               (cut_space
-                                 (Znth (Z.of_nat to) (spaces (ti_heap t_info)))
+                                 (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info)))
                                  (vertex_size g v) Hh)) =
-                map space_sh (spaces (ti_heap t_info))). {
+                map space_sh (heap_spaces (ti_heap t_info))). {
           rewrite <- upd_Znth_map. simpl. rewrite <- Znth_map by assumption.
           rewrite upd_Znth_unchanged; [reflexivity|rewrite Zlength_map; assumption]. }
         rewrite <- map_nth, H7, map_nth. clear -H5 H. unfold nth_gen, nth_space in *.
         simpl. destruct (Nat.eq_dec gen to).
         -- subst gen. rewrite cvmgil_eq; simpl; assumption.
         -- rewrite cvmgil_not_eq; assumption.
-      * assert (0 <= Z.of_nat gen < Zlength (spaces (ti_heap t_info))). {
+      * assert (0 <= Z.of_nat gen < Zlength (heap_spaces (ti_heap t_info))). {
           split. 1: apply Nat2Z.is_nonneg. rewrite Zlength_correct.
           apply inj_lt. red in H4. lia. }
         rewrite <- (Nat2Z.id gen) at 3. rewrite nth_Znth.
@@ -2857,8 +2632,8 @@ Qed.
 
 Lemma lcv_super_compatible_unchanged: forall
     g t_info roots f_info outlier to v
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v)),
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
     graph_has_gen g to -> graph_has_v g v ->
     super_compatible (g, t_info, roots) f_info outlier ->
     super_compatible
@@ -2875,8 +2650,8 @@ Qed.
 
 Lemma lcv_super_compatible: forall
     g t_info roots f_info outlier to v z
-    (Hi : 0 <= Z.of_nat to < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (spaces (ti_heap t_info))) (vertex_size g v))
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
     (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
     graph_has_gen g to -> graph_has_v g v ->
     super_compatible (g, t_info, roots) f_info outlier ->
@@ -2917,14 +2692,14 @@ Lemma utia_ti_heap: forall t_info i ad (Hm : 0 <= i < MAX_ARGS),
 Proof. intros. simpl. reflexivity. Qed.
 
 Lemma cti_space_not_eq: forall t_info i s n
-    (Hi : 0 <= i < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i (spaces (ti_heap t_info))) s),
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s),
     (Z.of_nat n) <> i ->
     nth_space (cut_thread_info t_info i s Hi Hh) n = nth_space t_info n.
 Proof.
   intros. rewrite !nth_space_Znth. simpl.
   pose proof (Nat2Z.is_nonneg n). remember (Z.of_nat n). clear Heqz.
-  remember (spaces (ti_heap t_info)). destruct (Z_lt_le_dec z (Zlength l)).
+  remember (heap_spaces (ti_heap t_info)). destruct (Z_lt_le_dec z (Zlength l)).
   - assert (0 <= z < Zlength l) by lia.
     rewrite upd_Znth_diff; [reflexivity |assumption..].
   - rewrite !Znth_overflow;
@@ -2932,18 +2707,18 @@ Proof.
 Qed.
 
 Lemma cti_space_eq: forall t_info i s
-    (Hi : 0 <= Z.of_nat i < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat i) (spaces (ti_heap t_info))) s),
+    (Hi : 0 <= Z.of_nat i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat i) (heap_spaces (ti_heap t_info))) s),
     nth_space (cut_thread_info t_info (Z.of_nat i) s Hi Hh) i =
-    cut_space (Znth (Z.of_nat i) (spaces (ti_heap t_info))) s Hh.
+    cut_space (Znth (Z.of_nat i) (heap_spaces (ti_heap t_info))) s Hh.
 Proof.
   intros. rewrite nth_space_Znth. simpl. rewrite upd_Znth_same by assumption.
   reflexivity.
 Qed.
 
 Lemma cti_gen_size: forall t_info i s n
-    (Hi : 0 <= i < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i (spaces (ti_heap t_info))) s),
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s),
     gen_size (cut_thread_info t_info i s Hi Hh) n =
     gen_size t_info n.
 Proof.
@@ -2952,11 +2727,11 @@ Proof.
   - rewrite cti_space_not_eq; [reflexivity | assumption].
 Qed.
 
-Lemma cti_space_start: forall t_info i s  n
-    (Hi : 0 <= i < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i (spaces (ti_heap t_info))) s),
-    space_start (nth_space (cut_thread_info t_info i s Hi Hh) n) =
-    space_start (nth_space t_info n).
+Lemma cti_space_base: forall t_info i s  n
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s),
+    space_base (nth_space (cut_thread_info t_info i s Hi Hh) n) =
+    space_base (nth_space t_info n).
 Proof.
   intros. destruct (Z.eq_dec (Z.of_nat n) i).
   - subst i. rewrite cti_space_eq. simpl. rewrite nth_space_Znth. reflexivity.
@@ -2964,8 +2739,8 @@ Proof.
 Qed.
 
 Lemma utiacti_gen_size: forall t_info i1 i2 s ad n
-    (Hi : 0 <= i1 < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i1 (spaces (ti_heap t_info))) s)
+    (Hi : 0 <= i1 < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i1 (heap_spaces (ti_heap t_info))) s)
     (Hm : 0 <= i2 < MAX_ARGS),
     gen_size (update_thread_info_arg (cut_thread_info t_info i1 s Hi Hh) i2 ad Hm) n =
     gen_size t_info n.
@@ -2973,18 +2748,18 @@ Proof.
   intros. unfold gen_size, nth_space. rewrite utia_ti_heap. apply cti_gen_size.
 Qed.
 
-Lemma utiacti_space_start: forall t_info i1 i2 s ad n
-    (Hi : 0 <= i1 < Zlength (spaces (ti_heap t_info)))
-    (Hh : has_space (Znth i1 (spaces (ti_heap t_info))) s)
+Lemma utiacti_space_base: forall t_info i1 i2 s ad n
+    (Hi : 0 <= i1 < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i1 (heap_spaces (ti_heap t_info))) s)
     (Hm : 0 <= i2 < MAX_ARGS),
-    space_start
+    space_base
       (nth_space (update_thread_info_arg (cut_thread_info t_info i1 s Hi Hh) i2 ad Hm)
-                 n) = space_start (nth_space t_info n).
-Proof. intros. unfold nth_space. rewrite utia_ti_heap. apply cti_space_start. Qed.
+                 n) = space_base (nth_space t_info n).
+Proof. intros. unfold nth_space. rewrite utia_ti_heap. apply cti_space_base. Qed.
 
 Definition thread_info_relation t t':=
   ti_heap_p t = ti_heap_p t' /\ (forall n, gen_size t n = gen_size t' n) /\
-  forall n, space_start (nth_space t n) = space_start (nth_space t' n).
+  forall n, space_base (nth_space t n) = space_base (nth_space t' n).
 
 Lemma tir_id: forall t, thread_info_relation t t.
 Proof. intros. red. split; [|split]; reflexivity. Qed.
@@ -3010,16 +2785,16 @@ Lemma lgd_graph_has_gen: forall g e v x,
     graph_has_gen (labeledgraph_gen_dst g e v) x <-> graph_has_gen g x.
 Proof. intros; unfold graph_has_gen; intuition. Qed.
 
-Lemma lgd_raw_fld_length_eq: forall (g: LGraph) v e v',
-    Zlength (raw_fields (vlabel g v)) =
-    Zlength (raw_fields (vlabel (labeledgraph_gen_dst g e v') v)).
+Lemma lgd_raw_fld_length_eq: forall (g: HeapGraph) v e v',
+    Zlength (block_fields (vlabel g v)) =
+    Zlength (block_fields (vlabel (labeledgraph_gen_dst g e v') v)).
 Proof. reflexivity. Qed.
 
 Lemma lgd_vertex_address_eq: forall g e v' x,
     vertex_address (labeledgraph_gen_dst g e v') x = vertex_address g x.
 Proof. reflexivity. Qed.
 
-Lemma lgd_make_fields_eq: forall (g : LGraph) (v v': Addr) e,
+Lemma lgd_make_fields_eq: forall (g : HeapGraph) (v v': Addr) e,
     make_fields (labeledgraph_gen_dst g e v') v = make_fields g v.
 Proof. reflexivity. Qed.
 
@@ -3027,17 +2802,17 @@ Lemma lgd_make_header_eq: forall g e v' x,
     make_header g x = make_header (labeledgraph_gen_dst g e v') x.
 Proof. reflexivity. Qed.
 
-Lemma lgd_raw_mark_eq: forall (g: LGraph) e (v v' : Addr),
-    raw_mark (vlabel g v) = raw_mark (vlabel (labeledgraph_gen_dst g e v') v).
+Lemma lgd_block_mark_eq: forall (g: HeapGraph) e (v v' : Addr),
+    block_mark (vlabel g v) = block_mark (vlabel (labeledgraph_gen_dst g e v') v).
 Proof. reflexivity. Qed.
 
-Lemma lgd_dst_old: forall (g: LGraph) e v e',
+Lemma lgd_dst_old: forall (g: HeapGraph) e v e',
     e <> e' -> dst (labeledgraph_gen_dst g e v) e' = dst g e'.
 Proof.
   intros. simpl. unfold updateEdgeFunc. rewrite if_false. 1: reflexivity. auto.
 Qed.
 
-Lemma lgd_dst_new: forall (g: LGraph) e v,
+Lemma lgd_dst_new: forall (g: HeapGraph) e v,
     dst (labeledgraph_gen_dst g e v) e = v.
 Proof. intros. simpl. unfold updateEdgeFunc. rewrite if_true; reflexivity. Qed.
 
@@ -3102,7 +2877,7 @@ Qed.
 
 Lemma lgd_mfv_change_in_one_spot: forall g v e v' n,
     0 <= n < Zlength (make_fields g v) ->
-    raw_mark (vlabel g v) = false ->
+    block_mark (vlabel g v) = false ->
     Znth n (make_fields g v) = inr e ->
     upd_Znth n (make_fields_vals g v) (vertex_address g v') =
     (make_fields_vals (labeledgraph_gen_dst g e v') v).
@@ -3116,8 +2891,8 @@ Proof.
   split. 1: rewrite fields_eq_length; reflexivity.
   intros.
   unfold make_fields_vals.
-  replace (raw_mark (vlabel (labeledgraph_gen_dst g e v') v))
-    with (raw_mark (vlabel g v)) by reflexivity.
+  replace (block_mark (vlabel (labeledgraph_gen_dst g e v') v))
+    with (block_mark (vlabel g v)) by reflexivity.
   rewrite H0; rewrite <- make_fields_eq_length in H2.
   apply lgd_f2v_eq_after_update; assumption.
 Qed.
@@ -3135,12 +2910,12 @@ Qed.
 Lemma lgd_no_dangling_dst_copied_vert: forall g e v,
     copy_compatible g ->
     graph_has_v g v ->
-    raw_mark (vlabel g v) = true ->
+    block_mark (vlabel g v) = true ->
     no_dangling_dst g ->
-    no_dangling_dst (labeledgraph_gen_dst g e (copied_vertex (vlabel g v))).
+    no_dangling_dst (labeledgraph_gen_dst g e (block_copied_vertex (vlabel g v))).
 Proof.
   intros.
-  assert (graph_has_v g (copied_vertex (vlabel g v))) by apply (H v H0 H1).
+  assert (graph_has_v g (block_copied_vertex (vlabel g v))) by apply (H v H0 H1).
   apply lgd_no_dangling_dst; assumption.
 Qed.
 
@@ -3185,14 +2960,14 @@ Lemma lgd_roots_compatible: forall g outlier roots e v,
 Proof. intros. destruct H. split; [|apply lgd_rgc]; assumption. Qed.
 
 Lemma lgd_graph_thread_info_compatible:
-  forall (g : LGraph) (t_info : thread_info) e (v' : Addr),
+  forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr),
   graph_thread_info_compatible g t_info ->
   graph_thread_info_compatible (labeledgraph_gen_dst g e v') t_info.
 Proof.
   intros; destruct H; split; assumption. Qed.
 
 Lemma lgd_fun_thread_arg_compatible:
-  forall (g : LGraph) (t_info : thread_info) e (v' : Addr) f_info roots,
+  forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr) f_info roots,
     fun_thread_arg_compatible g t_info f_info roots ->
     fun_thread_arg_compatible (labeledgraph_gen_dst g e v') t_info f_info roots.
 Proof.
@@ -3201,7 +2976,7 @@ Proof.
 Qed.
 
 Lemma lgd_outlier_compatible:
-  forall (g : LGraph) (t_info : thread_info) e (v' : Addr) outlier,
+  forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr) outlier,
     outlier_compatible g outlier ->
     outlier_compatible (labeledgraph_gen_dst g e v') outlier.
 Proof.
@@ -3223,7 +2998,7 @@ Proof.
 Qed.
 
 Lemma fr_general_prop_bootstrap: forall depth from to p g g'
-                                        (P: nat -> LGraph -> LGraph -> Prop),
+                                        (P: nat -> HeapGraph -> HeapGraph -> Prop),
     (forall to g, P to g g) ->
     (forall to g1 g2 g3, P to g1 g2 -> P to g2 g3 -> P to g1 g3) ->
     (forall to g e v, P to g (labeledgraph_gen_dst g e v)) ->
@@ -3281,13 +3056,13 @@ Proof.
 Qed.
 
 Lemma fr_general_prop:
-  forall depth from to p g g' A (Q: LGraph -> A -> nat -> Prop)
-         (P: LGraph -> LGraph -> A -> Prop) (R: nat -> nat -> Prop),
+  forall depth from to p g g' A (Q: HeapGraph -> A -> nat -> Prop)
+         (P: HeapGraph -> HeapGraph -> A -> Prop) (R: nat -> nat -> Prop),
     R from to -> graph_has_gen g to -> (forall g v, P g g v) ->
     (forall g1 g2 g3 v, P g1 g2 v -> P g2 g3 v -> P g1 g3 v) ->
     (forall g e v x, P g (labeledgraph_gen_dst g e v) x) ->
     (forall from g v to x,
-        graph_has_gen g to -> Q g x from -> (vlabel g v).(raw_mark) = false ->
+        graph_has_gen g to -> Q g x from -> (vlabel g v).(block_mark) = false ->
         R from to -> addr_gen v = from -> P g (lgraph_copy_v g v to) x) ->
     (forall depth from to p g g',
         graph_has_gen g to -> forward_relation from to depth p g g' ->
@@ -3339,7 +3114,7 @@ Lemma fr_gen_start: forall depth from to p g g',
     graph_has_gen g to -> forward_relation from to depth p g g' ->
     forall x, gen_start g x = gen_start g' x.
 Proof.
-  intros. remember (fun (g: LGraph) (v: nat) (x: nat) => True) as Q.
+  intros. remember (fun (g: HeapGraph) (v: nat) (x: nat) => True) as Q.
   remember (fun g1 g2 x => gen_start g1 x = gen_start g2 x) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
@@ -3375,7 +3150,7 @@ Lemma fr_closure_has_v: forall depth from to p g g',
     graph_has_gen g to -> forward_relation from to depth p g g' ->
     forall v, closure_has_v g v -> closure_has_v g' v.
 Proof.
-  intros. remember (fun (g: LGraph) (v: Addr) (x: nat) => True) as Q.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
   remember (fun g1 g2 v => closure_has_v g1 v -> closure_has_v g2 v) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
@@ -3388,7 +3163,7 @@ Lemma fr_graph_has_v: forall depth from to p g g',
     graph_has_gen g to -> forward_relation from to depth p g g' ->
     forall v, graph_has_v g v -> graph_has_v g' v.
 Proof.
-  intros. remember (fun (g: LGraph) (v: Addr) (x: nat) => True) as Q.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
   remember (fun g1 g2 v => graph_has_v g1 v -> graph_has_v g2 v) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
@@ -3437,8 +3212,8 @@ Proof.
     + eapply fr_closure_has_v; eauto.
 Qed.
 
-Lemma lmc_raw_fields: forall g old new x,
-    raw_fields (vlabel g x) = raw_fields (vlabel (lgraph_mark_copied g old new) x).
+Lemma lmc_block_fields: forall g old new x,
+    block_fields (vlabel g x) = block_fields (vlabel (lgraph_mark_copied g old new) x).
 Proof.
   intros. destruct (Addr_EqDec old x).
   - unfold equiv in e. subst. simpl. unfold update_copied_old_vlabel, update_vlabel.
@@ -3447,11 +3222,11 @@ Proof.
     rewrite lmc_vlabel_not_eq; [reflexivity | assumption].
 Qed.
 
-Lemma lcv_raw_fields: forall g v to x,
+Lemma lcv_block_fields: forall g v to x,
     graph_has_gen g to -> graph_has_v g x ->
-    raw_fields (vlabel g x) = raw_fields (vlabel (lgraph_copy_v g v to) x).
+    block_fields (vlabel g x) = block_fields (vlabel (lgraph_copy_v g v to) x).
 Proof.
-  intros. unfold lgraph_copy_v. rewrite <- lmc_raw_fields, lacv_vlabel_old.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_block_fields, lacv_vlabel_old.
   1: reflexivity. apply graph_has_v_not_eq; assumption.
 Qed.
 
@@ -3462,68 +3237,68 @@ Lemma lcv_mfv_Zlen_eq: forall g v v' to,
     Zlength (make_fields_vals (lgraph_copy_v g v' to) v).
 Proof.
   intros. repeat rewrite fields_eq_length.
-  rewrite <- lcv_raw_fields by assumption; reflexivity.
+  rewrite <- lcv_block_fields by assumption; reflexivity.
 Qed.
 
-Lemma fr_raw_fields: forall depth from to p g g',
+Lemma fr_block_fields: forall depth from to p g g',
     graph_has_gen g to -> forward_relation from to depth p g g' ->
-    forall v, graph_has_v g v -> raw_fields (vlabel g v) = raw_fields (vlabel g' v).
+    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
 Proof.
-  intros. remember (fun (g: LGraph) (v: Addr) (x: nat) => graph_has_v g v) as Q.
-  remember (fun (g1 g2: LGraph) v =>
-              raw_fields (vlabel g1 v) = raw_fields (vlabel g2 v)) as P.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => graph_has_v g v) as Q.
+  remember (fun (g1 g2: HeapGraph) v =>
+              block_fields (vlabel g1 v) = block_fields (vlabel g2 v)) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H2; clear H2; intros; try assumption; try reflexivity.
   - rewrite H2. apply H3.
-  - rewrite <- lcv_raw_fields; [reflexivity | assumption..].
+  - rewrite <- lcv_block_fields; [reflexivity | assumption..].
   - apply (fr_graph_has_v _ _ _ _ _ _ H2 H3 _ H4).
   - apply lcv_graph_has_v_old; assumption.
 Qed.
 
-Lemma fl_raw_fields: forall from to depth l g g',
+Lemma fl_block_fields: forall from to depth l g g',
     graph_has_gen g to -> forward_loop from to depth l g g' ->
-    forall v, graph_has_v g v -> raw_fields (vlabel g v) = raw_fields (vlabel g' v).
+    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
 Proof.
   intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
-  1: reflexivity. transitivity (raw_fields (vlabel g2 v)).
-  - apply (fr_raw_fields _ _ _ _ _ _ H H5 _ H1).
+  1: reflexivity. transitivity (block_fields (vlabel g2 v)).
+  - apply (fr_block_fields _ _ _ _ _ _ H H5 _ H1).
   - apply IHl; [|assumption|].
     + erewrite <- fr_graph_has_gen; eauto.
     + eapply fr_graph_has_v; eauto.
 Qed.
 
-Lemma lmc_raw_mark: forall g old new x,
-    x <> old -> raw_mark (vlabel g x) =
-                raw_mark (vlabel (lgraph_mark_copied g old new) x).
+Lemma lmc_block_mark: forall g old new x,
+    x <> old -> block_mark (vlabel g x) =
+                block_mark (vlabel (lgraph_mark_copied g old new) x).
 Proof.
   intros. destruct (Addr_EqDec x old).
   - unfold equiv in e. contradiction.
   - rewrite lmc_vlabel_not_eq; [reflexivity | assumption].
 Qed.
 
-Lemma lcv_raw_mark: forall g v to x,
+Lemma lcv_block_mark: forall g v to x,
     x <> v -> graph_has_gen g to -> graph_has_v g x ->
-    raw_mark (vlabel g x) = raw_mark (vlabel (lgraph_copy_v g v to) x).
+    block_mark (vlabel g x) = block_mark (vlabel (lgraph_copy_v g v to) x).
 Proof.
-  intros. unfold lgraph_copy_v. rewrite <- lmc_raw_mark by assumption.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_block_mark by assumption.
   rewrite lacv_vlabel_old. 1: reflexivity. apply graph_has_v_not_eq; assumption.
 Qed.
 
-Lemma fr_raw_mark: forall depth from to p g g',
+Lemma fr_block_mark: forall depth from to p g g',
     graph_has_gen g to -> forward_relation from to depth p g g' ->
     forall v, graph_has_v g v -> addr_gen v <> from ->
-              raw_mark (vlabel g v) = raw_mark (vlabel g' v).
+              block_mark (vlabel g v) = block_mark (vlabel g' v).
 Proof.
-  intros. remember (fun (g: LGraph) (v: Addr) (x: nat) =>
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) =>
                       graph_has_v g v /\ addr_gen v <> x) as Q.
-  remember (fun (g1 g2: LGraph) v =>
-              raw_mark (vlabel g1 v) = raw_mark (vlabel g2 v)) as P.
+  remember (fun (g1 g2: HeapGraph) v =>
+              block_mark (vlabel g1 v) = block_mark (vlabel g2 v)) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H3; clear H3; intros; try assumption; try reflexivity.
   - rewrite H3. apply H4.
-  - destruct H4. rewrite <- lcv_raw_mark; [reflexivity | try assumption..].
+  - destruct H4. rewrite <- lcv_block_mark; [reflexivity | try assumption..].
     destruct x, v0. simpl in *. intro. inversion H9. subst. contradiction.
   - destruct H5. split. 2: assumption.
     apply (fr_graph_has_v _ _ _ _ _ _ H3 H4 _ H5).
@@ -3531,14 +3306,14 @@ Proof.
   - split; assumption.
 Qed.
 
-Lemma fl_raw_mark: forall depth from to l g g',
+Lemma fl_block_mark: forall depth from to l g g',
     graph_has_gen g to -> forward_loop from to depth l g g' ->
     forall v, graph_has_v g v -> addr_gen v <> from ->
-              raw_mark (vlabel g v) = raw_mark (vlabel g' v).
+              block_mark (vlabel g v) = block_mark (vlabel g' v).
 Proof.
   intros. revert g g' H H0 v H1 H2. induction l; intros; inversion H0; subst.
-  1: reflexivity. transitivity (raw_mark (vlabel g2 v)).
-  - apply (fr_raw_mark _ _ _ _ _ _ H H6 _ H1 H2).
+  1: reflexivity. transitivity (block_mark (vlabel g2 v)).
+  - apply (fr_block_mark _ _ _ _ _ _ H H6 _ H1 H2).
   - apply IHl; [|assumption| |assumption].
     + erewrite <- fr_graph_has_gen; eauto.
     + eapply fr_graph_has_v; eauto.
@@ -3565,7 +3340,7 @@ Proof.
 Qed.
 
 Lemma vpp_Zlength: forall g x,
-    Zlength (vertex_pos_pairs g x) = Zlength (raw_fields (vlabel g x)).
+    Zlength (vertex_pos_pairs g x) = Zlength (block_fields (vlabel g x)).
 Proof.
   intros. unfold vertex_pos_pairs.
   rewrite Zlength_map, !Zlength_correct, nat_inc_list_length. reflexivity.
@@ -3573,12 +3348,12 @@ Qed.
 
 Instance forward_p_type_Inhabitant: Inhabitant forward_p_type := inl 0.
 
-Lemma vpp_Znth: forall (x : Addr) (g : LGraph) (i : Z),
-    0 <= i < Zlength (raw_fields (vlabel g x)) ->
+Lemma vpp_Znth: forall (x : Addr) (g : HeapGraph) (i : Z),
+    0 <= i < Zlength (block_fields (vlabel g x)) ->
     Znth i (vertex_pos_pairs g x) = inr (x, i).
 Proof.
   intros. unfold vertex_pos_pairs.
-  assert (0 <= i < Zlength (nat_inc_list (length (raw_fields (vlabel g x))))) by
+  assert (0 <= i < Zlength (nat_inc_list (length (block_fields (vlabel g x))))) by
       (rewrite Zlength_correct, nat_inc_list_length, <- Zlength_correct; assumption).
   rewrite Znth_map by assumption. do 2 f_equal. rewrite <- nth_Znth by assumption.
   rewrite nat_inc_list_nth. 1: rewrite Z2Nat.id; lia.
@@ -3586,7 +3361,7 @@ Proof.
 Qed.
 
 Lemma forward_loop_add_tail_vpp: forall from to depth x g g1 g2 g3 roots i,
-    0 <= i < Zlength (raw_fields (vlabel g x)) ->
+    0 <= i < Zlength (block_fields (vlabel g x)) ->
     forward_loop from to depth (sublist 0 i (vertex_pos_pairs g x)) g1 g2 ->
     forward_relation from to depth (forward_p2forward_t (inr (x, i)) roots g2) g2 g3 ->
     forward_loop from to depth (sublist 0 (i + 1) (vertex_pos_pairs g x)) g1 g3.
@@ -3606,7 +3381,7 @@ Proof.
 Qed.
 
 Inductive scan_vertex_for_loop (from to: nat) (v: Addr):
-  list nat -> LGraph -> LGraph -> Prop :=
+  list nat -> HeapGraph -> HeapGraph -> Prop :=
 | svfl_nil: forall g, scan_vertex_for_loop from to v nil g g
 | svfl_cons: forall g1 g2 g3 i il,
   forward_relation
@@ -3614,11 +3389,11 @@ Inductive scan_vertex_for_loop (from to: nat) (v: Addr):
   scan_vertex_for_loop from to v il g2 g3 ->
   scan_vertex_for_loop from to v (i :: il) g1 g3.
 
-Definition no_scan (g: LGraph) (v: Addr): Prop :=
-  NO_SCAN_TAG <= (vlabel g v).(raw_tag).
+Definition no_scan (g: HeapGraph) (v: Addr): Prop :=
+  NO_SCAN_TAG <= (vlabel g v).(block_tag).
 
 Inductive scan_vertex_while_loop (from to: nat):
-  list nat -> LGraph -> LGraph -> Prop :=
+  list nat -> HeapGraph -> HeapGraph -> Prop :=
 | svwl_nil: forall g, scan_vertex_while_loop from to nil g g
 | svwl_no_scan: forall g1 g2 i il,
     gen_has_index g1 to i -> no_scan g1 {| addr_gen := to; addr_block := i |} ->
@@ -3628,19 +3403,19 @@ Inductive scan_vertex_while_loop (from to: nat):
     gen_has_index g1 to i -> ~ no_scan g1 {| addr_gen := to; addr_block := i|} ->
     scan_vertex_for_loop
       from to {| addr_gen := to; addr_block := i|}
-      (nat_inc_list (length (vlabel g1 {| addr_gen := to; addr_block := i|}).(raw_fields))) g1 g2 ->
+      (nat_inc_list (length (vlabel g1 {| addr_gen := to; addr_block := i|}).(block_fields))) g1 g2 ->
     scan_vertex_while_loop from to il g2 g3 ->
     scan_vertex_while_loop from to (i :: il) g1 g3.
 
-Definition do_scan_relation (from to to_index: nat) (g1 g2: LGraph) : Prop :=
+Definition do_scan_relation (from to to_index: nat) (g1 g2: HeapGraph) : Prop :=
   exists n, scan_vertex_while_loop from to (nat_seq to_index n) g1 g2 /\
             ~ gen_has_index g2 to (to_index + n).
 
-Definition gen_unmarked (g: LGraph) (gen: nat): Prop :=
+Definition gen_unmarked (g: HeapGraph) (gen: nat): Prop :=
   graph_has_gen g gen ->
-  forall idx, gen_has_index g gen idx -> (vlabel g {| addr_gen := gen; addr_block := idx |}).(raw_mark) = false.
+  forall idx, gen_has_index g gen idx -> (vlabel g {| addr_gen := gen; addr_block := idx |}).(block_mark) = false.
 
-Lemma lcv_graph_has_v_inv: forall (g : LGraph) (v : Addr) (to : nat) (x : Addr),
+Lemma lcv_graph_has_v_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
     graph_has_gen g to -> graph_has_v (lgraph_copy_v g v to) x ->
     graph_has_v g x \/ x = new_copied_v g to.
 Proof.
@@ -3648,8 +3423,8 @@ Proof.
   apply (lacv_graph_has_v_inv g v); assumption.
 Qed.
 
-Lemma lcv_gen_unmarked: forall (to : nat) (g : LGraph) (v : Addr),
-    graph_has_gen g to -> raw_mark (vlabel g v) = false ->
+Lemma lcv_gen_unmarked: forall (to : nat) (g : HeapGraph) (v : Addr),
+    graph_has_gen g to -> block_mark (vlabel g v) = false ->
     forall gen, addr_gen v <> gen ->
                 gen_unmarked g gen -> gen_unmarked (lgraph_copy_v g v to) gen.
 Proof.
@@ -3657,7 +3432,7 @@ Proof.
   assert (graph_has_v (lgraph_copy_v g v to) {| addr_gen := gen; addr_block := idx |}) by (split; assumption).
   apply lcv_graph_has_v_inv in H5. 2: assumption. destruct H5.
   - pose proof H5. destruct H6. simpl in * |- . specialize (H2 H6 _ H7).
-    rewrite <- lcv_raw_mark; try assumption. destruct v. simpl in *. intro. apply H1.
+    rewrite <- lcv_block_mark; try assumption. destruct v. simpl in *. intro. apply H1.
     inversion H8. reflexivity.
   - rewrite H5. rewrite lcv_vlabel_new; try assumption. unfold new_copied_v in H5.
     inversion H5. subst. assumption.
@@ -3667,8 +3442,8 @@ Lemma fr_gen_unmarked: forall from to depth p g g',
     graph_has_gen g to -> forward_relation from to depth p g g' ->
     forall gen, from  <> gen -> gen_unmarked g gen -> gen_unmarked g' gen.
 Proof.
-  intros. remember (fun (g: LGraph) (gen: nat) (x: nat) => x <> gen) as Q.
-  remember (fun (g1 g2: LGraph) gen =>
+  intros. remember (fun (g: HeapGraph) (gen: nat) (x: nat) => x <> gen) as Q.
+  remember (fun (g1 g2: HeapGraph) gen =>
               gen_unmarked g1 gen -> gen_unmarked g2 gen) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
@@ -3747,23 +3522,23 @@ Proof.
 Qed.
 
 Lemma make_header_tag: forall g v,
-    raw_mark (vlabel g v) = false ->
+    block_mark (vlabel g v) = false ->
     if Archi.ptr64 then
         Int64.and (Int64.repr (make_header g v)) (Int64.repr 255) =
-        Int64.repr (raw_tag (vlabel g v))
+        Int64.repr (block_tag (vlabel g v))
     else Int.and (Int.repr (make_header g v)) (Int.repr 255) =
-         Int.repr (raw_tag (vlabel g v)).
+         Int.repr (block_tag (vlabel g v)).
 Proof.
   intros. cbv delta [Archi.ptr64]. simpl.
   first [rewrite make_header_tag_prep32 | rewrite make_header_tag_prep64].
   2: apply make_header_range.
-  unfold make_header in *. remember (vlabel g v). clear Heqr.
+  unfold make_header in *. remember (vlabel g v) as r eqn:E. clear E.
   rewrite H, !Zbits.Zshiftl_mul_two_p in * by lia. rewrite <- Z.add_assoc.
-  replace (raw_color r * two_p 8 + Zlength (raw_fields r) * two_p 10)
-    with ((raw_color r + Zlength (raw_fields r) * two_p 2) * two_p 8) by
+  replace (block_color r * two_p 8 + Zlength (block_fields r) * two_p 10)
+    with ((block_color r + Zlength (block_fields r) * two_p 2) * two_p 8) by
       (rewrite Z.mul_add_distr_r, <- Z.mul_assoc, <- two_p_is_exp by lia;
        reflexivity). rewrite Z.div_add by (vm_compute; intros S; inversion S).
-  assert (raw_tag r / two_p 8 = 0) by (apply Z.div_small, raw_tag_range).
+  assert (block_tag r / two_p 8 = 0) by (apply Z.div_small, block_tag__range).
   rewrite H0, Z.add_0_l.
   first [rewrite mul_repr, sub_repr | rewrite mul64_repr, sub64_repr].
   now rewrite <- Z.add_sub_assoc, Z.sub_diag, Z.add_0_r.
@@ -3792,29 +3567,29 @@ Proof.
   eapply (IHl from to _ g2) in H7; eauto.
 Qed.
 
-Lemma svfl_raw_fields: forall from to v l g g',
+Lemma svfl_block_fields: forall from to v l g g',
     graph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
-    forall x, graph_has_v g x -> raw_fields (vlabel g x) = raw_fields (vlabel g' x).
+    forall x, graph_has_v g x -> block_fields (vlabel g x) = block_fields (vlabel g' x).
 Proof.
   do 4 intro. revert from to v. induction l; intros; simpl; inversion H0; subst.
   1: reflexivity. assert (graph_has_gen g2 to) by
       (eapply fr_graph_has_gen in H4; [rewrite <- H4 |]; assumption).
   assert (graph_has_v g2 x) by (eapply fr_graph_has_v in H4; eauto).
   eapply (IHl from to _ g2) in H7; eauto. rewrite <- H7.
-  eapply fr_raw_fields; eauto.
+  eapply fr_block_fields; eauto.
 Qed.
 
-Lemma svfl_raw_mark: forall from to v l g g',
+Lemma svfl_block_mark: forall from to v l g g',
     graph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
     forall x, graph_has_v g x -> addr_gen x <> from ->
-              raw_mark (vlabel g x) = raw_mark (vlabel g' x).
+              block_mark (vlabel g x) = block_mark (vlabel g' x).
 Proof.
   do 4 intro. revert from to v. induction l; intros; simpl; inversion H0; subst.
   1: reflexivity. assert (graph_has_gen g2 to) by
       (eapply fr_graph_has_gen in H5; [rewrite <- H5 |]; assumption).
   assert (graph_has_v g2 x) by (eapply fr_graph_has_v in H5; eauto).
   eapply (IHl from to _ g2) in H8; eauto. rewrite <- H8.
-  eapply fr_raw_mark; eauto.
+  eapply fr_block_mark; eauto.
 Qed.
 
 Lemma forward_p2t_inr_roots: forall v n roots g,
@@ -3849,7 +3624,7 @@ Lemma svwl_add_tail_scan: forall from to l g1 g2 g3 i,
     ~ no_scan g2 {| addr_gen := to; addr_block := i |} ->
     scan_vertex_for_loop
       from to {| addr_gen := to; addr_block := i |}
-      (nat_inc_list (length (raw_fields (vlabel g2 {| addr_gen := to; addr_block := i |}))))
+      (nat_inc_list (length (block_fields (vlabel g2 {| addr_gen := to; addr_block := i |}))))
       g2 g3 ->
     scan_vertex_while_loop from to (l +:: i) g1 g3.
 Proof.
@@ -3868,9 +3643,9 @@ Proof.
 Qed.
 
 Definition do_generation_relation (from to: nat) (f_info: fun_info)
-           (roots roots': roots_t) (g g': LGraph): Prop := exists g1 g2,
+           (roots roots': roots_t) (g g': HeapGraph): Prop := exists g1 g2,
     forward_roots_relation from to f_info roots g roots' g1 /\
-    do_scan_relation from to (number_of_vertices (nth_gen g to)) g1 g2 /\
+    do_scan_relation from to (generation_block_count (nth_gen g to)) g1 g2 /\
     g' = reset_graph from g2.
 
 Definition space_address (t_info: thread_info) (gen: nat) :=
@@ -3906,7 +3681,7 @@ Lemma upd_roots_Zlength: forall from to p g roots f_info,
 Proof.
   intros. unfold upd_roots. destruct p. 2: reflexivity.
   destruct (Znth z roots). 1: destruct s; reflexivity. if_tac. 2: reflexivity.
-  destruct (raw_mark (vlabel g a)); rewrite upd_bunch_Zlength; auto.
+  destruct (block_mark (vlabel g a)); rewrite upd_bunch_Zlength; auto.
 Qed.
 
 Lemma frl_roots_Zlength: forall from to f_info l roots g roots' g',
@@ -3964,8 +3739,8 @@ Proof.
   - eapply fr_gen_unmarked; eauto.
 Qed.
 
-Definition graph_gen_clear (g: LGraph) (gen: nat) :=
-  number_of_vertices (nth_gen g gen) = O.
+Definition graph_gen_clear (g: HeapGraph) (gen: nat) :=
+  generation_block_count (nth_gen g gen) = O.
 
 Lemma pvs_reset_unchanged: forall g gen n l,
     previous_vertices_size (reset_graph gen g) n l =
@@ -3995,13 +3770,13 @@ Proof.
       destruct H as [? [? ?]]. split. 1: assumption. split. 1: assumption.
       rewrite pvs_reset_unchanged. assumption.
   - rewrite remove_ve_glabel_unchanged.
-    destruct (le_lt_dec (length (spaces (ti_heap t_info))) gen).
+    destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen).
     + rewrite reset_nth_space_overflow; assumption.
     + rewrite reset_nth_space_Znth by assumption. rewrite <- upd_Znth_map. simpl.
-      remember (spaces (ti_heap t_info)).
+      remember (heap_spaces (ti_heap t_info)).
       assert (0 <= Z.of_nat gen < Zlength l0) by (rewrite Zlength_correct; lia).
-      replace (space_start (Znth (Z.of_nat gen) l0))
-        with (Znth (Z.of_nat gen) (map space_start l0)) by (rewrite Znth_map; auto).
+      replace (space_base (Znth (Z.of_nat gen) l0))
+        with (Znth (Z.of_nat gen) (map space_base l0)) by (rewrite Znth_map; auto).
       rewrite upd_Znth_unchanged; [|rewrite Zlength_map]; assumption.
   - rewrite remove_ve_glabel_unchanged, reset_nth_space_length. assumption.
 Qed.
@@ -4027,7 +3802,7 @@ Lemma upd_roots_rf_compatible: forall from to f_info roots p g,
 Proof.
   intros. unfold upd_roots. destruct p; [|assumption]. destruct (Znth z roots).
   1: destruct s; assumption. if_tac. 2: assumption.
-  destruct (raw_mark (vlabel g a)); apply upd_bunch_rf_compatible; assumption.
+  destruct (block_mark (vlabel g a)); apply upd_bunch_rf_compatible; assumption.
 Qed.
 
 Definition np_roots_rel from f_info (roots roots': roots_t) (l: list Z) : Prop :=
@@ -4055,7 +3830,7 @@ Proof.
     split; intros; auto. destruct H4; auto.
     destruct H3. apply H8 in H4; try assumption. rewrite Heqr, H5 in H4. inversion H4.
   - if_tac in H4.
-    + destruct (raw_mark (vlabel g a)) eqn: ?; subst; split; intros.
+    + destruct (block_mark (vlabel g a)) eqn: ?; subst; split; intros.
       * destruct H4; auto. symmetry in H4. rewrite upd_bunch_same in H5 by assumption.
         inversion H5. red in H0. rewrite Forall_forall in H0.
         assert (graph_has_v g a). {
@@ -4094,7 +3869,7 @@ Lemma fr_copy_compatible: forall depth from to p g g',
     from <> to -> graph_has_gen g to -> forward_relation from to depth p g g' ->
     copy_compatible g -> copy_compatible g'.
 Proof.
-  intros. remember (fun (g: LGraph) (v: Addr) (x: nat) => True) as Q.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
   remember (fun g1 g2 (v: Addr) => copy_compatible g1 -> copy_compatible g2) as P.
   remember (fun (x y: nat) => x <> y) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
@@ -4110,7 +3885,7 @@ Lemma fr_right_roots_graph_compatible: forall depth from to e g g' roots,
     roots_graph_compatible roots g -> roots_graph_compatible roots g'.
 Proof.
   intros. simpl in H1, H0. destruct e. destruct H0 as [_ [_ [? _]]]. rewrite H0 in H1.
-  simpl in H1. remember (fun (g: LGraph) (v: nat) (x: nat) => True) as Q.
+  simpl in H1. remember (fun (g: HeapGraph) (v: nat) (x: nat) => True) as Q.
   remember (fun g1 g2 (x: nat) => roots_graph_compatible roots g1->
                                   roots_graph_compatible roots g2) as P.
   remember (fun (x1 x2: nat) => True) as R.
@@ -4123,9 +3898,9 @@ Qed.
 
 Lemma fl_edge_roots_graph_compatible: forall depth from to l g g' v roots,
     addr_gen v <> from ->
-    graph_has_gen g to -> graph_has_v g v -> raw_mark (vlabel g v) = false ->
+    graph_has_gen g to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
     forward_loop from to depth (map (fun x : nat => inr (v, Z.of_nat x)) l) g g' ->
-    (forall i, In i l -> i < length (raw_fields (vlabel g v)))%nat ->
+    (forall i, In i l -> i < length (block_fields (vlabel g v)))%nat ->
     roots_graph_compatible roots g -> roots_graph_compatible roots g'.
 Proof.
   do 4 intro. induction l; intros; simpl in H3; inversion H3; subst. 1: assumption.
@@ -4133,9 +3908,9 @@ Proof.
   - intros. apply (IHl g2 _ v); try assumption.
     + rewrite <- fr_graph_has_gen; eauto.
     + eapply fr_graph_has_v; eauto.
-    + rewrite <- H2. symmetry. eapply fr_raw_mark; eauto.
-    + assert (raw_fields (vlabel g v) = raw_fields (vlabel g2 v)) by
-          (eapply fr_raw_fields; eauto). rewrite <- H7.
+    + rewrite <- H2. symmetry. eapply fr_block_mark; eauto.
+    + assert (block_fields (vlabel g v) = block_fields (vlabel g2 v)) by
+          (eapply fr_block_fields; eauto). rewrite <- H7.
       intros; apply H4; right; assumption.
   - specialize (H4 _ (in_eq a l)). eapply fr_right_roots_graph_compatible; eauto.
     simpl. intuition. rewrite Zlength_correct. apply inj_lt; assumption.
@@ -4148,10 +3923,10 @@ Proof.
   intros. destruct p; simpl in *. 2: assumption. destruct (Znth z roots) eqn: ?.
   + destruct s; assumption.
   + if_tac. 2: assumption.
-    destruct (raw_mark (vlabel g a)); apply upd_roots_outlier_compatible; assumption.
+    destruct (block_mark (vlabel g a)); apply upd_roots_outlier_compatible; assumption.
 Qed.
 
-Lemma fr_roots_graph_compatible (depth from to: nat) (p : forward_p_type) (g g' : LGraph) (roots : roots_t) (f_info : fun_info)
+Lemma fr_roots_graph_compatible (depth from to: nat) (p : forward_p_type) (g g' : HeapGraph) (roots : roots_t) (f_info : fun_info)
     (Hto: graph_has_gen g to)
     (Hp: forward_p_compatible p roots g from)
     (Hg: copy_compatible g)
@@ -4168,20 +3943,20 @@ Proof.
         rewrite <- filter_sum_right_In_iff. rewrite <- Heqr. apply Znth_In.
         assumption. }
       inversion Hfwd ; destruct (Nat.eq_dec (addr_gen v) from) eqn:HE_v_from ; subst ; rewrite HE_v_from ; try easy.
-      * rename H3 into Eraw_mark ; rewrite Eraw_mark.
+      * rename H3 into Eblock_mark ; rewrite Eblock_mark.
         apply upd_bunch_graph_compatible ; try assumption.
         now apply Hg.
-      * rename H3 into Eraw_mark ; rewrite Eraw_mark.
+      * rename H3 into Eblock_mark ; rewrite Eblock_mark.
         now apply lcv_roots_graph_compatible.
-      * rename H2 into Eraw_mark ; rewrite Eraw_mark.
+      * rename H2 into Eblock_mark ; rewrite Eblock_mark.
         assert (graph_has_v new_g (new_copied_v g to)) by
           (subst new_g; apply lcv_graph_has_v_new; assumption).
-        remember (nat_inc_list (length (raw_fields (vlabel new_g (new_copied_v g to))))) as new_fields.
+        remember (nat_inc_list (length (block_fields (vlabel new_g (new_copied_v g to))))) as new_fields.
         assert (graph_has_v new_g (new_copied_v g to)) by (subst new_g; apply lcv_graph_has_v_new; assumption).
         remember (upd_bunch z f_info roots (inr (new_copied_v g to))) as roots'.
         assert (roots_graph_compatible roots' new_g) by (subst; subst new_g; apply lcv_roots_graph_compatible; assumption).
-        assert (raw_mark (vlabel new_g (new_copied_v g to)) = false). {
-          subst new_g. unfold lgraph_copy_v. rewrite <- lmc_raw_mark.
+        assert (block_mark (vlabel new_g (new_copied_v g to)) = false). {
+          subst new_g. unfold lgraph_copy_v. rewrite <- lmc_block_mark.
           - now rewrite lacv_vlabel_new.
           - unfold new_copied_v. destruct a. destruct Heqroots'. simpl in *.
             red in H1. intro HS. inversion HS. lia. }
@@ -4265,7 +4040,7 @@ Proof.
   apply vertex_address_reset.
 Qed.
 
-Lemma gen_has_index_reset: forall (g: LGraph) gen1 gen2 idx,
+Lemma gen_has_index_reset: forall (g: HeapGraph) gen1 gen2 idx,
     gen_has_index (reset_graph gen1 g) gen2 idx <->
     gen_has_index g gen2 idx /\ gen1 <> gen2.
 Proof.
@@ -4275,7 +4050,7 @@ Proof.
   - rewrite reset_nth_gen_info_diff by auto. intuition.
 Qed.
 
-Lemma graph_has_v_reset: forall (g: LGraph) gen v,
+Lemma graph_has_v_reset: forall (g: HeapGraph) gen v,
     graph_has_v (reset_graph gen g) v <->
     graph_has_v g v /\ gen <> addr_gen v.
 Proof.
@@ -4329,7 +4104,7 @@ Lemma tir_reset: forall t_info gen,
 Proof.
   intros. split; simpl. 1: reflexivity.
   unfold gen_size, nth_space. simpl.
-  destruct (le_lt_dec (length (spaces (ti_heap t_info))) gen).
+  destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen).
   - rewrite reset_nth_space_overflow by assumption. split; intros; reflexivity.
   - split; intros; destruct (Nat.eq_dec n gen).
     + subst. rewrite reset_nth_space_same; simpl; [reflexivity | assumption].
@@ -4373,8 +4148,8 @@ Proof.
     + subst g'. rewrite graph_has_gen_reset. reflexivity.
 Qed.
 
-Definition graph_unmarked (g: LGraph): Prop := forall v,
-    graph_has_v g v -> raw_mark (vlabel g v) = false.
+Definition graph_unmarked (g: HeapGraph): Prop := forall v,
+    graph_has_v g v -> block_mark (vlabel g v) = false.
 
 Lemma graph_gen_unmarked_iff: forall g,
     graph_unmarked g <-> forall gen, gen_unmarked g gen.
@@ -4421,14 +4196,14 @@ Proof.
   - apply gen_unmarked_reset_diff. apply H5. assumption.
 Qed.
 
-Definition graph_has_e (g: LGraph) (e: Field): Prop :=
+Definition graph_has_e (g: HeapGraph) (e: Field): Prop :=
   let v := field_addr e in graph_has_v g v /\ In e (get_edges g v).
 
-Definition gen2gen_no_edge (g: LGraph) (gen1 gen2: nat): Prop :=
+Definition gen2gen_no_edge (g: HeapGraph) (gen1 gen2: nat): Prop :=
   forall vidx eidx, let e := {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |} in
                     graph_has_e g e -> addr_gen (dst g e) <> gen2.
 
-Definition no_edge2gen (g: LGraph) (gen: nat): Prop :=
+Definition no_edge2gen (g: HeapGraph) (gen: nat): Prop :=
   forall another, another <> gen -> gen2gen_no_edge g another gen.
 
 Definition egeneration (e: Field): nat := addr_gen (field_addr e).
@@ -4494,12 +4269,12 @@ Proof.
             apply lcv_graph_has_v_inv in H1; assumption.
 Qed.
 
-Definition gen_v_num (g: LGraph) (gen: nat): nat := number_of_vertices (nth_gen g gen).
+Definition gen_v_num (g: HeapGraph) (gen: nat): nat := generation_block_count (nth_gen g gen).
 
 Definition nth_gen_size (n: nat) := NURSERY_SIZE * two_p (Z.of_nat n).
 
 Definition nth_gen_size_spec (tinfo: thread_info) (n: nat): Prop :=
-  if Val.eq (nth_space tinfo n).(space_start) nullval
+  if Val.eq (nth_space tinfo n).(space_base) nullval
   then True
   else gen_size tinfo n = nth_gen_size n.
 
@@ -4540,26 +4315,26 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma space_start_isptr: forall (g: LGraph) (t_info: thread_info) i,
+Lemma space_base_isptr: forall (g: HeapGraph) (t_info: thread_info) i,
     graph_thread_info_compatible g t_info ->
-    0 <= i < Zlength (spaces (ti_heap t_info)) ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
     graph_has_gen g (Z.to_nat i) ->
-    isptr (space_start (Znth i (spaces (ti_heap t_info)))).
+    isptr (space_base (Znth i (heap_spaces (ti_heap t_info)))).
 Proof.
   intros. destruct (gt_gs_compatible _ _ H _ H1) as [? _].
   rewrite nth_space_Znth in H2. rewrite Z2Nat.id in H2 by lia. rewrite <- H2.
-  apply start_isptr.
+  apply generation_base__isptr.
 Qed.
 
-Lemma space_start_isnull: forall (g: LGraph) (t_info: thread_info) i,
+Lemma space_base_isnull: forall (g: HeapGraph) (t_info: thread_info) i,
     graph_thread_info_compatible g t_info ->
-    0 <= i < Zlength (spaces (ti_heap t_info)) ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
     ~ graph_has_gen g (Z.to_nat i) ->
-    space_start (Znth i (spaces (ti_heap t_info))) = nullval.
+    space_base (Znth i (heap_spaces (ti_heap t_info))) = nullval.
 Proof.
   intros. unfold graph_has_gen in H1. destruct H as [_ [? ?]].
   rewrite Forall_forall in H. symmetry. apply H. rewrite <- map_skipn.
-  apply List.in_map. remember (g_gen (glabel g)).
+  apply List.in_map. remember (generations (glabel g)).
   replace i with (i - Zlength l + Zlength l) by lia.
   assert (length l <= Z.to_nat i)%nat by lia. clear H1.
   assert (0 <= i - Zlength l) by
@@ -4569,59 +4344,59 @@ Proof.
   rewrite (Z.max_r 0 (Zlength l)) by rep_lia. rewrite Z.max_r; rep_lia.
 Qed.
 
-Lemma space_start_is_pointer_or_null: forall (g: LGraph) (t_info: thread_info) i,
+Lemma space_base_is_pointer_or_null: forall (g: HeapGraph) (t_info: thread_info) i,
     graph_thread_info_compatible g t_info ->
-    0 <= i < Zlength (spaces (ti_heap t_info)) ->
-    is_pointer_or_null (space_start (Znth i (spaces (ti_heap t_info)))).
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
+    is_pointer_or_null (space_base (Znth i (heap_spaces (ti_heap t_info)))).
 Proof.
   intros. destruct (graph_has_gen_dec g (Z.to_nat i)).
-  - apply val_lemmas.isptr_is_pointer_or_null. eapply space_start_isptr; eauto.
-  - cut (space_start (Znth i (spaces (ti_heap t_info))) = nullval).
+  - apply val_lemmas.isptr_is_pointer_or_null. eapply space_base_isptr; eauto.
+  - cut (space_base (Znth i (heap_spaces (ti_heap t_info))) = nullval).
     + intros. rewrite H1. apply mapsto_memory_block.is_pointer_or_null_nullval.
-    + eapply space_start_isnull; eauto.
+    + eapply space_base_isnull; eauto.
 Qed.
 
-Lemma space_start_isptr_iff: forall (g: LGraph) (t_info: thread_info) i,
+Lemma space_base_isptr_iff: forall (g: HeapGraph) (t_info: thread_info) i,
     graph_thread_info_compatible g t_info ->
-    0 <= i < Zlength (spaces (ti_heap t_info)) ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
     graph_has_gen g (Z.to_nat i) <->
-    isptr (space_start (Znth i (spaces (ti_heap t_info)))).
+    isptr (space_base (Znth i (heap_spaces (ti_heap t_info)))).
 Proof.
   intros. split; intros.
-  - eapply space_start_isptr; eauto.
+  - eapply space_base_isptr; eauto.
   - destruct (graph_has_gen_dec g (Z.to_nat i)). 1: assumption. exfalso.
-    eapply space_start_isnull in n; eauto. rewrite n in H1. inversion H1.
+    eapply space_base_isnull in n; eauto. rewrite n in H1. inversion H1.
 Qed.
 
-Lemma space_start_isnull_iff: forall (g: LGraph) (t_info: thread_info) i,
+Lemma space_base_isnull_iff: forall (g: HeapGraph) (t_info: thread_info) i,
     graph_thread_info_compatible g t_info ->
-    0 <= i < Zlength (spaces (ti_heap t_info)) ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
     ~ graph_has_gen g (Z.to_nat i) <->
-    space_start (Znth i (spaces (ti_heap t_info))) = nullval.
+    space_base (Znth i (heap_spaces (ti_heap t_info))) = nullval.
 Proof.
-  intros. split; intros. 1: eapply space_start_isnull; eauto.
+  intros. split; intros. 1: eapply space_base_isnull; eauto.
   destruct (graph_has_gen_dec g (Z.to_nat i)). 2: assumption. exfalso.
-  eapply space_start_isptr in g0; eauto. rewrite H1 in g0. inversion g0.
+  eapply space_base_isptr in g0; eauto. rewrite H1 in g0. inversion g0.
 Qed.
 
-Lemma ti_size_gen: forall (g : LGraph) (t_info : thread_info) (gen : nat),
+Lemma ti_size_gen: forall (g : HeapGraph) (t_info : thread_info) (gen : nat),
     graph_thread_info_compatible g t_info ->
     graph_has_gen g gen -> ti_size_spec t_info ->
     gen_size t_info gen = nth_gen_size gen.
 Proof.
   intros. red in H1. rewrite Forall_forall in H1.
-  assert (0 <= (Z.of_nat gen) < Zlength (spaces (ti_heap t_info))). {
+  assert (0 <= (Z.of_nat gen) < Zlength (heap_spaces (ti_heap t_info))). {
     split. 1: rep_lia. rewrite Zlength_correct. apply inj_lt.
     destruct H as [_ [_ ?]]. red in H0. lia. }
   assert (nth_gen_size_spec t_info gen). {
     apply H1. rewrite nat_inc_list_In_iff. destruct H as [_ [_ ?]]. red in H0.
-    rewrite <- (spaces_size (ti_heap t_info)), ZtoNat_Zlength. lia. } red in H3.
-  destruct (Val.eq (space_start (nth_space t_info gen)) nullval). 2: assumption.
-  rewrite nth_space_Znth in e. erewrite <- space_start_isnull_iff in e; eauto.
+    rewrite <- (heap_spaces__size (ti_heap t_info)), ZtoNat_Zlength. lia. } red in H3.
+  destruct (Val.eq (space_base (nth_space t_info gen)) nullval). 2: assumption.
+  rewrite nth_space_Znth in e. erewrite <- space_base_isnull_iff in e; eauto.
   unfold graph_has_gen in e. exfalso; apply e. rewrite Nat2Z.id. assumption.
 Qed.
 
-Lemma ti_size_gt_0: forall (g : LGraph) (t_info : thread_info) (gen : nat),
+Lemma ti_size_gt_0: forall (g : HeapGraph) (t_info : thread_info) (gen : nat),
     graph_thread_info_compatible g t_info ->
     graph_has_gen g gen -> ti_size_spec t_info -> 0 < gen_size t_info gen.
 Proof.
@@ -4678,12 +4453,12 @@ Proof.
     apply fr_O_gen_v_num_to in H0; [lia | assumption].
 Qed.
 
-Lemma frr_raw_fields: forall from to f_info roots1 g1 roots2 g2,
+Lemma frr_block_fields: forall from to f_info roots1 g1 roots2 g2,
     graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall v, graph_has_v g1 v -> raw_fields (vlabel g1 v) = raw_fields (vlabel g2 v).
+    forall v, graph_has_v g1 v -> block_fields (vlabel g1 v) = block_fields (vlabel g2 v).
 Proof.
   intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
-  - eapply fr_raw_fields; eauto.
+  - eapply fr_block_fields; eauto.
   - rewrite <- fr_graph_has_gen; eauto.
   - eapply fr_graph_has_v; eauto.
 Qed.
@@ -4700,7 +4475,7 @@ Proof.
     2: simpl in H3; contradiction. split. 1: simpl; assumption. simpl in *.
     cut (get_edges g1 {| addr_gen := gen1 ; addr_block := vidx |} = get_edges g2 {| addr_gen := gen1 ; addr_block := vidx |}).
     + intros; rewrite H5; assumption.
-    + unfold get_edges. unfold make_fields. erewrite frr_raw_fields; eauto.
+    + unfold get_edges. unfold make_fields. erewrite frr_block_fields; eauto.
 Qed.
 
 Lemma fr_O_dst_unchanged_field: forall from to v n g g',
@@ -4721,8 +4496,8 @@ Proof.
 Qed.
 
 Lemma svfl_dst_unchanged: forall from to v l g1 g2,
-    graph_has_v g1 v -> raw_mark (vlabel g1 v) = false -> addr_gen v <> from ->
-    (forall i,  In i l -> i < length (raw_fields (vlabel g1 v))) ->
+    graph_has_v g1 v -> block_mark (vlabel g1 v) = false -> addr_gen v <> from ->
+    (forall i,  In i l -> i < length (block_fields (vlabel g1 v))) ->
     graph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
     forall e, graph_has_v g1 (field_addr e) -> (forall i, In i l -> e <> {| field_addr := v; field_index := i |}) ->
               dst g1 e = dst g2 e.
@@ -4735,8 +4510,8 @@ Proof.
     + apply H6. left; reflexivity.
   - apply IHl; auto.
     + eapply fr_graph_has_v; eauto.
-    + erewrite <- fr_raw_mark; eauto.
-    + intros. erewrite <- fr_raw_fields; eauto. apply H2. right; assumption.
+    + erewrite <- fr_block_mark; eauto.
+    + intros. erewrite <- fr_block_fields; eauto. apply H2. right; assumption.
     + erewrite <- fr_graph_has_gen; eauto.
     + eapply fr_graph_has_v; eauto.
     + intros. apply H6. right; assumption.
@@ -4831,13 +4606,13 @@ Proof.
     apply svfl_gen_v_num_to in H6; [lia | assumption].
 Qed.
 
-Lemma svwl_raw_fields: forall from to l g g',
+Lemma svwl_block_fields: forall from to l g g',
     graph_has_gen g to -> scan_vertex_while_loop from to l g g' ->
-    forall v, graph_has_v g v -> raw_fields (vlabel g v) = raw_fields (vlabel g' v).
+    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
 Proof.
   do 3 intro. induction l; intros; inversion H0; subst. 1: reflexivity.
   1: eapply IHl; eauto. erewrite <- (IHl g2 g'); eauto.
-  - eapply svfl_raw_fields; eauto.
+  - eapply svfl_block_fields; eauto.
   - rewrite <- svfl_graph_has_gen; eauto.
   - eapply svfl_graph_has_v; eauto.
 Qed.
@@ -4854,7 +4629,7 @@ Proof.
   apply H4. split; simpl in *. 1: assumption.
   cut (get_edges g1 {| addr_gen := gen1 ; addr_block := vidx |} = get_edges g2 {| addr_gen := gen1 ; addr_block := vidx |}).
   + intros; rewrite H7; assumption.
-  + unfold get_edges. unfold make_fields. erewrite svwl_raw_fields; eauto.
+  + unfold get_edges. unfold make_fields. erewrite svwl_block_fields; eauto.
 Qed.
 
 Lemma frr_graph_has_v: forall from to f_info roots1 g1 roots2 g2,
@@ -4875,7 +4650,7 @@ Lemma fr_O_dst_changed_field: forall from to v n g g',
 Proof.
   intros. simpl in *. destruct H3 as [? [? [? ?]]]. rewrite H7 in H4. simpl in H4.
   assert (make_fields g v = make_fields g' v) by
-      (unfold make_fields; erewrite fr_raw_fields; eauto). rewrite <- H9 in *.
+      (unfold make_fields; erewrite fr_block_fields; eauto). rewrite <- H9 in *.
   clear H9. remember (Znth (Z.of_nat n) (make_fields g v)). destruct f; inversion H5.
   subst. clear H5. symmetry in Heqf. pose proof Heqf.
   apply make_fields_Znth_edge in Heqf. 2: assumption. simpl in H4. subst.
@@ -4923,9 +4698,9 @@ Proof.
 Qed.
 
 Lemma svfl_dst_changed: forall from to v l g1 g2,
-    graph_has_v g1 v -> raw_mark (vlabel g1 v) = false -> addr_gen v <> from ->
+    graph_has_v g1 v -> block_mark (vlabel g1 v) = false -> addr_gen v <> from ->
     copy_compatible g1 -> no_dangling_dst g1 -> from <> to ->
-    (forall i,  In i l -> i < length (raw_fields (vlabel g1 v))) -> NoDup l ->
+    (forall i,  In i l -> i < length (block_fields (vlabel g1 v))) -> NoDup l ->
     graph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
     forall e i, In i l -> Znth (Z.of_nat i) (make_fields g2 v) = inr e ->
                 addr_gen (dst g2 e) <> from.
@@ -4934,12 +4709,12 @@ Proof.
   assert (e = {| field_addr := v ; field_index := i |}). {
     apply make_fields_Znth_edge in H10. 1: rewrite Nat2Z.id in H10; assumption.
     split. 1: lia. rewrite Zlength_correct. apply inj_lt.
-    erewrite <- svfl_raw_fields; eauto. }
+    erewrite <- svfl_block_fields; eauto. }
   assert (graph_has_v g3 v) by (eapply fr_graph_has_v; eauto).
-  assert (raw_mark (vlabel g3 v) = false) by (erewrite <- fr_raw_mark; eauto).
+  assert (block_mark (vlabel g3 v) = false) by (erewrite <- fr_block_mark; eauto).
   assert (graph_has_gen g3 to) by (erewrite <- fr_graph_has_gen; eauto).
-  assert (forall j : nat, In j l -> j < Datatypes.length (raw_fields (vlabel g3 v))). {
-    intros. erewrite <- (fr_raw_fields _ _ _ _ g1); eauto. apply H5.
+  assert (forall j : nat, In j l -> j < Datatypes.length (block_fields (vlabel g3 v))). {
+    intros. erewrite <- (fr_block_fields _ _ _ _ g1); eauto. apply H5.
     right; assumption. } simpl in H9. destruct H9.
   - subst a. cut (addr_gen (dst g3 e) <> from).
     + intros. cut (dst g2 e = dst g3 e). 1: intro HS; rewrite HS; assumption.
@@ -4950,7 +4725,7 @@ Proof.
     + eapply (fr_O_dst_changed_field from to); eauto.
       * simpl. intuition. rewrite Zlength_correct. apply inj_lt. apply H5.
         left; reflexivity.
-      * unfold make_fields in H8 |-*. erewrite svfl_raw_fields; eauto.
+      * unfold make_fields in H8 |-*. erewrite svfl_block_fields; eauto.
   - eapply (IHl g3); eauto.
     + eapply (fr_copy_compatible _ _ _ _ g1); eauto.
     + eapply (fr_O_no_dangling_dst _ _ _ g1); eauto.
@@ -4961,10 +4736,10 @@ Proof.
 Qed.
 
 Lemma svfl_no_edge2from: forall from to v g1 g2,
-    graph_has_v g1 v -> raw_mark (vlabel g1 v) = false -> addr_gen v <> from ->
+    graph_has_v g1 v -> block_mark (vlabel g1 v) = false -> addr_gen v <> from ->
     copy_compatible g1 -> no_dangling_dst g1 -> from <> to -> graph_has_gen g1 to ->
     scan_vertex_for_loop
-      from to v (nat_inc_list (length (raw_fields (vlabel g1 v)))) g1 g2 ->
+      from to v (nat_inc_list (length (block_fields (vlabel g1 v)))) g1 g2 ->
     forall e, In e (get_edges g2 v) -> addr_gen (dst g2 e) <> from.
 Proof.
   intros. unfold get_edges in H7. rewrite <- filter_sum_right_In_iff in H7.
@@ -4973,7 +4748,7 @@ Proof.
   - intros. rewrite nat_inc_list_In_iff in H9. assumption.
   - apply nat_inc_list_NoDup.
   - rewrite nat_inc_list_In_iff. rewrite make_fields_eq_length in H7.
-    erewrite svfl_raw_fields; eauto. rewrite <- ZtoNat_Zlength.
+    erewrite svfl_block_fields; eauto. rewrite <- ZtoNat_Zlength.
     apply Z2Nat.inj_lt; lia.
 Qed.
 
@@ -4983,7 +4758,7 @@ Proof.
   destruct (filter_sum_right (make_fields g v)) eqn:? . 1: reflexivity. exfalso.
   assert (In f (filter_sum_right (make_fields g v))) by (rewrite Heql; left; auto).
   rewrite <- filter_sum_right_In_iff in H0. clear l Heql. apply H. clear H.
-  unfold make_fields in H0. remember (raw_fields (vlabel g v)). clear Heql.
+  unfold make_fields in H0. remember (block_fields (vlabel g v)). clear Heql.
   remember O. clear Heqn. revert n H0. induction l; simpl; intros; auto.
   destruct a; [destruct s|]; simpl in H0;
     [right; destruct H0; [inversion H | eapply IHl; eauto]..|left]; auto.
@@ -5001,20 +4776,20 @@ Proof.
 Qed.
 
 Lemma svfl_no_dangling_dst: forall from to v l g1 g2,
-    graph_has_v g1 v -> raw_mark (vlabel g1 v) = false -> addr_gen v <> from ->
+    graph_has_v g1 v -> block_mark (vlabel g1 v) = false -> addr_gen v <> from ->
     copy_compatible g1 -> graph_has_gen g1 to -> from <> to ->
     scan_vertex_for_loop from to v l g1 g2 ->
-    (forall i,  In i l -> i < length (raw_fields (vlabel g1 v))) ->
+    (forall i,  In i l -> i < length (block_fields (vlabel g1 v))) ->
     no_dangling_dst g1 -> no_dangling_dst g2.
 Proof.
   do 4 intro. induction l; intros; inversion H5; subst. 1: assumption.
   cut (no_dangling_dst g3).
   - intros. apply (IHl g3); auto.
     + eapply fr_graph_has_v; eauto.
-    + erewrite <- fr_raw_mark; eauto.
+    + erewrite <- fr_block_mark; eauto.
     + eapply (fr_copy_compatible O from to); eauto.
     + erewrite <- fr_graph_has_gen; eauto.
-    + intros. erewrite <- fr_raw_fields; eauto. apply H6. right; assumption.
+    + intros. erewrite <- fr_block_fields; eauto. apply H6. right; assumption.
   - eapply fr_O_no_dangling_dst; eauto.
     + simpl. intuition. rewrite Zlength_correct. apply inj_lt.
       apply H6. left; reflexivity.
@@ -5032,7 +4807,7 @@ Proof.
   - simpl in H6. destruct H6. 2: apply NoDup_cons_1 in H5; eapply IHl; eauto. subst a.
     assert (In e (get_edges g1 {| addr_gen := to; addr_block := i |})). {
       unfold get_edges, make_fields in H7 |-*.
-      erewrite svwl_raw_fields; eauto. split; simpl; assumption. }
+      erewrite svwl_block_fields; eauto. split; simpl; assumption. }
     rewrite no_scan_no_edge in H6. 2: assumption. inversion H6.
   - simpl in H6.
     assert (graph_has_gen g3 to) by (erewrite <- svfl_graph_has_gen; eauto).
@@ -5047,7 +4822,7 @@ Proof.
            apply NoDup_cons_2 in H5. assumption.
       * assert (graph_has_v g1 {| addr_gen := to; addr_block := i |}) by (split; simpl; assumption).
         eapply svfl_no_edge2from; eauto. unfold get_edges, make_fields in H7 |-*.
-        erewrite svwl_raw_fields; eauto. eapply (svfl_graph_has_v _ _ _ _ g1); eauto.
+        erewrite svwl_block_fields; eauto. eapply (svfl_graph_has_v _ _ _ _ g1); eauto.
     + eapply (IHl g3); eauto.
       * eapply (svfl_copy_compatible _ _ _ _ g1); eauto.
       * eapply (svfl_no_dangling_dst from to); eauto.
@@ -5120,7 +4895,7 @@ Lemma frr_dsr_no_edge2gen: forall from to f_info roots roots' g g1 g2,
     Zlength roots = Zlength (live_roots_indices f_info) ->
     roots_graph_compatible roots g ->
     forward_roots_relation from to f_info roots g roots' g1 ->
-    do_scan_relation from to (number_of_vertices (nth_gen g to)) g1 g2 ->
+    do_scan_relation from to (generation_block_count (nth_gen g to)) g1 g2 ->
     no_edge2gen g from -> no_edge2gen g2 from.
 Proof.
   intros. unfold no_edge2gen in *. intros. specialize (H8 _ H9).
@@ -5141,8 +4916,8 @@ Proof.
           (eapply (frr_graph_has_v from to _ _ g); eauto).
       assert (get_edges g {| addr_gen := to ; addr_block := vidx |} = get_edges g2 {| addr_gen := to ; addr_block := vidx |}). {
         transitivity (get_edges g1 {| addr_gen := to ; addr_block := vidx |}); unfold get_edges, make_fields.
-        - erewrite frr_raw_fields; eauto.
-        - erewrite svwl_raw_fields; eauto. } simpl in H11. rewrite <- H16 in H11.
+        - erewrite frr_block_fields; eauto.
+        - erewrite svwl_block_fields; eauto. } simpl in H11. rewrite <- H16 in H11.
       assert (graph_has_e g {| field_addr := {| addr_gen := to ; addr_block := vidx |} ; field_index := eidx |}) by (split; simpl; assumption).
       specialize (H8 _ _ H17).
       erewrite (frr_dst_unchanged _ _ _ _ _ _ g1) in H8; eauto.
@@ -5187,16 +4962,16 @@ Proof.
   apply upd_roots_rf_compatible; assumption.
 Qed.
 
-Definition no_backward_edge (g: LGraph): Prop :=
+Definition no_backward_edge (g: HeapGraph): Prop :=
   forall gen1 gen2, gen1 > gen2 -> gen2gen_no_edge g gen1 gen2.
 
-Definition firstn_gen_clear (g: LGraph) (n: nat): Prop :=
+Definition firstn_gen_clear (g: HeapGraph) (n: nat): Prop :=
   forall i, i < n -> graph_gen_clear g i.
 
-Definition safe_to_copy_to_except (g: LGraph) (gen: nat): Prop :=
+Definition safe_to_copy_to_except (g: HeapGraph) (gen: nat): Prop :=
   forall n, n <> O -> n <> gen -> graph_has_gen g n -> safe_to_copy_gen g (pred n) n .
 
-Definition safe_to_copy (g: LGraph): Prop :=
+Definition safe_to_copy (g: HeapGraph): Prop :=
   forall n, graph_has_gen g (S n) -> safe_to_copy_gen g n (S n).
 
 Lemma stc_stcte_O_iff: forall g, safe_to_copy g <-> safe_to_copy_to_except g O.
@@ -5217,22 +4992,24 @@ Proof.
     split; simpl; assumption.
 Qed.
 
-Definition add_new_gen (gi: graph_info) (gen_i: generation_info): graph_info :=
-  Build_graph_info (g_gen gi +:: gen_i) (app_not_nil (g_gen gi) gen_i).
+Definition add_new_gen (gi: Generations) (gen_i: Generation): Generations := {|
+  generations := generations gi +:: gen_i;
+  generations__not_nil := app_not_nil (generations gi) gen_i;
+|}.
 
-Definition lgraph_add_new_gen (g: LGraph) (gen_i: generation_info): LGraph :=
+Definition lgraph_add_new_gen (g: HeapGraph) (gen_i: Generation): HeapGraph :=
   Build_LabeledGraph _ _ _
                      (pg_lg g) (vlabel g) (elabel g) (add_new_gen (glabel g) gen_i).
 
-Definition new_gen_relation (gen: nat) (g1 g2: LGraph): Prop :=
+Definition new_gen_relation (gen: nat) (g1 g2: HeapGraph): Prop :=
   if graph_has_gen_dec g1 gen then g1 = g2
-  else exists gen_i: generation_info, number_of_vertices gen_i = O /\
+  else exists gen_i: Generation, generation_block_count gen_i = O /\
                                       g2 = lgraph_add_new_gen g1 gen_i.
 
 Inductive garbage_collect_loop (f_info : fun_info)
-  : list nat -> roots_t -> LGraph -> roots_t -> LGraph -> Prop :=
+  : list nat -> roots_t -> HeapGraph -> roots_t -> HeapGraph -> Prop :=
   gcl_nil: forall g roots, garbage_collect_loop f_info nil roots g roots g
-| gcl_cons: forall (g1 g2 g3 g4: LGraph) (i: nat) (il: list nat)
+| gcl_cons: forall (g1 g2 g3 g4: HeapGraph) (i: nat) (il: list nat)
                    (roots1 roots2 roots3: roots_t),
     new_gen_relation (S i) g1 g2 ->
     do_generation_relation i (S i) f_info roots1 roots2 g2 g3 ->
@@ -5240,27 +5017,29 @@ Inductive garbage_collect_loop (f_info : fun_info)
     garbage_collect_loop f_info (i :: il) roots1 g1 roots3 g4.
 
 Definition garbage_collect_relation (f_info: fun_info)
-           (roots1 roots2: roots_t) (g1 g2: LGraph): Prop :=
+           (roots1 roots2: roots_t) (g1 g2: HeapGraph): Prop :=
   exists n, garbage_collect_loop f_info (nat_inc_list (S n)) roots1 g1 roots2 g2 /\
             safe_to_copy_gen g2 n (S n).
 
-Definition garbage_collect_condition (g: LGraph) (t_info : thread_info)
+Definition garbage_collect_condition (g: HeapGraph) (t_info : thread_info)
            (roots : roots_t) (f_info : fun_info) : Prop :=
   graph_unmarked g /\ no_backward_edge g /\ no_dangling_dst g /\
   roots_fi_compatible roots f_info /\ ti_size_spec t_info.
 
 Local Open Scope Z_scope.
 
-Lemma upd_heap_Zlength: forall (hp : heap) (sp : space) (i : Z),
-    0 <= i < MAX_SPACES -> Zlength (upd_Znth i (spaces hp) sp) = MAX_SPACES.
+Lemma upd_heap_Zlength: forall (hp : Heap) (sp : Space) (i : Z),
+    0 <= i < MAX_SPACES -> Zlength (upd_Znth i (heap_spaces hp) sp) = MAX_SPACES.
 Proof.
-  intros. rewrite upd_Znth_Zlength; rewrite spaces_size; [reflexivity | assumption].
+  intros. rewrite upd_Znth_Zlength; rewrite heap_spaces__size; [reflexivity | assumption].
 Qed.
 
-Definition add_new_space (hp: heap) (sp: space) i (Hs: 0 <= i < MAX_SPACES): heap :=
-  Build_heap (upd_Znth i (spaces hp) sp) (upd_heap_Zlength hp sp i Hs).
+Definition add_new_space (hp: Heap) (sp: Space) i (Hs: 0 <= i < MAX_SPACES): Heap := {|
+  heap_spaces := upd_Znth i (heap_spaces hp) sp;
+  heap_spaces__size := upd_heap_Zlength hp sp i Hs
+|}.
 
-Definition ti_add_new_space (ti: thread_info) (sp: space) i
+Definition ti_add_new_space (ti: thread_info) (sp: Space) i
            (Hs: 0 <= i < MAX_SPACES): thread_info :=
   Build_thread_info (ti_heap_p ti) (add_new_space (ti_heap ti) sp i Hs)
                     (ti_args ti) (arg_size ti).
@@ -5270,7 +5049,7 @@ Lemma ang_nth_old: forall g gi gen,
 Proof. intros. unfold nth_gen. simpl. rewrite app_nth1; [reflexivity|assumption]. Qed.
 
 Lemma ang_nth_new: forall g gi,
-    nth_gen (lgraph_add_new_gen g gi) (length (g_gen (glabel g))) = gi.
+    nth_gen (lgraph_add_new_gen g gi) (length (generations (glabel g))) = gi.
 Proof.
   intros. unfold nth_gen. simpl. rewrite app_nth2 by lia. rewrite Nat.sub_diag.
   simpl. reflexivity.
@@ -5282,7 +5061,7 @@ Lemma ans_nth_old: forall ti sp i (Hs: 0 <= i < MAX_SPACES) gen,
 Proof.
   intros. rewrite !nth_space_Znth. simpl. rewrite upd_Znth_diff_strong.
   - reflexivity.
-  - rewrite spaces_size. assumption.
+  - rewrite heap_spaces__size. assumption.
   - intro. apply H. subst. rewrite Nat2Z.id. reflexivity.
 Qed.
 
@@ -5290,12 +5069,12 @@ Lemma ans_nth_new: forall ti sp i (Hs: 0 <= i < MAX_SPACES),
     nth_space (ti_add_new_space ti sp i Hs) (Z.to_nat i) = sp.
 Proof.
   intros. rewrite nth_space_Znth. simpl. rewrite Z2Nat.id by lia.
-  rewrite upd_Znth_same; [reflexivity | rewrite spaces_size; assumption].
+  rewrite upd_Znth_same; [reflexivity | rewrite heap_spaces__size; assumption].
 Qed.
 
 Lemma ang_graph_has_gen: forall g gi gen,
     graph_has_gen (lgraph_add_new_gen g gi) gen <->
-    graph_has_gen g gen \/ gen = length (g_gen (glabel g)).
+    graph_has_gen g gen \/ gen = length (generations (glabel g)).
 Proof.
   intros. unfold graph_has_gen. simpl. rewrite app_length. simpl. lia.
 Qed.
@@ -5303,17 +5082,17 @@ Qed.
 Lemma gti_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES),
     graph_thread_info_compatible g ti ->
     ~ graph_has_gen g (Z.to_nat i) -> graph_has_gen g (Z.to_nat (i - 1)) ->
-    (forall (gr: LGraph), generation_space_compatible gr (Z.to_nat i, gi, sp)) ->
+    (forall (gr: HeapGraph), generation_space_compatible gr (Z.to_nat i, gi, sp)) ->
     graph_thread_info_compatible (lgraph_add_new_gen g gi)
                                  (ti_add_new_space ti sp i Hs).
 Proof.
   intros. unfold graph_thread_info_compatible in *. destruct H as [? [? ?]].
-  assert (length (g_gen (glabel g)) = Z.to_nat i). {
+  assert (length (generations (glabel g)) = Z.to_nat i). {
     clear -H0 H1. unfold graph_has_gen in *.
     rewrite Z2Nat.inj_sub in H1 by lia. simpl in H1. lia. }
-  pose proof (spaces_size (ti_heap ti)).
-  assert (length (g_gen (glabel (lgraph_add_new_gen g gi))) <=
-          length (spaces (ti_heap (ti_add_new_space ti sp i Hs))))%nat. {
+  pose proof (heap_spaces__size (ti_heap ti)).
+  assert (length (generations (glabel (lgraph_add_new_gen g gi))) <=
+          length (heap_spaces (ti_heap (ti_add_new_space ti sp i Hs))))%nat. {
     simpl. rewrite <- !ZtoNat_Zlength, upd_Znth_Zlength by lia.
     rewrite H6, ZtoNat_Zlength, app_length, H5. simpl. change (S O) with (Z.to_nat 1).
     rewrite <- Z2Nat.inj_add, <- Z2Nat.inj_le by lia. lia. }
@@ -5326,10 +5105,10 @@ Proof.
   - simpl. rewrite <- upd_Znth_map. rewrite app_length. rewrite H5 in *. simpl.
     change (S O) with (Z.to_nat 1).
     rewrite <- Z2Nat.inj_add, <- sublist_skip in * by lia.
-    rewrite upd_Znth_Zlength; rewrite Zlength_map, spaces_size in *. 2: assumption.
-    rewrite sublist_upd_Znth_r. 2: lia. 2: rewrite Zlength_map, spaces_size; lia.
+    rewrite upd_Znth_Zlength; rewrite Zlength_map, heap_spaces__size in *. 2: assumption.
+    rewrite sublist_upd_Znth_r. 2: lia. 2: rewrite Zlength_map, heap_spaces__size; lia.
     apply Forall_incl with
-        (sublist i MAX_SPACES (map space_start (spaces (ti_heap ti)))). 2: assumption.
+        (sublist i MAX_SPACES (map space_base (heap_spaces (ti_heap ti)))). 2: assumption.
     rewrite Z.add_comm. replace MAX_SPACES with (MAX_SPACES - i + i) at 1 by lia.
     rewrite <- sublist_sublist with (j := MAX_SPACES) by lia.
     unfold incl. intro a. apply sublist_In.
@@ -5357,7 +5136,7 @@ Lemma ang_roots_compatible: forall roots out g gi,
 Proof. intros. destruct H. split; auto. apply ang_roots_graph_compatible. auto. Qed.
 
 Lemma ang_graph_has_v_inv: forall g gi v,
-    number_of_vertices gi = O -> graph_has_v (lgraph_add_new_gen g gi) v ->
+    generation_block_count gi = O -> graph_has_v (lgraph_add_new_gen g gi) v ->
     graph_has_v g v.
 Proof.
   intros. destruct v as [gen idx]. destruct H0; split; simpl in *.
@@ -5369,14 +5148,14 @@ Proof.
 Qed.
 
 Lemma ang_outlier_compatible: forall g gi out,
-    number_of_vertices gi = O -> outlier_compatible g out ->
+    generation_block_count gi = O -> outlier_compatible g out ->
     outlier_compatible (lgraph_add_new_gen g gi) out.
 Proof.
   intros. unfold outlier_compatible in *. intros.
   apply ang_graph_has_v_inv in H1; auto. simpl. apply H0. assumption.
 Qed.
 
-Lemma ang_vertex_address_old: forall (g : LGraph) (gi : generation_info) (v : Addr),
+Lemma ang_vertex_address_old: forall (g : HeapGraph) (gi : Generation) (v : Addr),
     graph_has_v g v ->
     vertex_address (lgraph_add_new_gen g gi) v = vertex_address g v.
 Proof.
@@ -5398,8 +5177,8 @@ Qed.
 
 Lemma super_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) fi roots out,
     ~ graph_has_gen g (Z.to_nat i) -> graph_has_gen g (Z.to_nat (i - 1)) ->
-    (forall (gr: LGraph), generation_space_compatible gr (Z.to_nat i, gi, sp)) ->
-    number_of_vertices gi = O -> super_compatible (g, ti, roots) fi out ->
+    (forall (gr: HeapGraph), generation_space_compatible gr (Z.to_nat i, gi, sp)) ->
+    generation_block_count gi = O -> super_compatible (g, ti, roots) fi out ->
     super_compatible (lgraph_add_new_gen g gi, ti_add_new_space ti sp i Hs, roots)
                      fi out.
 Proof.
@@ -5411,7 +5190,7 @@ Proof.
 Qed.
 
 Lemma ti_size_spec_add: forall ti sp i (Hs: 0 <= i < MAX_SPACES),
-    total_space sp = nth_gen_size (Z.to_nat i) -> ti_size_spec ti ->
+    space_capacity sp = nth_gen_size (Z.to_nat i) -> ti_size_spec ti ->
     ti_size_spec (ti_add_new_space ti sp i Hs).
 Proof.
   intros. unfold ti_size_spec in *. rewrite Forall_forall in *. intros.
@@ -5450,7 +5229,7 @@ Proof.
     destruct a; [destruct s|]; simpl; auto. rewrite ang_vertex_address_old; auto.
     red in H1. apply (H1 v); auto. unfold get_edges.
     rewrite <- filter_sum_right_In_iff. assumption. } rewrite <- H2.
-  destruct (raw_mark (vlabel g v)) eqn:?; auto. f_equal.
+  destruct (block_mark (vlabel g v)) eqn:?; auto. f_equal.
   rewrite ang_vertex_address_old; auto. destruct (H0 _ H Heqb). assumption.
 Qed.
 
@@ -5473,7 +5252,7 @@ Proof.
 Qed.
 
 Lemma stcte_add: forall g gi i,
-    number_of_vertices gi = O -> safe_to_copy_to_except g i ->
+    generation_block_count gi = O -> safe_to_copy_to_except g i ->
     safe_to_copy_to_except (lgraph_add_new_gen g gi) i.
 Proof.
   intros. unfold safe_to_copy_to_except in *. intros. rewrite ang_graph_has_gen in H3.
@@ -5487,7 +5266,7 @@ Proof.
 Qed.
 
 Lemma graph_unmarked_add: forall g gi,
-    number_of_vertices gi = O -> graph_unmarked g ->
+    generation_block_count gi = O -> graph_unmarked g ->
     graph_unmarked (lgraph_add_new_gen g gi).
 Proof.
   intros. unfold graph_unmarked in *. intros. apply ang_graph_has_v_inv in H1; auto.
@@ -5499,7 +5278,7 @@ Lemma ang_get_edges: forall g gi v,
 Proof. intros. unfold get_edges, make_fields. simpl. reflexivity. Qed.
 
 Lemma no_backward_edge_add: forall g gi,
-    number_of_vertices gi = O -> no_backward_edge g ->
+    generation_block_count gi = O -> no_backward_edge g ->
     no_backward_edge (lgraph_add_new_gen g gi).
 Proof.
   intros. unfold no_backward_edge, gen2gen_no_edge in *. intros. simpl.
@@ -5508,7 +5287,7 @@ Proof.
 Qed.
 
 Lemma no_dangling_dst_add: forall g gi,
-    number_of_vertices gi = O -> no_dangling_dst g ->
+    generation_block_count gi = O -> no_dangling_dst g ->
     no_dangling_dst (lgraph_add_new_gen g gi).
 Proof.
   intros. unfold no_dangling_dst in *. intros. simpl.
@@ -5517,7 +5296,7 @@ Proof.
 Qed.
 
 Lemma gcc_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) roots fi,
-    number_of_vertices gi = O -> total_space sp = nth_gen_size (Z.to_nat i) ->
+    generation_block_count gi = O -> space_capacity sp = nth_gen_size (Z.to_nat i) ->
     garbage_collect_condition g ti roots fi ->
     garbage_collect_condition (lgraph_add_new_gen g gi)
                               (ti_add_new_space ti sp i Hs) roots fi.
@@ -5554,7 +5333,7 @@ Proof.
     destruct (gt_gs_compatible _ _ H1 _ H7) as [_ [_ ?]].
     fold (graph_gen_size g (S i)) in H8. fold (graph_gen_size g i) in H9.
     rewrite <- H8. fold (gen_size t_info (S i)).
-    destruct (space_order (nth_space t_info i)) as [_ ?].
+    destruct (space__order (nth_space t_info i)) as [_ ?].
     fold (gen_size t_info i) in H10. rewrite <- H9 in H10.
     transitivity (gen_size t_info i). 1: assumption.
     rewrite (ti_size_gen _ _ _ H1 H7 H6), (ti_size_gen _ _ _ H1 H0 H6).
@@ -5837,10 +5616,10 @@ Proof.
   destruct (zeq intval intval0). 1: inversion H. intro. inversion H0. easy.
 Qed.
 
-Lemma raw_fields_range2: forall r,
-    Zlength (raw_fields r) <= if Archi.ptr64 then Int64.max_signed else Int.max_signed.
+Lemma block_fields__range2: forall r,
+    Zlength (block_fields r) <= if Archi.ptr64 then Int64.max_signed else Int.max_signed.
 Proof.
-  intros. pose proof (raw_fields_range r). remember (Zlength (raw_fields r)).
+  intros. pose proof (block_fields__range r). remember (Zlength (block_fields r)).
   clear Heqz. cbv delta[Archi.ptr64]. simpl. rewrite <- Z.lt_succ_r. destruct H.
   transitivity (two_p (WORD_SIZE * 8 - 10)); auto. now vm_compute.
 Qed.

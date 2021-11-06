@@ -2,41 +2,41 @@ From CertiGC.spec Require Import gc_spec.
 
 Local Open Scope logic.
 
-Lemma typed_true_tag: forall (to : nat) (g : LGraph) (index : nat),
+Lemma typed_true_tag: forall (to : nat) (g : HeapGraph) (index : nat),
     typed_true tint
                (force_val
                   (option_map (fun b : bool => Val.of_bool (negb b))
                               (bool_val_i
                                  (Val.of_bool
-                                    (negb (Int.lt (Int.repr (raw_tag
+                                    (negb (Int.lt (Int.repr (block_tag
                                                                (vlabel g {| addr_gen := to ; addr_block := index |})))
                                                   (Int.repr 251))))))) ->
     ~ no_scan g {| addr_gen := to ; addr_block := index |}.
 Proof.
-  intros. remember (Int.lt (Int.repr (raw_tag (vlabel g {| addr_gen := to ; addr_block := index |}))) (Int.repr 251)).
+  intros. remember (Int.lt (Int.repr (block_tag (vlabel g {| addr_gen := to ; addr_block := index |}))) (Int.repr 251)).
   unfold typed_true in H. destruct b; simpl in H; [|inversion H].
   symmetry in Heqb. apply lt_repr in Heqb.
   - unfold no_scan. rep_lia.
-  - red. pose proof (raw_tag_range (vlabel g {| addr_gen := to ; addr_block := index |})). rep_lia.
+  - red. pose proof (block_tag__range (vlabel g {| addr_gen := to ; addr_block := index |})). rep_lia.
   - red. rep_lia.
 Qed.
 
-Lemma typed_false_tag: forall (to : nat) (g : LGraph) (index : nat),
+Lemma typed_false_tag: forall (to : nat) (g : HeapGraph) (index : nat),
     typed_false tint
                (force_val
                   (option_map (fun b : bool => Val.of_bool (negb b))
                               (bool_val_i
                                  (Val.of_bool
-                                    (negb (Int.lt (Int.repr (raw_tag
+                                    (negb (Int.lt (Int.repr (block_tag
                                                                (vlabel g {| addr_gen := to ; addr_block := index |})))
                                                   (Int.repr 251))))))) ->
     no_scan g {| addr_gen := to ; addr_block := index |}.
 Proof.
-  intros. remember (Int.lt (Int.repr (raw_tag (vlabel g {| addr_gen := to ; addr_block := index |}))) (Int.repr 251)).
+  intros. remember (Int.lt (Int.repr (block_tag (vlabel g {| addr_gen := to ; addr_block := index |}))) (Int.repr 251)).
   unfold typed_false in H. destruct b; simpl in H; [inversion H|].
   symmetry in Heqb. apply lt_repr_false in Heqb.
   - unfold no_scan. rep_lia.
-  - red. pose proof (raw_tag_range (vlabel g {| addr_gen := to ; addr_block := index |})). rep_lia.
+  - red. pose proof (block_tag__range (vlabel g {| addr_gen := to ; addr_block := index |})). rep_lia.
   - red. rep_lia.
 Qed.
 
@@ -44,7 +44,7 @@ Lemma body_do_scan: semax_body Vprog Gprog f_do_scan do_scan_spec.
 Proof.
   start_function.
   forward.
-  forward_loop (EX n: nat, EX g': LGraph, EX t_info': thread_info,
+  forward_loop (EX n: nat, EX g': HeapGraph, EX t_info': thread_info,
                 PROP (super_compatible (g', t_info', roots) f_info outlier;
                       forward_condition g' t_info' from to;
                       thread_info_relation t_info t_info';
@@ -58,7 +58,7 @@ Proof.
                  temp _next (next_address t_info' to))
                 SEP (all_string_constants rsh gv; fun_info_rep rsh f_info fi;
                outlier_rep outlier; graph_rep g'; thread_info_rep sh t_info' ti))
-  break: (EX g' : LGraph, EX t_info' : thread_info,
+  break: (EX g' : HeapGraph, EX t_info' : thread_info,
           PROP (super_compatible (g', t_info', roots) f_info outlier;
                 forward_condition g' t_info' from to;
                 do_scan_relation from to to_index g g';
@@ -75,47 +75,47 @@ Proof.
     destruct H6 as [? [? [? [? ?]]]].
     assert (0 <= Z.of_nat to < 12). {
       clear -H5 H14. destruct H5 as [_ [_ ?]]. red in H14.
-      pose proof (spaces_size (ti_heap t_info')).
+      pose proof (heap_spaces__size (ti_heap t_info')).
       rewrite Zlength_correct in H0. rep_lia. }
     destruct (gt_gs_compatible _ _ H5 _ H14) as [? [? ?]]. rewrite nth_space_Znth in *.
-    remember (Znth (Z.of_nat to) (spaces (ti_heap t_info'))) as sp_to.
-    assert (isptr (space_start sp_to)) by (rewrite <- H18; apply start_isptr).
-    remember (map space_tri (spaces (ti_heap t_info'))).
+    remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info'))) as sp_to.
+    assert (isptr (space_base sp_to)) by (rewrite <- H18; apply generation_base__isptr).
+    remember (map space_tri (heap_spaces (ti_heap t_info'))).
     assert (@Znth (val * (val * val)) (Vundef, (Vundef, Vundef))
                   (Z.of_nat to) l = space_tri sp_to). {
-      subst l sp_to. now rewrite Znth_map by (rewrite spaces_size; rep_lia). }
+      subst l sp_to. now rewrite Znth_map by (rewrite heap_spaces__size; rep_lia). }
     forward; rewrite H22; unfold space_tri. 1: entailer!.
     unfold vertex_address, vertex_offset. rewrite offset_offset_val.
     simpl addr_gen; simpl addr_block.
     replace (WORD_SIZE * (previous_vertices_size g' to index + 1) + - WORD_SIZE) with
         (WORD_SIZE * (previous_vertices_size g' to index))%Z by rep_lia.
     unfold gen_start at 1. rewrite if_true by assumption. rewrite H18.
-    remember (WORD_SIZE * used_space sp_to)%Z as used_offset.
+    remember (WORD_SIZE * space_allocated sp_to)%Z as used_offset.
     remember (WORD_SIZE * previous_vertices_size g' to index)%Z as index_offset.
     freeze [0; 1; 2; 4; 5] FR.
     gather_SEP (graph_rep g') (heap_rest_rep (ti_heap t_info')).
     assert (
         forall b i,
-          Vptr b i = space_start sp_to ->
+          Vptr b i = space_base sp_to ->
           graph_rep g' * heap_rest_rep (ti_heap t_info') |--
-      !! (WORD_SIZE * total_space sp_to + Ptrofs.unsigned i <= Ptrofs.max_unsigned)). {
+      !! (WORD_SIZE * space_capacity sp_to + Ptrofs.unsigned i <= Ptrofs.max_unsigned)). {
       intros. sep_apply (graph_and_heap_rest_data_at_ _ _ _ H14 H5).
-      assert (space_start sp_to = gen_start g' to) by
+      assert (space_base sp_to = gen_start g' to) by
           (unfold gen_start; rewrite if_true by assumption;
            rewrite <- H18; reflexivity). rewrite H24 in H23.
       sep_apply (generation_data_at__ptrofs g' t_info' to b i H23).
       unfold gen_size; rewrite nth_space_Znth; entailer!. }
     assert_PROP (force_val
-                   (sem_cmp_pp Clt (offset_val index_offset (space_start sp_to))
-                               (offset_val used_offset (space_start sp_to))) =
+                   (sem_cmp_pp Clt (offset_val index_offset (space_base sp_to))
+                               (offset_val used_offset (space_base sp_to))) =
                  Vint (if if zlt index_offset used_offset then true else false
                        then Int.one else Int.zero)). {
-      remember (space_start sp_to). destruct v; try contradiction. inv_int i.
+      remember (space_base sp_to). destruct v; try contradiction. inv_int i.
       specialize (H23 b (Ptrofs.repr ofs) eq_refl).
       rewrite Ptrofs.unsigned_repr in H23 by rep_lia. sep_apply H23. Intros.
       assert (0 <= ofs + used_offset <= Ptrofs.max_unsigned). {
         subst.
-        pose proof (space_order (Znth (Z.of_nat to) (spaces (ti_heap t_info')))).
+        pose proof (space__order (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info')))).
         unfold WORD_SIZE in *. rep_lia. }
       assert (0 <= ofs + index_offset <= Ptrofs.max_unsigned). {
         subst. red in H8. pose proof (pvs_ge_zero g' to (to_index + n)%nat).
@@ -126,21 +126,21 @@ Proof.
       unfold Ptrofs.ltu. rewrite !Ptrofs.unsigned_repr; auto. f_equal.
       if_tac; if_tac; try reflexivity; lia. }
     forward_if (gen_has_index g' to index).
-    + remember (Znth (Z.of_nat to) (spaces (ti_heap t_info'))) as sp_to.
+    + remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info'))) as sp_to.
       sep_apply (graph_and_heap_rest_data_at_ _ _ _ H14 H5).
       unfold generation_data_at_.
-      assert (gen_start g' to = space_start sp_to) by
+      assert (gen_start g' to = space_base sp_to) by
           (subst; unfold gen_start; rewrite if_true; assumption). rewrite H31.
       rewrite data_at__memory_block. Intros. rewrite sizeof_tarray_int_or_ptr.
-      2: unfold gen_size; apply total_space_range.
-      remember (WORD_SIZE * used_space sp_to)%Z as used_offset.
+      2: unfold gen_size; apply space_capacity__range.
+      remember (WORD_SIZE * space_allocated sp_to)%Z as used_offset.
       remember (to_index + n)%nat as index.
       remember (WORD_SIZE * previous_vertices_size g' to index)%Z as index_offset.
-      destruct (space_start sp_to); try contradiction. simpl. unfold test_order_ptrs.
+      destruct (space_base sp_to); try contradiction. simpl. unfold test_order_ptrs.
       simpl. case (peq b b); intros. 2: contradiction. simpl.
       assert (sepalg.nonidentity (nth_sh g' to)). {
         apply readable_nonidentity, writable_readable_share. unfold nth_sh.
-        apply generation_share_writable. }
+        apply generation_sh__writable. }
       assert (forall offset,
                  0 <= offset <= used_offset ->
                  memory_block (nth_sh g' to) (WORD_SIZE * gen_size t_info' to)
@@ -153,9 +153,9 @@ Proof.
                      (Vptr b i) offset); auto.
         3: apply extend_weak_valid_pointer.
         - subst. unfold gen_size. split. 1: apply (proj1 H34).
-          transitivity (WORD_SIZE * used_space (nth_space t_info' to))%Z.
+          transitivity (WORD_SIZE * space_allocated (nth_space t_info' to))%Z.
           + rewrite nth_space_Znth. apply (proj2 H34).
-          + apply Zmult_le_compat_l. apply (proj2 (space_order _)).
+          + apply Zmult_le_compat_l. apply (proj2 (space__order _)).
             unfold WORD_SIZE. lia.
         - clear -H3 H7. destruct H7 as [? [? ?]].
           rewrite <- H0. unfold WORD_SIZE. lia. }
@@ -165,7 +165,7 @@ Proof.
         apply Zmult_le_compat_l. 2: unfold WORD_SIZE; lia. rewrite <- H20.
         apply pvs_mono. assumption.
       * split; [|lia]; subst; apply Z.mul_nonneg_nonneg;
-                                  [unfold WORD_SIZE; lia | apply space_order].
+                                  [unfold WORD_SIZE; lia | apply space__order].
     + assert (index_offset < used_offset). {
         destruct (zlt index_offset used_offset); trivial.
         rewrite H24 in H25; unfold typed_true in H25. easy. }
@@ -186,10 +186,10 @@ Proof.
       (* annotation theta 7 *)
       localize [vertex_rep (nth_sh g' to) g' {| addr_gen := to ; addr_block := index |}].
       assert (readable_share (nth_sh g' to)) by
-          (unfold nth_sh; apply writable_readable_share, generation_share_writable).
+          (unfold nth_sh; apply writable_readable_share, generation_sh__writable).
       unfold vertex_rep, vertex_at. Intros.
       assert (offset_val (- WORD_SIZE) (vertex_address g' {| addr_gen := to ; addr_block := index |}) =
-              offset_val index_offset (space_start sp_to)). {
+              offset_val index_offset (space_base sp_to)). {
         unfold vertex_address. rewrite offset_offset_val. unfold vertex_offset.
         simpl addr_gen. simpl addr_block.
         replace (WORD_SIZE * (previous_vertices_size g' to index + 1) + - WORD_SIZE)
@@ -214,7 +214,7 @@ Proof.
       replace_SEP 0 (thread_info_rep sh t_info' ti) by
           (unfold thread_info_rep; entailer!).
       forward_if
-        (EX g'': LGraph, EX t_info'': thread_info,
+        (EX g'': HeapGraph, EX t_info'': thread_info,
          PROP (super_compatible (g'', t_info'', roots) f_info outlier;
                forward_condition g'' t_info'' from to;
                thread_info_relation t_info t_info'';
@@ -222,13 +222,13 @@ Proof.
                (~ no_scan g' {| addr_gen := to ; addr_block := index |} /\
                 scan_vertex_for_loop
                   from to {| addr_gen := to ; addr_block := index |}
-                  (nat_inc_list (length (vlabel g' {| addr_gen := to ; addr_block := index |}).(raw_fields))) g' g''))
-         LOCAL (temp _tag (vint (raw_tag (vlabel g' {| addr_gen := to ; addr_block := index |})));
+                  (nat_inc_list (length (vlabel g' {| addr_gen := to ; addr_block := index |}).(block_fields))) g' g''))
+         LOCAL (temp _tag (vint (block_tag (vlabel g' {| addr_gen := to ; addr_block := index |})));
                 temp _sz
                      (if Archi.ptr64 then
                         Vlong (Int64.repr
-                                 (Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))
-                      else vint (Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))));
+                                 (Zlength (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))
+                      else vint (Zlength (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))));
                 temp _s (offset_val (- WORD_SIZE) (vertex_address g'' {| addr_gen := to ; addr_block := index |}));
                 temp _from_start (gen_start g'' from);
                 temp _from_limit (limit_address g'' t_info'' from);
@@ -237,26 +237,26 @@ Proof.
               fun_info_rep rsh f_info fi;
               all_string_constants rsh gv; outlier_rep outlier)).
       * try (rewrite Int64.unsigned_repr in H27;
-             [|pose proof (raw_tag_range (vlabel g' {| addr_gen := to ; addr_block := index |})); rep_lia]).
+             [|pose proof (block_tag__range (vlabel g' {| addr_gen := to ; addr_block := index |})); rep_lia]).
         apply typed_true_tag in H27.
-        remember (Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))).
+        remember (Zlength (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))).
         assert (1 <= z < (if Archi.ptr64 then Int64.max_signed else Int.max_signed)).
         {
-          subst z. pose proof (raw_fields_range (vlabel g' {| addr_gen := to ; addr_block := index |})).
+          subst z. pose proof (block_fields__range (vlabel g' {| addr_gen := to ; addr_block := index |})).
           split; [lia|]. transitivity (two_p (WORD_SIZE * 8 - 10));
                            [lia | vm_compute; reflexivity]. }
         forward_loop
-          (EX i: Z, EX g3: LGraph, EX t_info3: thread_info,
+          (EX i: Z, EX g3: HeapGraph, EX t_info3: thread_info,
            PROP (scan_vertex_for_loop
                    from to {| addr_gen := to ; addr_block := index |}
                    (sublist 0 (i - 1)
                             (nat_inc_list
-                               (length (vlabel g' {| addr_gen := to ; addr_block := index |}).(raw_fields)))) g' g3;
+                               (length (vlabel g' {| addr_gen := to ; addr_block := index |}).(block_fields)))) g' g3;
                 super_compatible (g3, t_info3, roots) f_info outlier;
                 forward_condition g3 t_info3 from to;
                 thread_info_relation t_info t_info3;
                 1 <= i <= z + 1)
-           LOCAL (temp _tag (vint (raw_tag (vlabel g' {| addr_gen := to ; addr_block := index |})));
+           LOCAL (temp _tag (vint (block_tag (vlabel g' {| addr_gen := to ; addr_block := index |})));
                   temp _j (if Archi.ptr64 then (Vlong (Int64.repr i)) else vint i);
                   temp _sz (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
                   temp _s (offset_val (- WORD_SIZE) (vertex_address g3 {| addr_gen := to ; addr_block := index |}));
@@ -268,17 +268,17 @@ Proof.
                 fun_info_rep rsh f_info fi;
                 graph_rep g3;
                 thread_info_rep sh t_info3 ti))
-          continue: (EX i: Z, EX g3: LGraph, EX t_info3: thread_info,
+          continue: (EX i: Z, EX g3: HeapGraph, EX t_info3: thread_info,
            PROP (scan_vertex_for_loop
                    from to {| addr_gen := to ; addr_block := index |}
                    (sublist 0 i
                             (nat_inc_list
-                               (length (vlabel g' {| addr_gen := to ; addr_block := index |}).(raw_fields)))) g' g3;
+                               (length (vlabel g' {| addr_gen := to ; addr_block := index |}).(block_fields)))) g' g3;
                 super_compatible (g3, t_info3, roots) f_info outlier;
                 forward_condition g3 t_info3 from to;
                 thread_info_relation t_info t_info3;
                 1 <= i + 1 <= z + 1)
-           LOCAL (temp _tag (vint (raw_tag (vlabel g' {| addr_gen := to ; addr_block := index |})));
+           LOCAL (temp _tag (vint (block_tag (vlabel g' {| addr_gen := to ; addr_block := index |})));
                   temp _j (if Archi.ptr64 then (Vlong (Int64.repr i)) else vint i);
                   temp _sz (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
                   temp _s (offset_val (- WORD_SIZE) (vertex_address g3 {| addr_gen := to ; addr_block := index |}));
@@ -293,7 +293,7 @@ Proof.
         -- forward. Exists 1 g' t_info'. replace (1 - 1) with 0 by lia.
            autorewrite with sublist. unfold forward_condition. entailer!.
            try (rewrite Int64.unsigned_repr;
-                [| pose proof (raw_tag_range (vlabel g' {| addr_gen := to ; addr_block := to_index + n |}));
+                [| pose proof (block_tag__range (vlabel g' {| addr_gen := to ; addr_block := to_index + n |}));
                    rep_lia]).
            split; [apply svfl_nil | unfold super_compatible; auto].
         -- Intros i g3 t_info3. forward_if (i <= z).
@@ -302,7 +302,7 @@ Proof.
                      apply ltu64_repr_false in H34]; try lia.
               ** clear -H28 H33. simpl in H28. split. 1: lia.
                  transitivity
-                   (Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := to_index + n |})) + 1);
+                   (Zlength (block_fields (vlabel g' {| addr_gen := to ; addr_block := to_index + n |})) + 1);
                    rep_lia.
               ** clear -H28. simpl in H28. rep_lia.
            ++ forward. assert (i = z + 1). {
@@ -313,7 +313,7 @@ Proof.
                 - simpl in H28. clear -H28 H33. rep_lia.
                 - simpl in H28. clear -H28. rep_lia. } subst i. clear H33 H34.
               replace (z + 1 - 1) with z in H29 by lia.
-              remember (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |})) as r.
+              remember (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |})) as r.
               replace (sublist 0 z (nat_inc_list (Datatypes.length r))) with
                   (nat_inc_list (Datatypes.length r)) in H29.
               ** Exists g3 t_info3. entailer!.
@@ -341,10 +341,10 @@ Proof.
                    [|rewrite isptr_offset_val; assumption].
                  simpl. rewrite offset_offset_val. f_equal. unfold WORD_SIZE; lia.
               ** repeat (split; try assumption). lia.
-                 --- eapply svfl_raw_fields in H29;
+                 --- eapply svfl_block_fields in H29;
                        [rewrite <- H29; lia | assumption..].
                  --- rewrite <- H26. symmetry.
-                     eapply svfl_raw_mark in H29; [apply H29 | assumption..|].
+                     eapply svfl_block_mark in H29; [apply H29 | assumption..|].
                      simpl. lia.
                  --- simpl; auto.
               ** Intros vret. destruct vret as [[g4 t_info4] roots']. simpl fst in *.
@@ -361,7 +361,7 @@ Proof.
                  split; [|split; [|split]]; try easy.
                  --- remember (nat_inc_list
                                  (Datatypes.length
-                                    (raw_fields (vlabel g' {| addr_gen := to ; addr_block := to_index + n |})))).
+                                    (block_fields (vlabel g' {| addr_gen := to ; addr_block := to_index + n |})))).
                      assert (i <= Zlength l). {
                        subst l. rewrite Zlength_correct, nat_inc_list_length.
                        rewrite Zlength_correct in H34. lia. }
@@ -382,11 +382,11 @@ Proof.
               first [rewrite !Int.signed_repr | rewrite Int64.signed_repr]; rep_lia.
            ++ Exists (i + 1) g3 t_info3. replace (i + 1 - 1) with i by lia. entailer!.
       * try (rewrite Int64.unsigned_repr in H27;
-             [|pose proof (raw_tag_range (vlabel g' {| addr_gen := to ; addr_block := index |})); rep_lia]).
+             [|pose proof (block_tag__range (vlabel g' {| addr_gen := to ; addr_block := index |})); rep_lia]).
         apply typed_false_tag in H27. forward. Exists g' t_info'.
         unfold forward_condition. entailer!.
         try (rewrite Int64.unsigned_repr;
-             [|pose proof (raw_tag_range (vlabel g' {| addr_gen := to ; addr_block := to_index + n |}));
+             [|pose proof (block_tag__range (vlabel g' {| addr_gen := to ; addr_block := to_index + n |}));
                rep_lia]). easy.
       * Intros g'' t_info''. assert (isptr (vertex_address g'' {| addr_gen := to ; addr_block := index |})). {
           assert (isptr (vertex_address g' {| addr_gen := to ; addr_block := index |})). {
@@ -395,7 +395,7 @@ Proof.
           destruct H30 as [[? ?] | [? ?]]. 1: subst g''; assumption.
           eapply svfl_vertex_address in H32;
             [rewrite <- H32 | | apply graph_has_v_in_closure]; assumption. }
-        pose proof (raw_fields_range (vlabel g' {| addr_gen := to ; addr_block := index |})). forward.
+        pose proof (block_fields__range (vlabel g' {| addr_gen := to ; addr_block := index |})). forward.
         -- entailer!. split. 1: rep_lia.
            assert (two_p (WORD_SIZE * 8 - 10) <
                    if Archi.ptr64 then Int64.max_signed else Int.max_signed)
@@ -413,22 +413,22 @@ Proof.
                            (offset_val (-8) (vertex_address g'' {| addr_gen := to ; addr_block := index |}))
                            (Vlong
                               (Int64.repr
-                                 (1 + Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))))
+                                 (1 + Zlength (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))))
                       else
                         (sem_add_ptr_int tvalue Unsigned
                            (offset_val (-4)
                                        (vertex_address g'' {| addr_gen := to ; addr_block := index |}))
                            (vint (1 + Zlength
-                                        (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))))
+                                        (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |}))))))
                    = offset_val (- WORD_SIZE)
                                 (vertex_address g'' {| addr_gen := to ; addr_block := to_index + (n + 1) |})). {
              cbv [Archi.ptr64].
              first [rewrite sem_add_pi_ptr_special' |
                     rewrite sem_add_pl_ptr_special']; try easy.
-             - assert (Zlength (raw_fields (vlabel g' {| addr_gen := to ; addr_block := index |})) =
-                       Zlength (raw_fields (vlabel g'' {| addr_gen := to ; addr_block := index |}))). {
+             - assert (Zlength (block_fields (vlabel g' {| addr_gen := to ; addr_block := index |})) =
+                       Zlength (block_fields (vlabel g'' {| addr_gen := to ; addr_block := index |}))). {
                  destruct H30 as [[? ?] | [? ?]]. 1: subst g''; reflexivity.
-                 erewrite svfl_raw_fields; eauto. } rewrite H33.
+                 erewrite svfl_block_fields; eauto. } rewrite H33.
                simpl. replace (to_index + (n + 1))%nat with (S index) by lia.
                unfold vertex_address. rewrite !offset_offset_val.
                unfold vertex_offset. simpl addr_gen. simpl addr_block. f_equal.

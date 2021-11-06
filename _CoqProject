@@ -18,7 +18,11 @@ src/proof/verif_resume.v
 src/ast/env_graph_gc.v
 src/ast/x86_64-linux/gc.v
 src/model/constants.v
+src/model/util.v
+src/model/heap.v
 src/model/gc_correct.v
+src/model/thread_info.v
 src/model/spatial_gcgraph.v
 src/model/GCGraph.v
+src/model/graph.v
 src/spec/gc_spec.v

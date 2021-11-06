@@ -20,7 +20,7 @@ Proof.
     reflexivity. }
   forward_for_simple_bound
     n
-    (EX i: Z, EX g' : LGraph, EX t_info': thread_info, EX roots' : roots_t,
+    (EX i: Z, EX g' : HeapGraph, EX t_info': thread_info, EX roots' : roots_t,
      PROP (forward_roots_loop from to f_info (nat_inc_list (Z.to_nat i))
                               roots g roots' g';
            thread_info_relation t_info t_info';

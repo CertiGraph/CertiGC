@@ -235,7 +235,7 @@ Proof.
   rewrite vertex_head_address_eq. unfold vertex_address, vertex_offset. simpl.
   remember (gen_start g gen). destruct v; try contradiction.
   remember (previous_vertices_size g gen num).
-  assert (0 <= z) by (rewrite Heqz; apply pvs_ge_zero).
+  assert (0 <= z) by (rewrite Heqz; apply previous_vertices_size__nonneg).
   unfold vertex_size. entailer. rewrite <- fields_eq_length.
   destruct H1 as [_ [_ [? _]]]. simpl in H1.
   destruct H3 as [_ [_ [? _]]]. simpl in H3. rewrite <- H4 in H3.
@@ -285,8 +285,8 @@ Proof.
   rewrite <- H. inv_int i. entailer. destruct H1 as [_ [_ [? _]]]. simpl in H1.
   destruct H4 as [_ [_ [? _]]]. simpl in H4. rewrite <- H5 in H4. clear H3 H6 H5.
   rewrite ptrofs_add_repr in *. apply prop_right.
-  pose proof (pvs_ge_zero g gen num). rewrite Ptrofs.unsigned_repr_eq in H1.
-  unfold WORD_SIZE in *. rewrite Z.mod_small in H1 by rep_lia. rewrite pvs_S.
+  pose proof (previous_vertices_size__nonneg g gen num). rewrite Ptrofs.unsigned_repr_eq in H1.
+  unfold WORD_SIZE in *. rewrite Z.mod_small in H1 by rep_lia. rewrite previous_vertices_size__S.
    unfold vertex_size. rewrite <- fields_eq_length.
   rewrite Z.mul_add_distr_l, Z.mul_1_r, Z.add_assoc in H4.
   rewrite Ptrofs.unsigned_repr_eq in H4. rewrite Z.mod_small in H4 by rep_lia.
@@ -318,12 +318,12 @@ Proof.
   - sep_apply (iter_sepcon_vertex_rep_ptrofs g gen b i sh (S num) Heqv). Intros.
     rename H0 into HS. simpl in HS. unfold generation_rep.
     rewrite nat_inc_list_S, map_app, iter_sepcon_app_sepcon.
-    simpl. unfold generation_rep in IHnum. sep_apply IHnum. rewrite pvs_S, Z.add_comm.
+    simpl. unfold generation_rep in IHnum. sep_apply IHnum. rewrite previous_vertices_size__S, Z.add_comm.
     rewrite <- (Ptrofs.repr_unsigned i) at 2.
     remember (previous_vertices_size g gen num) as zp.
-    assert (0 <= zp) by (rewrite Heqzp; apply pvs_ge_zero).
-    pose proof (svs_gt_one g {| addr_gen := gen; addr_block := num |}) as HS1.
-    pose proof (Ptrofs.unsigned_range i) as HS2. rewrite pvs_S in HS.
+    assert (0 <= zp) by (rewrite Heqzp; apply previous_vertices_size__nonneg).
+    pose proof (vertex_size__one g {| addr_gen := gen; addr_block := num |}) as HS1.
+    pose proof (Ptrofs.unsigned_range i) as HS2. rewrite previous_vertices_size__S in HS.
     rewrite Z.add_comm, Z.mul_add_distr_l, memory_block_split;
       [| unfold WORD_SIZE in *; rep_lia..].
     rewrite (Ptrofs.repr_unsigned i). apply cancel_left.
@@ -351,8 +351,8 @@ Proof.
     rename H0 into HS. rewrite vertex_head_address_eq. entailer!. clear H1 H2 H3 H4.
     destruct H0 as [_ [_ [_ [? _]]]]. rewrite <- Heqv in H0. inv_int i.
     hnf in H0. rewrite ptrofs_add_repr in H0. inv H0. simpl in H1. inv H1.
-    simpl in H3. simpl in HS. pose proof (svs_gt_one g {| addr_gen := gen; addr_block := num |}).
-    pose proof (pvs_ge_zero g gen num). rewrite pvs_S in HS.
+    simpl in H3. simpl in HS. pose proof (vertex_size__one g {| addr_gen := gen; addr_block := num |}).
+    pose proof (previous_vertices_size__nonneg g gen num). rewrite previous_vertices_size__S in HS.
     rewrite Ptrofs.unsigned_repr_eq in H3. unfold WORD_SIZE in *.
     rewrite Z.mod_small in H3 by rep_lia.
     rewrite Z.add_comm in H3. apply Z.divide_add_cancel_r in H3.
@@ -375,7 +375,7 @@ Proof.
   intros. pose proof H. apply graph_has_gen_start_isptr in H.
   remember (gen_start g gen). destruct v; try contradiction.
   unfold field_compatible. entailer. unfold size_compatible.
-  rewrite sizeof_tarray_int_or_ptr by apply pvs_ge_zero.
+  rewrite sizeof_tarray_int_or_ptr by apply previous_vertices_size__nonneg.
   sep_apply (generation_rep_ptrofs g gen b i Heqv). entailer. rewrite Heqv.
   sep_apply (generation_rep_align_compatible g gen H0). entailer!.
 Qed.
@@ -389,7 +389,7 @@ Lemma generation_rep_data_at_: forall g gen,
 Proof.
   intros. sep_apply (generation_rep_field_compatible g gen H). Intros.
   sep_apply (generation_rep_memory_block g gen H).
-  rewrite <- sizeof_tarray_int_or_ptr by apply pvs_ge_zero.
+  rewrite <- sizeof_tarray_int_or_ptr by apply previous_vertices_size__nonneg.
   rewrite memory_block_data_at_; auto.
 Qed.
 

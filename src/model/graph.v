@@ -14,6 +14,7 @@ From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
+From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.util.
@@ -122,3 +123,72 @@ Record Generations : Type := {
 }.
 
 Definition HeapGraph := LabeledGraph Addr Field Block unit Generations.
+
+
+Definition vertex_size (g: HeapGraph) (v: Addr): Z
+ := Zlength (vlabel g v).(block_fields) + 1.
+
+Lemma vertex_size__one (g: HeapGraph) (v: Addr):
+    1 < vertex_size g v.
+Proof.
+    unfold vertex_size.
+    pose proof (block_fields__range (vlabel g v)).
+    lia.
+Qed.
+
+
+Definition vertex_size_accum g gen (s: Z) (n: nat): Z
+ := s + vertex_size g {| addr_gen := gen; addr_block := n |}.
+
+Lemma vertex_size_accum__mono (g: HeapGraph) (gen: nat) (s: Z) (n: nat):
+    s < vertex_size_accum g gen s n.
+Proof.
+    unfold vertex_size_accum.
+    pose proof (vertex_size__one g {| addr_gen := gen; addr_block := n |}) as H.
+    lia.
+Qed.
+
+Lemma vertex_size_accum__comm (g: HeapGraph) (gen: nat) (s: Z) (n1 n2: nat):
+    vertex_size_accum g gen (vertex_size_accum g gen s n1) n2 =
+    vertex_size_accum g gen (vertex_size_accum g gen s n2) n1.
+Proof.
+    unfold vertex_size_accum.
+    lia.
+Qed.
+
+Lemma vertex_size_accum__fold_lt (g: HeapGraph) (gen: nat) (s: Z) (l: list nat) (Hl: l <> nil):
+    s < fold_left (vertex_size_accum g gen) l s.
+Proof.
+    apply (fold_left_Z_mono_strict (vertex_size_accum g gen) nil l l) ; try assumption.
+    + apply vertex_size_accum__mono.
+    + apply vertex_size_accum__comm.
+    + apply Permutation_refl.
+Qed.
+
+Lemma vertex_size_accum__fold_le (g: HeapGraph) (gen: nat) (s: Z) (l: list nat):
+    s <= fold_left (vertex_size_accum g gen) l s.
+Proof.
+    destruct l as [|n l] ; try easy.
+    rewrite Z.le_lteq.
+    left.
+    now apply vertex_size_accum__fold_lt.
+Qed.
+
+
+Definition previous_vertices_size (g: HeapGraph) (gen i: nat): Z
+ := fold_left (vertex_size_accum g gen) (nat_inc_list i) 0.
+
+ Lemma previous_vertices_size__S (g: HeapGraph) (gen i: nat):
+    previous_vertices_size g gen (S i) =
+    previous_vertices_size g gen i + vertex_size g {| addr_gen := gen; addr_block := i |}.
+Proof.
+    unfold previous_vertices_size at 1.
+    now rewrite nat_inc_list_S, fold_left_app.
+Qed.
+
+Lemma previous_vertices_size__nonneg (g: HeapGraph) (gen i: nat):
+    0 <= previous_vertices_size g gen i.
+Proof.
+    unfold previous_vertices_size.
+    apply vertex_size_accum__fold_le.
+Qed.

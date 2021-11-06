@@ -292,7 +292,7 @@ Proof.
                (rewrite heap_spaces__size; rep_lia).
            assert (Hh: has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info)))
                                  (vertex_size g a)). {
-             red. split. 1: pose proof (svs_gt_one g a); lia.
+             red. split. 1: pose proof (vertex_size__one g a); lia.
              transitivity (unmarked_gen_size g (addr_gen a)).
              - apply single_unmarked_le; assumption.
              - red in H1. unfold rest_gen_size in H1. subst from.
@@ -926,7 +926,7 @@ Proof.
                (rewrite heap_spaces__size; rep_lia).
            assert (Hh: has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info)))
                                  (vertex_size g v')). {
-             red. split. 1: pose proof (svs_gt_one g v'); lia.
+             red. split. 1: pose proof (vertex_size__one g v'); lia.
              transitivity (unmarked_gen_size g (addr_gen v')).
              - apply single_unmarked_le; assumption.
              - red in H1. unfold rest_gen_size in H1. subst from.

@@ -118,7 +118,7 @@ Proof.
         pose proof (space__order (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info')))).
         unfold WORD_SIZE in *. rep_lia. }
       assert (0 <= ofs + index_offset <= Ptrofs.max_unsigned). {
-        subst. red in H8. pose proof (pvs_ge_zero g' to (to_index + n)%nat).
+        subst. red in H8. pose proof (previous_vertices_size__nonneg g' to (to_index + n)%nat).
         pose proof (pvs_mono g' to _ _ H8). unfold WORD_SIZE in *. rep_lia. }
       apply prop_right.
       rewrite force_sem_cmp_pp; [|rewrite isptr_offset_val; assumption..].
@@ -161,7 +161,7 @@ Proof.
           rewrite <- H0. unfold WORD_SIZE. lia. }
       apply andp_right; apply H34.
       * subst. split.
-        1: pose proof (pvs_ge_zero g' to (to_index + n)%nat); unfold WORD_SIZE; lia.
+        1: pose proof (previous_vertices_size__nonneg g' to (to_index + n)%nat); unfold WORD_SIZE; lia.
         apply Zmult_le_compat_l. 2: unfold WORD_SIZE; lia. rewrite <- H20.
         apply pvs_mono. assumption.
       * split; [|lia]; subst; apply Z.mul_nonneg_nonneg;
@@ -432,7 +432,7 @@ Proof.
                simpl. replace (to_index + (n + 1))%nat with (S index) by lia.
                unfold vertex_address. rewrite !offset_offset_val.
                unfold vertex_offset. simpl addr_gen. simpl addr_block. f_equal.
-               rewrite pvs_S. unfold vertex_size. unfold WORD_SIZE. lia.
+               rewrite previous_vertices_size__S. unfold vertex_size. unfold WORD_SIZE. lia.
              - rewrite isptr_offset_val. assumption. }
            cbv [Archi.ptr64] in H33. rewrite H33. clear H33.
            assert (closure_has_index g'' to (to_index + (n + 1))). {

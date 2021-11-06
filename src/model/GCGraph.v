@@ -34,139 +34,11 @@ Import ListNotations.
 Definition GC_Pointer2val (x: GC_Pointer) : val :=
   match x with | GCPtr b z => Vptr b z end.
 
-Local Open Scope Z_scope.
-
 Local Coercion pg_lg: LabeledGraph >-> PreGraph.
 
 
-Definition vertex_size (g: HeapGraph) (v: Addr): Z :=
-  Zlength (vlabel g v).(block_fields) + 1.
-
-Lemma svs_gt_one: forall g v, 1 < vertex_size g v.
-Proof.
-  intros. unfold vertex_size. pose proof (block_fields__range (vlabel g v)). lia.
-Qed.
-
-Fixpoint nat_seq (s: nat) (total: nat): list nat :=
-  match total with
-  | O => nil
-  | S n => s :: nat_seq (S s) n
-  end.
-
-Lemma nat_seq_length: forall s n, length (nat_seq s n) = n.
-Proof. intros. revert s. induction n; intros; simpl; [|rewrite IHn]; reflexivity. Qed.
-
-Lemma nat_seq_S: forall i num, nat_seq i (S num) = nat_seq i num ++ [(num + i)%nat].
-Proof.
-  intros. revert i. induction num; intros. 1: simpl; reflexivity.
-  remember (S num). simpl. rewrite (IHnum (S i)). subst. simpl. repeat f_equal. lia.
-Qed.
-
-Lemma nat_seq_In_iff: forall s n i, In i (nat_seq s n) <-> (s <= i < s + n)%nat.
-Proof. intros. revert s. induction n; intros; simpl; [|rewrite IHn]; lia. Qed.
-
-Lemma nat_seq_NoDup: forall s n, NoDup (nat_seq s n).
-Proof.
-  intros. revert s. induction n; intros; simpl; constructor. 2: apply IHn.
-  intro. rewrite nat_seq_In_iff in H. lia.
-Qed.
-
-Local Close Scope Z_scope.
-
-Lemma nat_seq_nth: forall s num n a, n < num -> nth n (nat_seq s num) a = s + n.
-Proof.
-  intros. revert s n H. induction num; intros. 1: exfalso; lia. simpl. destruct n.
-  1: lia. specialize (IHnum (S s) n). replace (s + S n) with (S s + n) by lia.
-  rewrite IHnum; [reflexivity | lia].
-Qed.
-
-Lemma nat_seq_app: forall s n m, nat_seq s (n + m) = nat_seq s n ++ nat_seq (s + n) m.
-Proof.
-  intros. revert s; induction n; simpl; intros.
-  - rewrite Nat.add_0_r. reflexivity.
-  - f_equal. rewrite IHn. replace (S s + n) with (s + S n) by lia. reflexivity.
-Qed.
-
-Lemma nat_seq_Permutation_cons: forall s i n,
-    i < n -> exists l, Permutation (nat_seq s n) (s + i :: l).
-Proof.
-  intros. induction n. 1: lia. replace (S n) with (n + 1) by lia.
-  rewrite nat_seq_app. simpl. destruct (Nat.eq_dec i n).
-  - subst i. exists (nat_seq s n). symmetry. apply Permutation_cons_append.
-  - assert (i < n) by lia. apply IHn in H0. destruct H0 as [l ?].
-    exists (l +:: (s + n)). rewrite app_comm_cons. apply Permutation_app_tail.
-    assumption.
-Qed.
-
-Definition nat_inc_list (n: nat) : list nat := nat_seq O n.
-
-Lemma nat_inc_list_length: forall num, length (nat_inc_list num) = num.
-Proof. intros. unfold nat_inc_list. rewrite nat_seq_length. reflexivity. Qed.
-
-Lemma nat_inc_list_S: forall num, nat_inc_list (S num) = nat_inc_list num ++ [num].
-Proof. intros. unfold nat_inc_list. rewrite nat_seq_S. repeat f_equal. lia. Qed.
-
-Lemma nat_inc_list_In_iff: forall i n, In i (nat_inc_list n) <-> i < n.
-Proof. intros. unfold nat_inc_list. rewrite nat_seq_In_iff. intuition. Qed.
-
-Lemma nat_inc_list_nth: forall i n a, i < n -> nth i (nat_inc_list n) a = i.
-Proof. intros. unfold nat_inc_list. rewrite nat_seq_nth; [lia | assumption]. Qed.
-
-Lemma nat_inc_list_app: forall n m,
-    nat_inc_list (n + m) = nat_inc_list n ++ nat_seq n m.
-Proof. intros. unfold nat_inc_list. rewrite nat_seq_app. reflexivity. Qed.
-
-Lemma nat_inc_list_NoDup: forall n, NoDup (nat_inc_list n).
-Proof. intros. unfold nat_inc_list. apply nat_seq_NoDup. Qed.
-
-Lemma nat_inc_list_Permutation_cons: forall i n,
-    i < n -> exists l, Permutation (nat_inc_list n) (i :: l).
-Proof.
-  intros. unfold nat_inc_list. replace i with (O + i) by lia.
-  apply nat_seq_Permutation_cons. assumption.
-Qed.
-
 Local Open Scope Z_scope.
 
-Definition vertex_size_accum g gen (s: Z) (n: nat) := s + vertex_size g {| addr_gen := gen; addr_block := n |}.
-
-Definition previous_vertices_size (g: HeapGraph) (gen i: nat): Z :=
-  fold_left (vertex_size_accum g gen) (nat_inc_list i) 0.
-
-Lemma vsa_mono: forall g gen s n, s < vertex_size_accum g gen s n.
-Proof.
-  intros. unfold vertex_size_accum. pose proof (svs_gt_one g {| addr_gen := gen; addr_block := n |}). lia.
-Qed.
-
-Lemma vsa_comm: forall g gen s n1 n2,
-    vertex_size_accum g gen (vertex_size_accum g gen s n1) n2 =
-    vertex_size_accum g gen (vertex_size_accum g gen s n2) n1.
-Proof. intros. unfold vertex_size_accum. lia. Qed.
-
-Lemma vs_accum_list_lt: forall g gen s l,
-    l <> nil -> s < fold_left (vertex_size_accum g gen) l s.
-Proof.
-  intros; apply (fold_left_Z_mono_strict (vertex_size_accum g gen) nil l l);
-    [apply vsa_mono | apply vsa_comm | assumption | apply Permutation_refl].
-Qed.
-
-Lemma vs_accum_list_le: forall g gen s l, s <= fold_left (vertex_size_accum g gen) l s.
-Proof.
-  intros. destruct l. 1: simpl; lia. rename l into l1. remember (n :: l1).
-  assert (l <> nil) by (subst; intro S; inversion S). rewrite Z.le_lteq. left.
-  apply vs_accum_list_lt. assumption.
-Qed.
-
-Lemma pvs_S: forall g gen i,
-    previous_vertices_size g gen (S i) =
-    previous_vertices_size g gen i + vertex_size g {| addr_gen := gen; addr_block := i |}.
-Proof.
-  intros. unfold previous_vertices_size at 1. rewrite nat_inc_list_S, fold_left_app.
-  fold (previous_vertices_size g gen i). simpl. reflexivity.
-Qed.
-
-Lemma pvs_ge_zero: forall g gen i, 0 <= previous_vertices_size g gen i.
-Proof. intros. unfold previous_vertices_size. apply vs_accum_list_le. Qed.
 
 Definition generation_space_compatible (g: HeapGraph)
            (tri: nat * Generation * Space) : Prop :=
@@ -836,7 +708,7 @@ Lemma vertex_address_the_same: forall (g1 g2: HeapGraph) v,
 Proof.
   intros. unfold vertex_address. f_equal.
   - f_equal. unfold vertex_offset. f_equal. remember (addr_block v). clear Heqn.
-    induction n; simpl; auto. rewrite !pvs_S, IHn. f_equal. unfold vertex_size.
+    induction n; simpl; auto. rewrite !previous_vertices_size__S, IHn. f_equal. unfold vertex_size.
     rewrite H. reflexivity.
   - assert (forall gen, graph_has_gen g1 gen <-> graph_has_gen g2 gen). {
       intros. unfold graph_has_gen.
@@ -1407,7 +1279,7 @@ Lemma pvs_mono_strict: forall g gen i j,
 Proof.
   intros. assert (j = i + (j - i)) by lia. rewrite H0. remember (j - i). subst j.
   unfold previous_vertices_size. rewrite nat_inc_list_app, fold_left_app.
-  apply vs_accum_list_lt. pose proof (nat_seq_length i n). destruct (nat_seq i n).
+  apply vertex_size_accum__fold_lt. pose proof (nat_seq_length i n). destruct (nat_seq i n).
   - simpl in H0. lia.
   - intro S; inversion S.
 Qed.
@@ -1442,7 +1314,7 @@ Proof.
   remember (generation_block_count (nth_gen g (addr_gen v))). remember (addr_gen v).
   assert (S (addr_block v) <= n)%nat by lia.
   apply Z.lt_le_trans with (previous_vertices_size g n0 (S (addr_block v))).
-  - rewrite pvs_S. apply Zplus_lt_compat_l, svs_gt_one.
+  - rewrite previous_vertices_size__S. apply Zplus_lt_compat_l, vertex_size__one.
   - apply pvs_mono; assumption.
 Qed.
 
@@ -1461,7 +1333,7 @@ Proof.
     pose proof WORD_SIZE_pos as HH.
     repeat split.
     {
-        pose proof (pvs_ge_zero g (addr_gen v) (addr_block v)) as HH'.
+        pose proof (previous_vertices_size__nonneg g (addr_gen v) (addr_block v)) as HH'.
         unfold vertex_offset.
         lia.
     }
@@ -1509,7 +1381,7 @@ Lemma unmarked_gen_size_le: forall g n, unmarked_gen_size g n <= graph_gen_size 
 Proof.
   intros g gen. unfold unmarked_gen_size, graph_gen_size, previous_vertices_size.
   apply fold_left_mono_filter;
-    [intros; rewrite Z.le_lteq; left; apply vsa_mono | apply vsa_comm].
+    [intros; rewrite Z.le_lteq; left; apply vertex_size_accum__mono | apply vertex_size_accum__comm].
 Qed.
 
 Lemma single_unmarked_le: forall g v,
@@ -1528,7 +1400,7 @@ Proof.
   transitivity (fold_left (vertex_size_accum g (addr_gen v)) [addr_block v] 0).
   - simpl. destruct v; simpl. apply Z.le_refl.
   - apply (fold_left_Z_mono (vertex_size_accum g (addr_gen v)) [addr_block v] l1 l 0);
-      [intros; apply Z.le_lteq; left; apply vsa_mono | apply vsa_comm | apply H1].
+      [intros; apply Z.le_lteq; left; apply vertex_size_accum__mono | apply vertex_size_accum__comm | apply H1].
 Qed.
 
 Definition rest_gen_size (t_info: thread_info) (gen: nat): Z :=
@@ -2265,7 +2137,7 @@ Proof.
       as f2. cut (Permutation (filter f1 l) (index :: filter f2 l)).
     + intros. rewrite (fold_left_comm _ _ (index :: filter f2 l)). 3: assumption.
       * simpl. rewrite <- vsa_fold_left. f_equal.
-      * apply vsa_comm.
+      * apply vertex_size_accum__comm.
     + apply filter_singular_perm; subst.
       * intros. unfold update_copied_old_vlabel, update_vlabel.
         rewrite if_false. 1: reflexivity. unfold equiv. intro. apply H2.
@@ -2551,7 +2423,7 @@ Lemma lcv_pvs_same: forall g v to,
 Proof.
   intros. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption. simpl.
   remember (generation_block_count (nth to (generations (glabel g)) null_generation)).
-  replace (n + 1)%nat with (S n) by lia. rewrite pvs_S. f_equal.
+  replace (n + 1)%nat with (S n) by lia. rewrite previous_vertices_size__S. f_equal.
   - unfold previous_vertices_size. apply fold_left_ext. intros.
     unfold vertex_size_accum. f_equal. apply lcv_vertex_size_old. 1: assumption.
     rewrite nat_inc_list_In_iff in H0; subst; split; simpl; assumption.

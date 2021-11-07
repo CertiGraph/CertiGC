@@ -2,15 +2,7 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import common.Values.
-From compcert Require Import lib.Integers.
-
-From VST Require Import floyd.functional_base.
-From VST Require Import floyd.sublist.
-From VST Require Import msl.shares.
-From VST Require Import veric.base.
-From VST Require Import veric.shares.
-From VST Require Import veric.val_lemmas.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.

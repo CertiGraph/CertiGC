@@ -1,9 +1,9 @@
 From Coq Require Import Lists.List.
+From Coq Require Import ZArith.ZArith.
 
-From VST Require Import floyd.sublist.
-From VST Require Import veric.base.
-From VST Require Import veric.val_lemmas.
+From VST Require Import floyd.proofauto.
 
+From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.List_ext.
 
@@ -32,7 +32,7 @@ Definition outlier_compatible (g: HeapGraph) (outlier: outlier_t): Prop :=
 Lemma in_gcptr_outlier: forall g gcptr outlier n v,
     graph_has_v g v ->
     outlier_compatible g outlier ->
-    0 <= n < Zlength (block_fields (vlabel g v)) ->
+    (0 <= n < Zlength (block_fields (vlabel g v)))%Z ->
     Znth n (make_fields g v) = inl (inr gcptr) ->
     In gcptr outlier.
 Proof.

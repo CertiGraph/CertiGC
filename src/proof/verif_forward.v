@@ -105,9 +105,9 @@ Proof.
   unfold limit_address, next_address, forward_p_address. destruct forward_p.
   - unfold thread_info_rep. Intros.
     assert (Zlength roots = Zlength (live_roots_indices f_info)) by
-        (rewrite <- (Zlength_map _ _ (flip Znth (ti_args t_info))), <- H4, Zlength_map; trivial).
+        (rewrite <- (Zlength_map _ _ ((fun x y => Znth y x) (ti_args t_info))), <- H4, Zlength_map; trivial).
     pose proof (Znth_map _ (root2val g) _ H0). hnf in H0. rewrite H11 in H0.
-    rewrite H4, Znth_map in H12 by assumption. unfold flip in H12.
+    rewrite H4, Znth_map in H12 by assumption.
     remember (Znth z roots) as root. rewrite <- H11 in H0.
     pose proof (Znth_In _ _ H0).
     rewrite <- Heqroot in H13. rewrite H11 in H0. unfold Inhabitant_val in H12.

@@ -1,16 +1,13 @@
 From Coq Require Import Lists.List.
 
-From VST Require Import floyd.sublist.
-From VST Require Import veric.base.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.constants.
-From CertiGC Require Import model.graph.
 From CertiGC Require Import model.heap.
 From CertiGC Require Import model.thread_info.
-From CertiGC Require Import model.util.
 
 
 Lemma cut_space__order: forall (sp : Space) (s : Z),

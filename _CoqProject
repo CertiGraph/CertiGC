@@ -27,8 +27,10 @@ src/model/thread_info.v
 src/model/spatial_gcgraph.v
 src/model/reset.v
 src/model/copy.v
+src/model/do_generation.v
 src/model/scan.v
 src/model/GCGraph.v
+src/model/garbage_collect.v
 src/model/cut.v
 src/model/graph.v
 src/model/update.v

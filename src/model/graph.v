@@ -2,15 +2,7 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import common.Values.
-From compcert Require Import lib.Integers.
-
-From VST Require Import floyd.functional_base.
-From VST Require Import floyd.sublist.
-From VST Require Import msl.shares.
-From VST Require Import veric.base.
-From VST Require Import veric.shares.
-From VST Require Import veric.val_lemmas.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import graph.graph_gen.
@@ -674,6 +666,15 @@ Lemma stc_stcte_O_iff: forall g, safe_to_copy g <-> safe_to_copy_to_except g O.
 Proof.
   intros. unfold safe_to_copy, safe_to_copy_to_except. split; intros.
   - destruct n. 1: contradiction. simpl. apply H; assumption.
+  - specialize (H (S n)). simpl in H. apply H; auto.
+Qed.
+
+Lemma safe_to_copy_complete: forall g i,
+    safe_to_copy_to_except g (S i) -> safe_to_copy_gen g i (S i) -> safe_to_copy g.
+Proof.
+  intros. unfold safe_to_copy_to_except in H. unfold safe_to_copy. intros.
+  destruct (Nat.eq_dec n i).
+  - subst. assumption.
   - specialize (H (S n)). simpl in H. apply H; auto.
 Qed.
 

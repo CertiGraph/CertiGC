@@ -2,15 +2,8 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import common.Values.
-From compcert Require Import lib.Integers.
-
+From VST Require Import floyd.proofauto.
 From VST Require Import floyd.functional_base.
-From VST Require Import floyd.sublist.
-From VST Require Import msl.shares.
-From VST Require Import veric.base.
-From VST Require Import veric.shares.
-From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
@@ -27,7 +20,6 @@ From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.update.
 From CertiGC Require Import model.util.
 
-Import ListNotations.
 Local Coercion pg_lg: LabeledGraph >-> PreGraph.
 
 
@@ -1048,4 +1040,57 @@ Proof.
   - erewrite <- (fr_graph_has_gen O from to); eauto.
   - erewrite <- (fr_graph_has_gen O from to); eauto.
   - eapply (fr_O_stcg from to); eauto.
+Qed.
+
+Lemma frr_copy_compatible: forall from to f_info roots g roots' g',
+    from <> to -> graph_has_gen g to ->
+    forward_roots_relation from to f_info roots g roots' g' ->
+    copy_compatible g -> copy_compatible g'.
+Proof.
+  intros. induction H1. 1: assumption. apply IHforward_roots_loop.
+  - rewrite <- fr_graph_has_gen; eauto.
+  - eapply fr_copy_compatible; eauto.
+Qed.
+
+Lemma frl_no_dangling_dst: forall from to f_info l roots g roots' g',
+    graph_has_gen g to -> copy_compatible g -> from <> to ->
+    (forall i, In i l -> i < length roots)%nat ->
+    Zlength roots = Zlength (live_roots_indices f_info) ->
+    roots_graph_compatible roots g ->
+    forward_roots_loop from to f_info l roots g roots' g' ->
+    no_dangling_dst g -> no_dangling_dst g'.
+Proof.
+  do 4 intro. induction l; intros; inversion H5; subst. 1: assumption.
+  assert (forward_p_compatible (inl (Z.of_nat a)) roots g from). {
+    simpl. split. 1: lia. rewrite Zlength_correct. apply inj_lt.
+    apply H2; left; reflexivity. } cut (no_dangling_dst g2).
+  - intros. eapply (IHl (upd_roots from to (inl (Z.of_nat a)) g roots f_info)
+                        g2 roots'); eauto.
+    + erewrite <- fr_graph_has_gen; eauto.
+    + eapply (fr_copy_compatible O from to _ g); eauto.
+    + intros. rewrite <- ZtoNat_Zlength, upd_roots_Zlength, ZtoNat_Zlength; auto.
+      apply H2. right; assumption.
+    + rewrite upd_roots_Zlength; assumption.
+    + eapply fr_roots_graph_compatible; eauto.
+  - fold (forward_p2forward_t (inl (Z.of_nat a)) roots g) in H9.
+    eapply fr_O_no_dangling_dst; eauto.
+Qed.
+
+Lemma frr_no_dangling_dst: forall from to f_info roots g roots' g',
+    graph_has_gen g to -> copy_compatible g -> from <> to ->
+    Zlength roots = Zlength (live_roots_indices f_info) ->
+    roots_graph_compatible roots g ->
+    forward_roots_relation from to f_info roots g roots' g' ->
+    no_dangling_dst g -> no_dangling_dst g'.
+Proof.
+  intros. eapply frl_no_dangling_dst; eauto. intros.
+  rewrite nat_inc_list_In_iff in H6. assumption.
+Qed.
+
+Lemma frr_roots_fi_compatible: forall from to f_info roots1 g1 roots2 g2,
+    forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    roots_fi_compatible roots1 f_info -> roots_fi_compatible roots2 f_info.
+Proof.
+  intros. induction H; subst. 1: assumption. apply IHforward_roots_loop.
+  apply upd_roots_rf_compatible; assumption.
 Qed.

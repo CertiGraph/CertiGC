@@ -8,6 +8,7 @@ From CertiGraph Require Import lib.List_ext.
 From CertiGraph Require Import msl_ext.log_normalize.
 From CertiGraph Require Import msl_ext.ramification_lemmas.
 From CertiGraph Require Import msl_ext.iter_sepcon.
+From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
 
 From CertiGC Require Import model.constants.

@@ -1,7 +1,6 @@
 From Coq Require Import Lists.List.
 
-From VST Require Import floyd.sublist.
-From VST Require Import veric.base.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.List_ext.

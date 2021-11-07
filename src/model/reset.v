@@ -2,15 +2,7 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import common.Values.
-From compcert Require Import lib.Integers.
-
-From VST Require Import floyd.functional_base.
-From VST Require Import floyd.sublist.
-From VST Require Import msl.shares.
-From VST Require Import veric.base.
-From VST Require Import veric.shares.
-From VST Require Import veric.val_lemmas.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
@@ -515,4 +507,17 @@ Lemma reset_stct: forall g i gen1 gen2,
     safe_to_copy_gen (reset_graph i g) gen1 gen2.
 Proof.
   intros. unfold safe_to_copy_gen in *. rewrite reset_graph_gen_size_eq; auto.
+Qed.
+
+Lemma no_dangling_dst_reset: forall g gen,
+    no_dangling_dst g -> no_edge2gen g gen ->
+    no_dangling_dst (reset_graph gen g).
+Proof.
+  intros. unfold no_dangling_dst in *. red in H0. simpl. intros.
+  rewrite graph_has_v_reset in *. destruct H1. rewrite get_edges_reset in H2.
+  rewrite remove_ve_dst_unchanged. split.
+  - apply (H v); assumption.
+  - cut (addr_gen (dst g e) <> gen). 1: intuition. unfold gen2gen_no_edge in H0.
+    destruct e as [[vgen vidx] eidx]. pose proof H2. apply get_edges_fst in H2.
+    simpl in H2. subst v. simpl in *. apply H0; intuition. split; simpl; assumption.
 Qed.

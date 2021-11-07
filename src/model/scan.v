@@ -3,15 +3,7 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import common.Values.
-From compcert Require Import lib.Integers.
-
-From VST Require Import floyd.functional_base.
-From VST Require Import floyd.sublist.
-From VST Require Import msl.shares.
-From VST Require Import veric.base.
-From VST Require Import veric.shares.
-From VST Require Import veric.val_lemmas.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
@@ -19,13 +11,13 @@ From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.compatible.
-From CertiGC Require Import model.constants.
+(* From CertiGC Require Import model.constants. *)
 From CertiGC Require Import model.copy.
-From CertiGC Require Import model.cut.
+(* From CertiGC Require Import model.cut. *)
 From CertiGC Require Import model.forward.
 From CertiGC Require Import model.graph.
-From CertiGC Require Import model.heap.
-From CertiGC Require Import model.reset.
+(* From CertiGC Require Import model.heap. *)
+(* From CertiGC Require Import model.reset. *)
 From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.util.
 
@@ -178,13 +170,6 @@ Proof.
   - simpl app. apply svwl_no_scan; try assumption. apply IHl with g2; assumption.
   - simpl app. apply svwl_scan with g4; try assumption. apply IHl with g2; assumption.
 Qed.
-
-
-Definition do_generation_relation (from to: nat) (f_info: fun_info)
-           (roots roots': roots_t) (g g': HeapGraph): Prop := exists g1 g2,
-    forward_roots_relation from to f_info roots g roots' g1 /\
-    do_scan_relation from to (generation_block_count (nth_gen g to)) g1 g2 /\
-    g' = reset_graph from g2.
 
 
 Lemma svwl_graph_has_gen: forall from to l g1 g2,
@@ -443,4 +428,137 @@ Proof.
   - erewrite <- (svfl_graph_has_gen from to); eauto.
   - erewrite <- (svfl_graph_has_gen from to); eauto.
   - eapply (svfl_stcg from to); eauto.
+Qed.
+
+
+Lemma svfl_copy_compatible: forall from to v l g1 g2,
+    from <> to -> graph_has_gen g1 to ->
+    scan_vertex_for_loop from to v l g1 g2 ->
+    copy_compatible g1 -> copy_compatible g2.
+Proof.
+  do 4 intro. induction l; intros; inversion H1; subst. 1: assumption.
+  cut (copy_compatible g3).
+  - intros. apply (IHl g3); auto. erewrite <- fr_graph_has_gen; eauto.
+  - eapply fr_copy_compatible; eauto.
+Qed.
+
+Lemma svfl_no_dangling_dst: forall from to v l g1 g2,
+    graph_has_v g1 v -> block_mark (vlabel g1 v) = false -> addr_gen v <> from ->
+    copy_compatible g1 -> graph_has_gen g1 to -> from <> to ->
+    scan_vertex_for_loop from to v l g1 g2 ->
+    (forall i,  In i l -> i < length (block_fields (vlabel g1 v)))%nat ->
+    no_dangling_dst g1 -> no_dangling_dst g2.
+Proof.
+  do 4 intro. induction l; intros; inversion H5; subst. 1: assumption.
+  cut (no_dangling_dst g3).
+  - intros. apply (IHl g3); auto.
+    + eapply fr_graph_has_v; eauto.
+    + erewrite <- fr_block_mark; eauto.
+    + eapply (fr_copy_compatible O from to); eauto.
+    + erewrite <- fr_graph_has_gen; eauto.
+    + intros. erewrite <- fr_block_fields; eauto. apply H6. right; assumption.
+  - eapply fr_O_no_dangling_dst; eauto.
+    + simpl. intuition. rewrite Zlength_correct. apply inj_lt.
+      apply H6. left; reflexivity.
+    + simpl. constructor.
+Qed.
+
+Lemma svwl_no_edge2from: forall from to l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
+    gen_unmarked g1 to -> copy_compatible g1 -> no_dangling_dst g1 ->
+    from <> to -> NoDup l ->
+    forall e i, In i l -> In e (get_edges g2 {| addr_gen := to; addr_block := i |}) ->
+                addr_gen (dst g2 e) <> from.
+Proof.
+  do 3 intro. induction l; intros; inversion H0; subst. 1: inversion H6.
+  - simpl in H6. destruct H6. 2: apply NoDup_cons_1 in H5; eapply IHl; eauto. subst a.
+    assert (In e (get_edges g1 {| addr_gen := to; addr_block := i |})). {
+      unfold get_edges, make_fields in H7 |-*.
+      erewrite svwl_block_fields; eauto. split; simpl; assumption. }
+    rewrite no_scan_no_edge in H6. 2: assumption. inversion H6.
+  - simpl in H6.
+    assert (graph_has_gen g3 to) by (erewrite <- svfl_graph_has_gen; eauto).
+    assert (gen_unmarked g3 to) by (eapply (svfl_gen_unmarked _ _ _ _ g1); eauto).
+    destruct H6.
+    + subst a. cut (addr_gen (dst g3 e) <> from).
+      * intros. cut (dst g3 e = dst g2 e). 1: intros HS; rewrite <- HS; assumption.
+        eapply svwl_dst_unchanged; eauto.
+        -- erewrite get_edges_fst; eauto. eapply (svfl_graph_has_v _ _ _ _ g1); eauto.
+           split; simpl; assumption.
+        -- intros. erewrite get_edges_fst; eauto. simpl.
+           apply NoDup_cons_2 in H5. assumption.
+      * assert (graph_has_v g1 {| addr_gen := to; addr_block := i |}) by (split; simpl; assumption).
+        eapply svfl_no_edge2from; eauto. unfold get_edges, make_fields in H7 |-*.
+        erewrite svwl_block_fields; eauto. eapply (svfl_graph_has_v _ _ _ _ g1); eauto.
+    + eapply (IHl g3); eauto.
+      * eapply (svfl_copy_compatible _ _ _ _ g1); eauto.
+      * eapply (svfl_no_dangling_dst from to); eauto.
+        -- split; simpl; assumption.
+        -- intros. rewrite nat_inc_list_In_iff in H13. assumption.
+      * apply NoDup_cons_1 in H5. assumption.
+Qed.
+
+Lemma svwl_no_dangling_dst: forall from to l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
+    gen_unmarked g1 to -> copy_compatible g1 -> from <> to ->
+    no_dangling_dst g1 -> no_dangling_dst g2.
+Proof.
+  do 3 intro. induction l; intros; inversion H0; subst;
+                [assumption | eapply IHl; eauto|]. cut (no_dangling_dst g3).
+  - intros. apply (IHl g3); auto.
+    + erewrite <- svfl_graph_has_gen; eauto.
+    + eapply svfl_gen_unmarked; eauto.
+    + eapply svfl_copy_compatible; eauto.
+  - eapply (svfl_no_dangling_dst from to _ _ g1); eauto.
+    + split; simpl; assumption.
+    + intros. rewrite nat_inc_list_In_iff in H5. assumption.
+Qed.
+
+Lemma frr_dsr_no_edge2gen: forall from to f_info roots roots' g g1 g2,
+    graph_has_gen g to -> from <> to -> gen_unmarked g to ->
+    copy_compatible g -> no_dangling_dst g ->
+    Zlength roots = Zlength (live_roots_indices f_info) ->
+    roots_graph_compatible roots g ->
+    forward_roots_relation from to f_info roots g roots' g1 ->
+    do_scan_relation from to (generation_block_count (nth_gen g to)) g1 g2 ->
+    no_edge2gen g from -> no_edge2gen g2 from.
+Proof.
+  intros. unfold no_edge2gen in *. intros. specialize (H8 _ H9).
+  destruct (Nat.eq_dec another to).
+  - subst. unfold gen2gen_no_edge in *. intros.
+    destruct H10. simpl fst in *. destruct H7 as [m [? ?]].
+    assert (graph_has_gen g1 to) by (erewrite <- frr_graph_has_gen; eauto).
+    assert (graph_has_v g {| addr_gen := to ; addr_block := vidx |} \/ gen_v_num g to <= vidx < gen_v_num g2 to)%nat. {
+      eapply (svwl_graph_has_v_inv from to _ g1 g2) in H10; eauto. simpl in H10.
+      destruct H10.
+      - eapply (frr_graph_has_v_inv from _ _ _ g) in H10; eauto.
+        simpl in H10. destruct H10. 1: left; assumption.
+        right. destruct H10 as [_ [? ?]]. split; auto.
+        apply svwl_gen_v_num_to in H7; [lia | assumption].
+      - right. destruct H10 as [_ [? ?]]. split; auto.
+        apply frr_gen_v_num_to in H6; [lia | assumption]. } destruct H14.
+    + assert (graph_has_v g1 {| addr_gen := to ; addr_block := vidx |}) by
+          (eapply (frr_graph_has_v from to _ _ g); eauto).
+      assert (get_edges g {| addr_gen := to ; addr_block := vidx |} = get_edges g2 {| addr_gen := to ; addr_block := vidx |}). {
+        transitivity (get_edges g1 {| addr_gen := to ; addr_block := vidx |}); unfold get_edges, make_fields.
+        - erewrite frr_block_fields; eauto.
+        - erewrite svwl_block_fields; eauto. } simpl in H11. rewrite <- H16 in H11.
+      assert (graph_has_e g {| field_addr := {| addr_gen := to ; addr_block := vidx |} ; field_index := eidx |}) by (split; simpl; assumption).
+      specialize (H8 _ _ H17).
+      erewrite (frr_dst_unchanged _ _ _ _ _ _ g1) in H8; eauto.
+      erewrite (svwl_dst_unchanged) in H8; eauto; simpl.
+      * eapply (frr_gen_unmarked _ _ _ _ g); eauto.
+      * repeat intro. rewrite nat_seq_In_iff in H19. destruct H19 as [? _].
+        destruct H14. simpl in H20. red in H20. lia.
+    + eapply svwl_no_edge2from; eauto.
+      * eapply (frr_gen_unmarked _ _ _ _ g); eauto.
+      * eapply (frr_copy_compatible from to _ _ g); eauto.
+      * eapply (frr_no_dangling_dst _ _ _ _ g); eauto.
+      * apply nat_seq_NoDup.
+      * rewrite nat_seq_In_iff. unfold gen_has_index in H12.
+        unfold gen_v_num in H14. lia.
+  - eapply (frr_gen2gen_no_edge _ _ _ _ g _ g1) in H8; eauto.
+    destruct H7 as [m [? ?]]. eapply (svwl_gen2gen_no_edge from to _ g1 g2); eauto.
+    + erewrite <- frr_graph_has_gen; eauto.
+    + eapply frr_gen_unmarked; eauto.
 Qed.

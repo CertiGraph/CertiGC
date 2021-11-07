@@ -2,22 +2,15 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import common.Values.
+From VST Require Import floyd.proofauto.
 
-From VST Require Import floyd.sublist.
-From VST Require Import msl.Coqlib2.
-From VST Require Import veric.base.
-From VST Require Import veric.val_lemmas.
-
-From CertiGraph Require Export graph.graph_gen.
-From CertiGraph Require Export graph.graph_model.
+From CertiGraph Require Import graph.graph_gen.
+From CertiGraph Require Import graph.graph_model.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.graph.
 From CertiGC Require Import model.heap.
 From CertiGC Require Import model.util.
-
-Import ListNotations.
 
 
 Record thread_info: Type := {

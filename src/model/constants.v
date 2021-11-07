@@ -40,6 +40,14 @@ Proof.
     rewrite <- Z.add_diag, Z.mul_add_distr_r. lia.
 Qed.
 
+Lemma ngs_0_lt: forall i, 0 < nth_gen_size i.
+Proof.
+    intros. unfold nth_gen_size.
+    rewrite NURSERY_SIZE_eq, Zbits.Zshiftl_mul_two_p, Z.mul_1_l,
+    <- two_p_is_exp by lia.
+    cut (two_p (16 + Z.of_nat i) > 0); [|apply two_p_gt_ZERO]; lia.
+Qed.
+
 
 Definition MAX_ARGS: Z := 1024.
 Definition MAX_ARGS_eq: MAX_ARGS = 1024 := eq_refl.

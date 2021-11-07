@@ -3,17 +3,9 @@ From Coq Require Import micromega.Lia.
 From Coq Require Import Sorting.Permutation.
 From Coq Require Import ZArith.ZArith.
 
-From compcert Require Import lib.Coqlib.
-From compcert Require Import lib.Integers.
-From compcert Require Import common.Values.
-
-From VST Require Import floyd.list_solver.
-From VST Require Import floyd.sublist.
-From VST Require Import veric.val_lemmas.
+From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import lib.List_ext.
-
-Import ListNotations.
 
 
 Lemma isptr_is_pointer_or_integer: forall p, isptr p -> is_pointer_or_integer p.

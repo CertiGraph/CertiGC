@@ -13,7 +13,7 @@ From VST Require Import veric.base.
 From VST Require Import veric.shares.
 From VST Require Import veric.val_lemmas.
 
-From CertiGraph Require Export graph.graph_gen.
+From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
@@ -27,6 +27,7 @@ From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.util.
 
 Local Coercion pg_lg: LabeledGraph >-> PreGraph.
+
 
 Definition copy_v_add_edge
            (s: Addr) (g: PreGraph Addr Field) (p: Field * Addr):
@@ -1010,4 +1011,11 @@ Proof.
     inversion H8. reflexivity.
   - rewrite H5. rewrite lcv_vlabel_new; try assumption. unfold new_copied_v in H5.
     inversion H5. subst. assumption.
+Qed.
+
+Lemma lcv_gen_v_num_to: forall g v to,
+    graph_has_gen g to -> (gen_v_num g to <= gen_v_num (lgraph_copy_v g v to) to)%nat.
+Proof.
+  intros. unfold gen_v_num, nth_gen; simpl. rewrite cvmgil_eq by assumption.
+  simpl. lia.
 Qed.

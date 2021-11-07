@@ -13,7 +13,7 @@ From VST Require Import veric.shares.
 From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Import graph.graph_model.
-From CertiGraph Require Export graph.graph_gen.
+From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
@@ -275,9 +275,14 @@ Definition vertex_offset (g: HeapGraph) (v: Addr): Z
 Definition nth_gen (g: HeapGraph) (gen: nat): Generation
  := nth gen g.(glabel).(generations) null_generation.
 
+Definition gen_v_num (g: HeapGraph) (gen: nat): nat := generation_block_count (nth_gen g gen).
+
 Definition graph_gen_clear (g: HeapGraph) (gen: nat) :=
   generation_block_count (nth_gen g gen) = O.
 
+Lemma lgd_gen_v_num_to: forall g e v to,
+    gen_v_num (labeledgraph_gen_dst g e v) to = gen_v_num g to.
+Proof. intros. reflexivity. Qed.
 
 Definition nth_sh g gen := generation_sh (nth_gen g gen).
 
@@ -577,8 +582,35 @@ Definition make_fields (g: HeapGraph) (v: Addr): list field_t :=
 Definition get_edges (g: HeapGraph) (v: Addr): list Field :=
   filter_sum_right (make_fields g v).
 
+Lemma no_scan_no_edge: forall g v, no_scan g v -> get_edges g v = nil.
+Proof.
+  intros. unfold no_scan in H. apply tag_no_scan in H. unfold get_edges.
+  destruct (filter_sum_right (make_fields g v)) eqn:? . 1: reflexivity. exfalso.
+  assert (In f (filter_sum_right (make_fields g v))) by (rewrite Heql; left; auto).
+  rewrite <- filter_sum_right_In_iff in H0. clear l Heql. apply H. clear H.
+  unfold make_fields in H0. remember (block_fields (vlabel g v)). clear Heql.
+  remember O. clear Heqn. revert n H0. induction l; simpl; intros; auto.
+  destruct a; [destruct s|]; simpl in H0;
+    [right; destruct H0; [inversion H | eapply IHl; eauto]..|left]; auto.
+Qed.
+
+
 Definition graph_has_v (g: HeapGraph) (v: Addr): Prop
  := graph_has_gen g (addr_gen v) /\ gen_has_index g (addr_gen v) (addr_block v).
+
+
+Definition graph_has_e (g: HeapGraph) (e: Field): Prop :=
+  let v := field_addr e in graph_has_v g v /\ In e (get_edges g v).
+
+Definition gen2gen_no_edge (g: HeapGraph) (gen1 gen2: nat): Prop :=
+  forall vidx eidx, let e := {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |} in
+                    graph_has_e g e -> addr_gen (dst g e) <> gen2.
+
+Definition no_edge2gen (g: HeapGraph) (gen: nat): Prop :=
+  forall another, another <> gen -> gen2gen_no_edge g another gen.
+
+Definition egeneration (e: Field): nat := addr_gen (field_addr e).
+
 
 Definition no_dangling_dst (g: HeapGraph): Prop :=
   forall v, graph_has_v g v ->
@@ -693,6 +725,24 @@ Lemma lgd_copy_compatible: forall g v' e,
     copy_compatible (labeledgraph_gen_dst g e v').
 Proof.
   intros. unfold copy_compatible in *. intuition. Qed.
+
+
+Definition graph_unmarked (g: HeapGraph): Prop := forall v,
+    graph_has_v g v -> block_mark (vlabel g v) = false.
+
+Lemma graph_gen_unmarked_iff: forall g,
+    graph_unmarked g <-> forall gen, gen_unmarked g gen.
+Proof.
+  intros. unfold graph_unmarked, gen_unmarked. split; intros.
+  - apply H. unfold graph_has_v. simpl. split; assumption.
+  - destruct v as [gen idx]. destruct H0. simpl in *. apply H; assumption.
+Qed.
+
+Lemma graph_unmarked_copy_compatible: forall g,
+    graph_unmarked g -> copy_compatible g.
+Proof.
+  intros. red in H |-* . intros. apply H in H0. rewrite H0 in H1. inversion H1.
+Qed.
 
 
 Lemma mfv_all_is_ptr_or_int: forall g v,
@@ -980,6 +1030,15 @@ Definition root_t: Type := Z + GC_Pointer + Addr.
 
 Instance root_t_inhabitant: Inhabitant root_t := inl (inl Z.zero).
 
+
+Definition root2val (g: HeapGraph) (fd: root_t) : val :=
+  match fd with
+  | inl (inl z) => odd_Z2val z
+  | inl (inr p) => GC_Pointer2val p
+  | inr v => vertex_address g v
+  end.
+
+
 Definition roots_t: Type := list root_t.
 
 Lemma root_in_outlier: forall (roots: roots_t) outlier p,
@@ -990,13 +1049,8 @@ Proof.
   assumption.
 Qed.
 
-
-Definition root2val (g: HeapGraph) (fd: root_t) : val :=
-  match fd with
-  | inl (inl z) => odd_Z2val z
-  | inl (inr p) => GC_Pointer2val p
-  | inr v => vertex_address g v
-  end.
-
+Definition roots_have_no_gen (roots: roots_t) (gen: nat): Prop :=
+  forall v, In (inr v) roots -> addr_gen v <> gen.
 
 Definition outlier_t: Type := list GC_Pointer.
+

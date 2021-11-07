@@ -2,6 +2,7 @@ From Coq Require Import Lists.List.
 
 From VST Require Import floyd.sublist.
 From VST Require Import veric.base.
+From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.List_ext.
@@ -125,6 +126,98 @@ Proof.
   intros. destruct H as [? [_ ?]]. rewrite gsc_iff in H by assumption.
   apply H. assumption.
 Qed.
+
+Lemma space_base_isptr: forall (g: HeapGraph) (t_info: thread_info) i,
+    graph_thread_info_compatible g t_info ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
+    graph_has_gen g (Z.to_nat i) ->
+    isptr (space_base (Znth i (heap_spaces (ti_heap t_info)))).
+Proof.
+  intros. destruct (gt_gs_compatible _ _ H _ H1) as [? _].
+  rewrite nth_space_Znth in H2. rewrite Z2Nat.id in H2 by lia. rewrite <- H2.
+  apply generation_base__isptr.
+Qed.
+
+Lemma space_base_isnull: forall (g: HeapGraph) (t_info: thread_info) i,
+    graph_thread_info_compatible g t_info ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
+    ~ graph_has_gen g (Z.to_nat i) ->
+    space_base (Znth i (heap_spaces (ti_heap t_info))) = nullval.
+Proof.
+  intros. unfold graph_has_gen in H1. destruct H as [_ [? ?]].
+  rewrite Forall_forall in H. symmetry. apply H. rewrite <- map_skipn.
+  apply List.in_map. remember (generations (glabel g)).
+  replace i with (i - Zlength l + Zlength l) by lia.
+  assert (length l <= Z.to_nat i)%nat by lia. clear H1.
+  pose proof (Zlength_nonneg l).
+  assert (0 <= i - Zlength l). { rewrite <- ZtoNat_Zlength, <- Z2Nat.inj_le in H3 ; lia. }
+  rewrite <- Znth_skipn by lia. rewrite ZtoNat_Zlength.
+  apply Znth_In. split. 1: assumption. rewrite <- ZtoNat_Zlength, Zlength_skipn.
+  rewrite (Z.max_r 0 (Zlength l)) by lia. rewrite Z.max_r; lia.
+Qed.
+
+Lemma space_base_is_pointer_or_null: forall (g: HeapGraph) (t_info: thread_info) i,
+    graph_thread_info_compatible g t_info ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
+    is_pointer_or_null (space_base (Znth i (heap_spaces (ti_heap t_info)))).
+Proof.
+  intros. destruct (graph_has_gen_dec g (Z.to_nat i)).
+  - apply val_lemmas.isptr_is_pointer_or_null. eapply space_base_isptr; eauto.
+  - cut (space_base (Znth i (heap_spaces (ti_heap t_info))) = nullval).
+    + intros. rewrite H1. apply mapsto_memory_block.is_pointer_or_null_nullval.
+    + eapply space_base_isnull; eauto.
+Qed.
+
+Lemma space_base_isptr_iff: forall (g: HeapGraph) (t_info: thread_info) i,
+    graph_thread_info_compatible g t_info ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
+    graph_has_gen g (Z.to_nat i) <->
+    isptr (space_base (Znth i (heap_spaces (ti_heap t_info)))).
+Proof.
+  intros. split; intros.
+  - eapply space_base_isptr; eauto.
+  - destruct (graph_has_gen_dec g (Z.to_nat i)). 1: assumption. exfalso.
+    eapply space_base_isnull in n; eauto. rewrite n in H1. inversion H1.
+Qed.
+
+Lemma space_base_isnull_iff: forall (g: HeapGraph) (t_info: thread_info) i,
+    graph_thread_info_compatible g t_info ->
+    0 <= i < Zlength (heap_spaces (ti_heap t_info)) ->
+    ~ graph_has_gen g (Z.to_nat i) <->
+    space_base (Znth i (heap_spaces (ti_heap t_info))) = nullval.
+Proof.
+  intros. split; intros. 1: eapply space_base_isnull; eauto.
+  destruct (graph_has_gen_dec g (Z.to_nat i)). 2: assumption. exfalso.
+  eapply space_base_isptr in g0; eauto. rewrite H1 in g0. inversion g0.
+Qed.
+
+
+Lemma ti_size_gen: forall (g : HeapGraph) (t_info : thread_info) (gen : nat),
+    graph_thread_info_compatible g t_info ->
+    graph_has_gen g gen -> ti_size_spec t_info ->
+    gen_size t_info gen = nth_gen_size gen.
+Proof.
+  intros. red in H1. rewrite Forall_forall in H1.
+  assert (0 <= (Z.of_nat gen) < Zlength (heap_spaces (ti_heap t_info))). {
+    split. 1: lia. rewrite Zlength_correct. apply inj_lt.
+    destruct H as [_ [_ ?]]. red in H0. lia. }
+  assert (nth_gen_size_spec t_info gen). {
+    apply H1. rewrite nat_inc_list_In_iff. destruct H as [_ [_ ?]]. red in H0.
+    rewrite <- (heap_spaces__size (ti_heap t_info)), ZtoNat_Zlength. lia. } red in H3.
+  destruct (Val.eq (space_base (nth_space t_info gen)) nullval). 2: assumption.
+  rewrite nth_space_Znth in e. erewrite <- space_base_isnull_iff in e; eauto.
+  unfold graph_has_gen in e. exfalso; apply e. rewrite Nat2Z.id. assumption.
+Qed.
+
+Lemma ti_size_gt_0: forall (g : HeapGraph) (t_info : thread_info) (gen : nat),
+    graph_thread_info_compatible g t_info ->
+    graph_has_gen g gen -> ti_size_spec t_info -> 0 < gen_size t_info gen.
+Proof.
+  intros. erewrite ti_size_gen; eauto. unfold nth_gen_size. apply Z.mul_pos_pos.
+  - rewrite NURSERY_SIZE_eq. vm_compute. reflexivity.
+  - cut (two_p (Z.of_nat gen) > 0). 1: lia. apply two_p_gt_ZERO. lia.
+Qed.
+
 
 Lemma lgd_rgc: forall g roots e v,
     roots_graph_compatible roots g ->

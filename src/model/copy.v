@@ -1,3 +1,4 @@
+From Coq Require Import Logic.FinFun.
 From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
@@ -17,6 +18,7 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
+From CertiGC Require Import model.compatible.
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.graph.
 From CertiGC Require Import model.heap.
@@ -29,12 +31,95 @@ Definition copy_v_add_edge
            (s: Addr) (g: PreGraph Addr Field) (p: Field * Addr):
   PreGraph Addr Field := pregraph_add_edge g (fst p) s (snd p).
 
+Lemma flcvae_dst_old: forall g new (l: list (Field * Addr)) e,
+    ~ In e (map fst l) -> dst (fold_left (copy_v_add_edge new) l g) e = dst g e.
+Proof.
+  intros. revert g H. induction l; intros; simpl. 1: reflexivity.
+  rewrite IHl. 2: intro; apply H; simpl; right; assumption. simpl.
+  unfold updateEdgeFunc. rewrite if_false. 1: reflexivity. unfold equiv. intro.
+  apply H. simpl. left; assumption.
+Qed.
+
+Lemma flcvae_dst_new: forall g new (l: list (Field * Addr)) e v,
+    NoDup (map fst l) -> In (e, v) l ->
+    dst (fold_left (copy_v_add_edge new) l g) e = v.
+Proof.
+  intros. revert g. induction l. 1: simpl in H; exfalso; assumption.
+  intros. simpl in *. destruct H0.
+  - subst a. rewrite flcvae_dst_old.
+    + simpl. unfold updateEdgeFunc. rewrite if_true; reflexivity.
+    + simpl in H. apply NoDup_cons_2 in H. assumption.
+  - apply IHl; [apply NoDup_cons_1 in H|]; assumption.
+Qed.
+
+
 Definition pregraph_copy_v (g: HeapGraph) (old_v new_v: Addr) : PreGraph Addr Field :=
   let old_edges := get_edges g old_v in
   let new_edges := combine (repeat new_v (length old_edges)) (map field_index old_edges) in
   let new_edge_dst_l := combine new_edges (map (dst g) old_edges) in
   let new_edge_dst_l' := map (fun x => ({| field_addr := fst (fst x); field_index := snd (fst x) |}, snd x)) new_edge_dst_l
   in fold_left (copy_v_add_edge new_v) new_edge_dst_l' (pregraph_add_vertex g new_v).
+
+Lemma pcv_dst_old (g: HeapGraph) (old new: Addr) (e: Field)
+    (He: field_addr e <> new):
+    dst (pregraph_copy_v g old new) e = dst g e.
+Proof.
+  unfold pregraph_copy_v. rewrite flcvae_dst_old. 1: simpl; reflexivity.
+  intro F.
+  rewrite map_map in F.
+  apply in_map_iff in F. destruct F as [[[e_gen e_block] dst] [Ee' F]]. subst. simpl in *.
+  repeat apply in_combine_l in F. now apply repeat_spec in F.
+Qed.
+
+Lemma pcv_dst_new (g: HeapGraph) (old new: Addr) (n: nat)
+    (Hn: In n (map field_index (get_edges g old))):
+    dst (pregraph_copy_v g old new) {| field_addr := new; field_index := n|} = dst g {| field_addr := old; field_index := n|}.
+Proof.
+  unfold pregraph_copy_v. rewrite flcvae_dst_new with (v := dst g {| field_addr := old; field_index := n|}).
+  - reflexivity.
+  - assert (map_fst_map_combine: forall {X Y Z} {f: X -> Y} {a: list X} {b: list Z}, Datatypes.length a = Datatypes.length b -> map fst (map (fun x => (f (fst x), snd x)) (combine a b)) = map f a).
+    {
+      intros X Y Z f a b E.
+      rewrite map_map. simpl.
+      rewrite <- (map_map fst f).
+      now rewrite map_fst_combine.
+    }
+    change
+      (fun x : Addr * nat * Addr => ({| field_addr := fst (fst x); field_index := snd (fst x) |}, snd x))
+      with
+      (fun x : Addr * nat * Addr => ((fun y => {| field_addr := fst y; field_index := snd y |}) (fst x), snd x)).
+    rewrite map_fst_map_combine.
+    {
+      apply Injective_map_NoDup.
+      {
+        intros x y E. destruct x as [x1 x2]. destruct y as [y1 y2]. now inversion E.
+      }
+      apply NoDup_combine_r.
+      unfold get_edges, make_fields.
+      remember (block_fields (vlabel g old)) as l eqn:El. clear El. remember O as m eqn:Em. clear Em.
+      revert m. induction l as [|a l IHl] ; intro m ; simpl ; try constructor.
+      destruct a; [destruct s|]; simpl ; try apply IHl. constructor.
+      2: apply IHl. clear.
+      cut (forall a b,
+              In a (map field_index (filter_sum_right (make_fields' l old b))) -> b <= a)%nat.
+      * repeat intro. apply H in H0. lia.
+      * induction l; intros; simpl in H. 1: exfalso; assumption.
+        destruct a; [destruct s|]; simpl in H; try (apply IHl in H; lia).
+        destruct H; [|apply IHl in H]; lia.
+    }
+    {
+      now rewrite combine_length, repeat_length, !map_length, Nat.min_id.
+    }
+  - apply list_in_map_inv in Hn. destruct Hn as [[x x_index] [En Hn]]. simpl in *. subst.
+    assert (x = old). {
+      unfold get_edges in Hn. rewrite <- filter_sum_right_In_iff in Hn.
+      unfold make_fields in Hn. apply e_in_make_fields' in Hn. destruct Hn as [s ?].
+      inversion H. reflexivity. } subst x. remember (get_edges g old). clear Heql.
+    induction l; simpl in *. 1: assumption. destruct Hn.
+    + subst a. simpl. left; reflexivity.
+    + right. apply IHl. assumption.
+Qed.
+
 
 Definition copy_v_mod_rvb (rvb: Block) (new_v: Addr): Block := {|
   block_mark := true;
@@ -80,6 +165,16 @@ Definition copy_v_update_glabel (gi: Generations) (to: nat): Generations := {|
 Definition new_copied_v (g: HeapGraph) (to: nat): Addr :=
   {| addr_gen := to; addr_block := generation_block_count (nth_gen g to) |}.
 
+Lemma graph_has_v_not_eq: forall g to x,
+    graph_has_v g x -> x <> new_copied_v g to.
+Proof.
+  intros. destruct H. unfold new_copied_v. destruct x as [gen idx]. simpl in *.
+  destruct (Nat.eq_dec gen to).
+  - subst gen. intro S; inversion S. red in H0. lia.
+  - intro S; inversion S. apply n; assumption.
+Qed.
+
+
 Definition lgraph_add_copied_v (g: HeapGraph) (v: Addr) (to: nat): HeapGraph :=
   let new_v := new_copied_v g to in
   Build_LabeledGraph _ _ _ (pregraph_copy_v g v new_v)
@@ -92,3 +187,323 @@ Definition lgraph_mark_copied (g: HeapGraph) (old new: Addr): HeapGraph :=
 
 Definition lgraph_copy_v (g: HeapGraph) (v: Addr) (to: nat): HeapGraph :=
   lgraph_mark_copied (lgraph_add_copied_v g v to) v (new_copied_v g to).
+
+Lemma cvmgil_length: forall l to,
+    (to < length l)%nat -> length (copy_v_mod_gen_info_list l to) = length l.
+Proof.
+  intros. unfold copy_v_mod_gen_info_list. rewrite app_length. simpl.
+  rewrite firstn_length_le by lia. rewrite skipn_length. lia.
+Qed.
+
+Lemma cvmgil_not_eq: forall to n l,
+    n <> to -> (to < length l)%nat ->
+    nth n (copy_v_mod_gen_info_list l to) null_generation = nth n l null_generation.
+Proof.
+  intros. unfold copy_v_mod_gen_info_list.
+  assert (length (firstn to l) = to) by (rewrite firstn_length_le; lia).
+  destruct (Nat.lt_ge_cases n to).
+  - rewrite app_nth1 by lia. apply nth_firstn. assumption.
+  - rewrite Nat.lt_eq_cases in H2. destruct H2. 2: exfalso; intuition.
+    rewrite <- (firstn_skipn (to + 1) l) at 4. rewrite app_cons_assoc, !app_nth2.
+    + do 2 f_equal. rewrite app_length, H1, firstn_length_le by lia. reflexivity.
+    + rewrite firstn_length_le; lia.
+    + rewrite app_length, H1. simpl. lia.
+Qed.
+
+Lemma cvmgil_eq: forall to l,
+    (to < length l)%nat -> nth to (copy_v_mod_gen_info_list l to) null_generation =
+                     copy_v_mod_gen_info (nth to l null_generation).
+Proof.
+  intros. unfold copy_v_mod_gen_info_list.
+  assert (length (firstn to l) = to) by (rewrite firstn_length_le; lia).
+  rewrite app_nth2 by lia. rewrite H0. now replace (to - to)%nat with O by lia.
+Qed.
+
+
+Lemma lacv_graph_has_v_new: forall g v to,
+    graph_has_gen g to -> graph_has_v (lgraph_add_copied_v g v to) (new_copied_v g to).
+Proof.
+  intros. split; simpl.
+  - red. simpl. rewrite cvmgil_length; assumption.
+  - red. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption. simpl. lia.
+Qed.
+
+Lemma lmc_graph_has_v: forall g old new x,
+    graph_has_v g x <-> graph_has_v (lgraph_mark_copied g old new) x.
+Proof.
+  intros. unfold graph_has_v, graph_has_gen, gen_has_index, nth_gen. reflexivity.
+Qed.
+
+Lemma lcv_graph_has_gen: forall g v to x,
+    graph_has_gen g to -> graph_has_gen g x <-> graph_has_gen (lgraph_copy_v g v to) x.
+Proof. unfold graph_has_gen. intros. simpl. rewrite cvmgil_length; intuition. Qed.
+
+Lemma lmc_gen_start: forall g old new n,
+    gen_start (lgraph_mark_copied g old new) n = gen_start g n.
+Proof.
+  intros. unfold gen_start. do 2 if_tac.
+  - unfold nth_gen. simpl. reflexivity.
+  - unfold graph_has_gen in *. simpl in *. contradiction.
+  - unfold graph_has_gen in *. simpl in *. contradiction.
+  - reflexivity.
+Qed.
+
+Lemma lacv_nth_gen: forall g v to n,
+    n <> to -> graph_has_gen g to ->
+    nth_gen (lgraph_add_copied_v g v to) n = nth_gen g n.
+Proof.
+  intros. unfold lgraph_add_copied_v, nth_gen. simpl. remember (generations (glabel g)).
+  apply cvmgil_not_eq; [|subst l]; assumption.
+Qed.
+
+Lemma lacv_graph_has_gen: forall g v to n,
+    graph_has_gen g to ->
+    graph_has_gen (lgraph_add_copied_v g v to) n <-> graph_has_gen g n.
+Proof.
+  intros. unfold graph_has_gen. simpl.
+  rewrite cvmgil_length by assumption. reflexivity.
+Qed.
+
+Lemma lacv_gen_start: forall g v to n,
+    graph_has_gen g to -> gen_start (lgraph_add_copied_v g v to) n = gen_start g n.
+Proof.
+  intros. unfold gen_start. do 2 if_tac.
+  - destruct (Nat.eq_dec n to).
+    + subst n. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption.
+      simpl. reflexivity.
+    + rewrite lacv_nth_gen by assumption. reflexivity.
+  - rewrite lacv_graph_has_gen in H0 by assumption. contradiction.
+  - exfalso. apply H0. rewrite lacv_graph_has_gen; assumption.
+  - reflexivity.
+Qed.
+
+Lemma lacv_vlabel_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
+    x <> new_copied_v g to -> vlabel (lgraph_add_copied_v g v to) x = vlabel g x.
+Proof.
+  intros. simpl.
+  unfold update_copied_new_vlabel, graph_gen.update_vlabel.
+  rewrite if_false. 1: reflexivity. unfold Equivalence.equiv; intro S; apply H.
+  inversion S; reflexivity.
+Qed.
+
+
+Lemma lcv_gen_start: forall g v to n,
+    graph_has_gen g to -> gen_start (lgraph_copy_v g v to) n = gen_start g n.
+Proof.
+  intros. unfold lgraph_copy_v.
+  rewrite lmc_gen_start, lacv_gen_start; [reflexivity | assumption].
+Qed.
+
+
+Lemma lcv_nth_gen: forall g v to n,
+    n <> to -> graph_has_gen g to -> nth_gen (lgraph_copy_v g v to) n = nth_gen g n.
+Proof.
+  intros. unfold lgraph_copy_v, nth_gen. simpl.
+  rewrite cvmgil_not_eq; [reflexivity | assumption..].
+Qed.
+
+
+Lemma lacv_make_fields_not_eq: forall (g : HeapGraph) (v : Addr) (to : nat) x,
+    x <> new_copied_v g to ->
+    make_fields (lgraph_add_copied_v g v to) x = make_fields g x.
+Proof.
+  intros. unfold make_fields. simpl. unfold update_copied_new_vlabel, update_vlabel.
+  rewrite if_false. 1: reflexivity. intuition.
+Qed.
+
+Lemma lacv_vertex_address: forall (g : HeapGraph) (v : Addr) (to: nat) x,
+    closure_has_v g x -> graph_has_gen g to ->
+    vertex_address (lgraph_add_copied_v g v to) x = vertex_address g x.
+Proof.
+  intros. destruct x as [n m]. destruct H. simpl in *. unfold vertex_address. f_equal.
+  - f_equal. unfold vertex_offset. f_equal. unfold previous_vertices_size.
+    simpl. apply fold_left_ext. intros. unfold vertex_size_accum. f_equal.
+    unfold vertex_size. f_equal. rewrite lacv_vlabel_old. 1: reflexivity.
+    intro. unfold new_copied_v in H3. inversion H3.
+    rewrite nat_inc_list_In_iff in H2. subst n. red in H1. lia.
+  - simpl. apply lacv_gen_start. assumption.
+Qed.
+
+
+Lemma lacv_vertex_address_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
+    graph_has_v g x -> graph_has_gen g to ->
+    vertex_address (lgraph_add_copied_v g v to) x = vertex_address g x.
+Proof.
+  intros. apply lacv_vertex_address; [apply graph_has_v_in_closure |]; assumption.
+Qed.
+
+Lemma lacv_vertex_address_new: forall (g : HeapGraph) (v : Addr) (to: nat),
+    graph_has_gen g to ->
+    vertex_address (lgraph_add_copied_v g v to) (new_copied_v g to) =
+    vertex_address g (new_copied_v g to).
+Proof.
+  intros. unfold new_copied_v. apply lacv_vertex_address. 2: assumption.
+  red. simpl.  split; [assumption | apply Nat.le_refl].
+Qed.
+
+Lemma lacv_make_header_old: forall (g : HeapGraph) (v : Addr) (to : nat) x,
+    x <> new_copied_v g to ->
+    make_header (lgraph_add_copied_v g v to) x = make_header g x.
+Proof.
+  intros. unfold make_header. rewrite lacv_vlabel_old by assumption. reflexivity.
+Qed.
+
+Lemma lacv_field2val_make_fields_old:  forall (g : HeapGraph) (v : Addr) (to : nat) x,
+    graph_has_v g x -> graph_has_gen g to -> no_dangling_dst g ->
+    map (field2val (lgraph_add_copied_v g v to))
+        (make_fields (lgraph_add_copied_v g v to) x) =
+    map (field2val g) (make_fields g x).
+Proof.
+  intros. unfold make_fields. pose proof (graph_has_v_not_eq _ to _ H).
+  rewrite lacv_vlabel_old by assumption. apply map_ext_in.
+  intros [[? | ?] | ?] ?; simpl; try reflexivity. unfold new_copied_v.
+  rewrite pcv_dst_old.
+  - apply lacv_vertex_address_old. 2: assumption. specialize (H1 _ H). apply H1.
+    unfold get_edges. rewrite <- filter_sum_right_In_iff. assumption.
+  - apply e_in_make_fields' in H3. destruct H3 as [s ?]. subst. simpl. intro.
+    unfold new_copied_v in H2. contradiction.
+Qed.
+
+Lemma lacv_make_fields_vals_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
+    graph_has_v g x -> graph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
+    make_fields_vals (lgraph_add_copied_v g v to) x = make_fields_vals g x.
+Proof.
+  intros. pose proof (lacv_field2val_make_fields_old _ v _ _ H H0 H1).
+  unfold make_fields_vals. pose proof (graph_has_v_not_eq g to x H).
+  rewrite lacv_vlabel_old by assumption. rewrite H3.
+  destruct (block_mark (vlabel g x)) eqn:? ; [f_equal | reflexivity].
+  apply lacv_vertex_address_old; [apply H2|]; assumption.
+Qed.
+
+Lemma lacv_nth_sh: forall (g : HeapGraph) (v : Addr) (to : nat) n,
+    graph_has_gen g to -> nth_sh (lgraph_add_copied_v g v to) n = nth_sh g n.
+Proof.
+  intros. unfold nth_sh, nth_gen. simpl. destruct (Nat.eq_dec n to).
+  - subst n. rewrite cvmgil_eq by assumption. simpl. reflexivity.
+  - rewrite cvmgil_not_eq by assumption. reflexivity.
+Qed.
+
+Lemma lacv_vlabel_new: forall g v to,
+    vlabel (lgraph_add_copied_v g v to) (new_copied_v g to) = vlabel g v.
+Proof.
+  intros. simpl. unfold update_copied_new_vlabel, graph_gen.update_vlabel.
+  rewrite if_true; reflexivity.
+Qed.
+
+Lemma lacv_make_header_new: forall g v to,
+    make_header (lgraph_add_copied_v g v to) (new_copied_v g to) = make_header g v.
+Proof. intros. unfold make_header. rewrite lacv_vlabel_new. reflexivity. Qed.
+
+Lemma lacv_field2val_make_fields_new: forall g v to,
+    graph_has_v g v -> graph_has_gen g to -> no_dangling_dst g ->
+    map (field2val (lgraph_add_copied_v g v to))
+        (make_fields (lgraph_add_copied_v g v to) (new_copied_v g to)) =
+    map (field2val g) (make_fields g v).
+Proof.
+  intros. unfold make_fields. rewrite lacv_vlabel_new.
+  remember (block_fields (vlabel g v)). remember O as n.
+  assert (forall m, In m (map field_index (filter_sum_right (make_fields' l v n))) ->
+                    In m (map field_index (get_edges g v))). {
+    unfold get_edges, make_fields. subst. intuition. }
+  clear Heql Heqn. revert n H2. induction l; intros; simpl. 1: reflexivity.
+  destruct a; [destruct s|].
+  - simpl in *. rewrite IHl; [reflexivity | assumption].
+  - simpl in *. rewrite IHl; [reflexivity | assumption].
+  - simpl in *. rewrite IHl.
+    + assert (In n (map field_index (get_edges g v))) by (apply H2; left; reflexivity).
+      f_equal. rewrite pcv_dst_new by assumption. apply lacv_vertex_address_old.
+      2: assumption. red in H1. apply (H1 v). 1: assumption. apply in_map_iff in H3.
+      destruct H3 as [[x ?] [? ?]]. simpl in H3. subst. clear -H4. pose proof H4.
+      unfold get_edges in H4. rewrite <- filter_sum_right_In_iff in H4.
+      unfold make_fields in H4. apply e_in_make_fields' in H4. destruct H4 as [s ?].
+      inversion H0. subst. assumption.
+    + intros. apply H2. right; assumption.
+Qed.
+
+Lemma lacv_make_fields_vals_new: forall g v to,
+    graph_has_v g v -> graph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
+    make_fields_vals (lgraph_add_copied_v g v to) (new_copied_v g to) =
+    make_fields_vals g v.
+Proof.
+  intros. unfold make_fields_vals. rewrite lacv_vlabel_new.
+  rewrite (lacv_field2val_make_fields_new _ _ _ H H0 H1).
+  destruct (block_mark (vlabel g v)) eqn:? . 2: reflexivity. f_equal.
+  apply lacv_vertex_address_old. 2: assumption. apply H2; assumption.
+Qed.
+
+Lemma lacv_graph_has_v_old: forall g v to x,
+    graph_has_gen g to -> graph_has_v g x ->
+    graph_has_v (lgraph_add_copied_v g v to) x.
+Proof.
+  intros. destruct H0. split.
+  - rewrite lacv_graph_has_gen; assumption.
+  - red. destruct (Nat.eq_dec (addr_gen x) to).
+    + rewrite e in *. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption.
+      simpl. red in H1. unfold nth_gen in H1. lia.
+    + rewrite lacv_nth_gen; assumption.
+Qed.
+
+
+Lemma lcv_graph_has_v_new: forall g v to,
+    graph_has_gen g to -> graph_has_v (lgraph_copy_v g v to) (new_copied_v g to).
+Proof.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_graph_has_v.
+  apply lacv_graph_has_v_new. assumption.
+Qed.
+
+Lemma lcv_graph_has_v_old: forall g v to x,
+    graph_has_gen g to -> graph_has_v g x -> graph_has_v (lgraph_copy_v g v to) x.
+Proof.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_graph_has_v.
+  apply lacv_graph_has_v_old; assumption.
+Qed.
+
+Lemma lcv_vertex_size_new: forall (g : HeapGraph) (v : Addr) (to : nat),
+    vertex_size (lgraph_copy_v g v to) (new_copied_v g to) = vertex_size g v.
+Proof.
+  intros. unfold vertex_size, lgraph_copy_v. simpl.
+  unfold update_copied_old_vlabel, update_vlabel. if_tac.
+  - simpl. unfold update_copied_new_vlabel, update_vlabel. if_tac; reflexivity.
+  - rewrite lacv_vlabel_new. reflexivity.
+Qed.
+
+Lemma lcv_vertex_size_old: forall (g : HeapGraph) (v : Addr) (to : nat) x,
+        graph_has_gen g to -> graph_has_v g x ->
+        vertex_size (lgraph_copy_v g v to) x = vertex_size g x.
+Proof.
+  intros. unfold vertex_size, lgraph_copy_v. simpl.
+  unfold update_copied_old_vlabel, update_vlabel. if_tac.
+  - simpl. unfold update_copied_new_vlabel, update_vlabel. unfold equiv in H1. subst.
+    if_tac; reflexivity.
+  - rewrite lacv_vlabel_old. 1: reflexivity. apply graph_has_v_not_eq. assumption.
+Qed.
+
+Lemma lcv_pvs_same: forall g v to,
+    graph_has_gen g to ->
+    previous_vertices_size (lgraph_copy_v g v to) to
+                           (generation_block_count (nth_gen (lgraph_copy_v g v to) to)) =
+    previous_vertices_size g to (generation_block_count (nth_gen g to)) + vertex_size g v.
+Proof.
+  intros. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption. simpl.
+  remember (generation_block_count (nth to (generations (glabel g)) null_generation)).
+  replace (n + 1)%nat with (S n) by lia. rewrite previous_vertices_size__S. f_equal.
+  - unfold previous_vertices_size. apply fold_left_ext. intros.
+    unfold vertex_size_accum. f_equal. apply lcv_vertex_size_old. 1: assumption.
+    rewrite nat_inc_list_In_iff in H0; subst; split; simpl; assumption.
+  - assert ({| addr_gen := to; addr_block := n |} = new_copied_v g to) by
+        (unfold new_copied_v, nth_gen; subst n; reflexivity). rewrite H0.
+    apply lcv_vertex_size_new.
+Qed.
+
+Lemma lcv_pvs_old: forall g v to gen,
+    gen <> to -> graph_has_gen g to -> graph_has_gen g gen ->
+    previous_vertices_size (lgraph_copy_v g v to) gen
+                           (generation_block_count (nth_gen (lgraph_copy_v g v to) gen)) =
+    previous_vertices_size g gen (generation_block_count (nth_gen g gen)).
+Proof.
+  intros. unfold nth_gen. simpl. rewrite cvmgil_not_eq by assumption.
+  remember (generation_block_count (nth gen (generations (glabel g)) null_generation)).
+  unfold previous_vertices_size. apply fold_left_ext. intros.
+  unfold vertex_size_accum. f_equal. apply lcv_vertex_size_old. 1: assumption.
+  rewrite nat_inc_list_In_iff in H2. subst. split; simpl; assumption.
+Qed.

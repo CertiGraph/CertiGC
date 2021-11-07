@@ -28,6 +28,9 @@ Record Space: Type := {
     space__upper_bound: (space_capacity < MAX_SPACE_SIZE)%Z;
 }.
 
+Definition has_space (sp: Space) (s: Z): Prop :=
+  0 <= s <= space_capacity sp - space_allocated sp.
+
 Definition null_space: Space := {|
     space_base := nullval;
     space_allocated := 0;

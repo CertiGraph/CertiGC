@@ -302,3 +302,33 @@ Proof.
   apply EqdepFacts.f_eq_dep_non_dep, EqdepFacts.eq_dep1_dep.
   apply (EqdepFacts.eq_dep1_intro _ _ _ _ _ _ H0). apply proof_irr.
 Qed.
+
+
+Lemma reset_nth_sh_diff: forall g i j,
+    i <> j -> nth_sh (reset_graph j g) i = nth_sh g i.
+Proof. intros. unfold nth_sh. rewrite reset_nth_gen_diff; auto. Qed.
+
+Lemma reset_nth_sh: forall g i j,
+    nth_sh (reset_graph j g) i = nth_sh g i.
+Proof.
+  intros. destruct (Nat.eq_dec i j).
+  - subst. unfold reset_graph, nth_sh, nth_gen. simpl.
+    rewrite reset_nth_gen_info_same, remove_ve_glabel_unchanged. reflexivity.
+  - apply reset_nth_sh_diff. assumption.
+Qed.
+
+Lemma pvs_reset_unchanged: forall g gen n l,
+    previous_vertices_size (reset_graph gen g) n l =
+    previous_vertices_size g n l.
+Proof.
+  intros. unfold previous_vertices_size. apply fold_left_ext. intros.
+  unfold vertex_size_accum. f_equal. unfold vertex_size. simpl.
+  rewrite remove_ve_vlabel_unchanged. reflexivity.
+Qed.
+
+Lemma reset_graph_gen_size_eq: forall g i j,
+    i <> j -> graph_gen_size (reset_graph i g) j = graph_gen_size g j.
+Proof.
+  intros. unfold graph_gen_size.
+  rewrite pvs_reset_unchanged, reset_nth_gen_diff; auto.
+Qed.

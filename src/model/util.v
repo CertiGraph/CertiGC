@@ -3,6 +3,7 @@ From Coq Require Import micromega.Lia.
 From Coq Require Import Sorting.Permutation.
 From Coq Require Import ZArith.ZArith.
 
+From compcert Require Import lib.Coqlib.
 From compcert Require Import lib.Integers.
 From compcert Require Import common.Values.
 
@@ -398,4 +399,28 @@ Lemma fold_right_upd_Znth_In {A}: forall (l: list Z) (roots: list A) (v: A) e,
 Proof.
   induction l; intros; simpl in H. 1: left; assumption.
   apply upd_Znth_In in H. destruct H; [apply IHl | right]; assumption.
+Qed.
+
+
+Lemma Znth_tl {A} {d: Inhabitant A}: forall (l: list A) i,
+    (0 <= i)%Z -> Znth i (tl l) = Znth (i + 1) l.
+Proof.
+  intros. destruct l; simpl.
+  - destruct i as [|p|p] ; try lia ; try easy. unfold Znth. simpl.
+    destruct (Pos.to_nat p) ; now destruct (Pos.to_nat (p + 1)).
+  - rewrite Znth_pos_cons by lia. now replace (i + 1 - 1)%Z with i by lia.
+Qed.
+
+Lemma Int64_eq_false: forall x y : int64, Int64.eq x y = false -> x <> y.
+Proof.
+  intros. destruct x, y. unfold Int64.eq in H. simpl in H.
+  destruct (zeq intval intval0). 1: inversion H. intro. inversion H0. easy.
+Qed.
+
+Lemma ltu64_repr_false: forall x y,
+    (0 <= y <= Int64.max_unsigned)%Z -> (0 <= x <= Int64.max_unsigned)%Z ->
+    Int64.ltu (Int64.repr x) (Int64.repr y) = false -> (x >= y)%Z.
+Proof.
+  intros. unfold Int64.ltu in H1. rewrite !Int64.unsigned_repr in H1; auto.
+  now destruct (zlt x y).
 Qed.

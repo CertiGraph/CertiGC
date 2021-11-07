@@ -16,8 +16,8 @@ Proof.
   replace_SEP 1 (fun_info_rep rsh f_info fi) by entailer.
   assert (Zlength roots = Zlength (live_roots_indices f_info)). {
     destruct H as [_ [? _]]. red in H.
-    rewrite <- (Zlength_map _ _ (flip Znth (ti_args t_info))), <- H, Zlength_map.
-    reflexivity. }
+    now rewrite <- (Zlength_map _ _ ((fun x y => Znth y x) (ti_args t_info))), <- H, Zlength_map.
+    }
   forward_for_simple_bound
     n
     (EX i: Z, EX g' : HeapGraph, EX t_info': thread_info, EX roots' : roots_t,

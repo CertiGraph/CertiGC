@@ -13,12 +13,14 @@ From VST Require Import veric.shares.
 From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Import graph.graph_model.
+From CertiGraph Require Export graph.graph_gen.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.util.
 
+Import ListNotations.
 Local Coercion pg_lg: LabeledGraph >-> PreGraph.
 
 
@@ -71,6 +73,14 @@ Record Block : Type := {
     tag_no_scan: (NO_SCAN_TAG <= block_tag -> ~ In None block_fields)%Z;
     (* TODO: what's up with this? why can raw_f be None at all? *)
 }.
+
+Lemma block_fields__range2: forall r,
+    Zlength (block_fields r) <= if Archi.ptr64 then Int64.max_signed else Int.max_signed.
+Proof.
+  intros. pose proof (block_fields__range r). remember (Zlength (block_fields r)).
+  clear Heqz. cbv delta[Archi.ptr64]. simpl. rewrite <- Z.lt_succ_r. destruct H.
+  transitivity (two_p (WORD_SIZE * 8 - 10)); auto. now vm_compute.
+Qed.
 
 Lemma block_fields__not_nil (rvb: Block):
     block_fields rvb <> nil.
@@ -195,6 +205,32 @@ Proof.
     apply vertex_size_accum__fold_le.
 Qed.
 
+Lemma pvs_mono_strict: forall g gen i j,
+    (i < j)%nat -> (previous_vertices_size g gen i < previous_vertices_size g gen j)%Z.
+Proof.
+  intros. assert (j = i + (j - i))%nat by lia. rewrite H0. remember (j - i)%nat. subst j.
+  unfold previous_vertices_size. rewrite nat_inc_list_app, fold_left_app.
+  apply vertex_size_accum__fold_lt. pose proof (nat_seq_length i n). destruct (nat_seq i n).
+  - simpl in H0. lia.
+  - intro S; inversion S.
+Qed.
+
+Lemma pvs_mono: forall g gen i j,
+    (i <= j)%nat -> (previous_vertices_size g gen i <= previous_vertices_size g gen j)%Z.
+Proof.
+  intros. rewrite Nat.le_lteq in H. destruct H. 2: subst; lia.
+  rewrite Z.le_lteq. left. apply pvs_mono_strict. assumption.
+Qed.
+
+Lemma pvs_lt_rev: forall g gen i j,
+    (previous_vertices_size g gen i < previous_vertices_size g gen j)%Z -> (i < j)%nat.
+Proof.
+  intros. destruct (le_lt_dec j i).
+  - apply (pvs_mono g gen) in l. exfalso. lia.
+  - assumption.
+Qed.
+
+
 
 Definition vertex_offset (g: HeapGraph) (v: Addr): Z
  := previous_vertices_size g (addr_gen v) (addr_block v) + 1.
@@ -202,6 +238,12 @@ Definition vertex_offset (g: HeapGraph) (v: Addr): Z
 
 Definition nth_gen (g: HeapGraph) (gen: nat): Generation
  := nth gen g.(glabel).(generations) null_generation.
+
+Definition graph_gen_clear (g: HeapGraph) (gen: nat) :=
+  generation_block_count (nth_gen g gen) = O.
+
+
+Definition nth_sh g gen := generation_sh (nth_gen g gen).
 
 
 Definition graph_gen_size g gen
@@ -224,8 +266,17 @@ Definition gen_has_index (g: HeapGraph) (gen index: nat): Prop
  := (index < generation_block_count (nth_gen g gen))%nat.
 
 
-Definition graph_has_v (g: HeapGraph) (v: Addr): Prop
- := graph_has_gen g (addr_gen v) /\ gen_has_index g (addr_gen v) (addr_block v).
+Lemma vo_lt_gs: forall g v,
+    gen_has_index g (addr_gen v) (addr_block v) ->
+    vertex_offset g v < graph_gen_size g (addr_gen v).
+Proof.
+  intros. unfold vertex_offset, graph_gen_size. red in H.
+  remember (generation_block_count (nth_gen g (addr_gen v))). remember (addr_gen v).
+  assert (S (addr_block v) <= n)%nat by lia.
+  apply Z.lt_le_trans with (previous_vertices_size g n0 (S (addr_block v))).
+  - rewrite previous_vertices_size__S. apply Zplus_lt_compat_l, vertex_size__one.
+  - apply pvs_mono; assumption.
+Qed.
 
 
 Definition graph_has_gen_dec g n: {graph_has_gen g n} + {~ graph_has_gen g n}
@@ -393,6 +444,18 @@ Fixpoint make_fields' (l_raw: list FieldValue) (v: Addr) (n: nat): list field_t 
   | None :: l => inr {| field_addr := v; field_index := n |} :: make_fields' l v (n + 1)
   end.
 
+Lemma e_in_make_fields': forall l v n e,
+    In (inr e) (make_fields' l v n) -> exists s, e = {| field_addr := v; field_index := s |}.
+Proof.
+  induction l; intros; simpl in *. 1: exfalso; assumption. destruct a; [destruct s|].
+  - simpl in H. destruct H. 1: inversion H. apply IHl with (n + 1)%nat. assumption.
+  - simpl in H. destruct H. 1: inversion H. apply IHl with (n + 1)%nat. assumption.
+  - simpl in H. destruct H.
+    + inversion H. exists n. reflexivity.
+    + apply IHl with (n + 1)%nat. assumption.
+Qed.
+
+
 Lemma make_fields'_eq_length: forall l v n, length (make_fields' l v n) = length l.
 Proof.
   intros. revert n. induction l; intros; simpl. 1: reflexivity.
@@ -476,6 +539,18 @@ Definition make_fields (g: HeapGraph) (v: Addr): list field_t :=
 Definition get_edges (g: HeapGraph) (v: Addr): list Field :=
   filter_sum_right (make_fields g v).
 
+Definition graph_has_v (g: HeapGraph) (v: Addr): Prop
+ := graph_has_gen g (addr_gen v) /\ gen_has_index g (addr_gen v) (addr_block v).
+
+Definition no_dangling_dst (g: HeapGraph): Prop :=
+  forall v, graph_has_v g v ->
+            forall e, In e (get_edges g v) -> graph_has_v g (dst g e).
+
+
+Definition v_in_range (v: val) (start: val) (n: Z): Prop :=
+  exists i, 0 <= i < n /\ v = offset_val i start.
+
+
 Lemma make_fields_eq_length: forall g v,
     Zlength (make_fields g v) = Zlength (block_fields (vlabel g v)).
 Proof.
@@ -553,3 +628,105 @@ Proof.
   - apply map_ext. intros. unfold field2val. destruct a. 1: reflexivity.
     rewrite H. apply vertex_address_the_same; assumption.
 Qed.
+
+
+Definition unmarked_gen_size (g: HeapGraph) (gen: nat) :=
+  fold_left (vertex_size_accum g gen)
+            (filter (fun i => negb (vlabel g {| addr_gen := gen; addr_block := i |}).(block_mark))
+                    (nat_inc_list (generation_block_count (nth_gen g gen)))) 0.
+
+Lemma unmarked_gen_size_le: forall g n, unmarked_gen_size g n <= graph_gen_size g n.
+Proof.
+  intros g gen. unfold unmarked_gen_size, graph_gen_size, previous_vertices_size.
+  apply fold_left_mono_filter;
+    [intros; rewrite Z.le_lteq; left; apply vertex_size_accum__mono | apply vertex_size_accum__comm].
+Qed.
+
+Lemma single_unmarked_le: forall g v,
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
+    vertex_size g v <= unmarked_gen_size g (addr_gen v).
+Proof.
+  intros. unfold unmarked_gen_size.
+  remember (filter (fun i : nat => negb (block_mark (vlabel g {| addr_gen := addr_gen v; addr_block := i |})))
+                   (nat_inc_list (generation_block_count (nth_gen g (addr_gen v))))).
+  assert (In (addr_block v) l). {
+    subst l. rewrite filter_In. split.
+    - rewrite nat_inc_list_In_iff. apply (proj2 H).
+    - destruct v; simpl. rewrite negb_true_iff. apply H0. }
+  apply In_Permutation_cons in H1. destruct H1 as [l1 ?]. symmetry in H1.
+  change (addr_block v :: l1) with ([addr_block v] ++ l1) in H1.
+  transitivity (fold_left (vertex_size_accum g (addr_gen v)) [addr_block v] 0).
+  - simpl. destruct v; simpl. apply Z.le_refl.
+  - apply (fold_left_Z_mono (vertex_size_accum g (addr_gen v)) [addr_block v] l1 l 0);
+      [intros; apply Z.le_lteq; left; apply vertex_size_accum__mono | apply vertex_size_accum__comm | apply H1].
+Qed.
+
+
+Lemma lgd_graph_has_v: forall g e v v',
+    graph_has_v g v <-> graph_has_v (labeledgraph_gen_dst g e v') v.
+Proof. reflexivity. Qed.
+
+Lemma lgd_graph_has_gen: forall g e v x,
+    graph_has_gen (labeledgraph_gen_dst g e v) x <-> graph_has_gen g x.
+Proof. intros; unfold graph_has_gen; intuition. Qed.
+
+Lemma lgd_raw_fld_length_eq: forall (g: HeapGraph) v e v',
+    Zlength (block_fields (vlabel g v)) =
+    Zlength (block_fields (vlabel (labeledgraph_gen_dst g e v') v)).
+Proof. reflexivity. Qed.
+
+Lemma lgd_vertex_address_eq: forall g e v' x,
+    vertex_address (labeledgraph_gen_dst g e v') x = vertex_address g x.
+Proof. reflexivity. Qed.
+
+Lemma lgd_make_fields_eq: forall (g : HeapGraph) (v v': Addr) e,
+    make_fields (labeledgraph_gen_dst g e v') v = make_fields g v.
+Proof. reflexivity. Qed.
+
+Lemma lgd_make_header_eq: forall g e v' x,
+    make_header g x = make_header (labeledgraph_gen_dst g e v') x.
+Proof. reflexivity. Qed.
+
+Lemma lgd_block_mark_eq: forall (g: HeapGraph) e (v v' : Addr),
+    block_mark (vlabel g v) = block_mark (vlabel (labeledgraph_gen_dst g e v') v).
+Proof. reflexivity. Qed.
+
+Lemma lgd_dst_old: forall (g: HeapGraph) e v e',
+    e <> e' -> dst (labeledgraph_gen_dst g e v) e' = dst g e'.
+Proof.
+  intros. simpl. unfold updateEdgeFunc. rewrite if_false. 1: reflexivity. auto.
+Qed.
+
+Lemma lgd_dst_new: forall (g: HeapGraph) e v,
+    dst (labeledgraph_gen_dst g e v) e = v.
+Proof. intros. simpl. unfold updateEdgeFunc. rewrite if_true; reflexivity. Qed.
+
+Definition closure_has_index (g: HeapGraph) (gen index: nat) :=
+  (index <= generation_block_count (nth_gen g gen))%nat.
+
+Definition closure_has_v (g: HeapGraph) (v: Addr): Prop :=
+  graph_has_gen g (addr_gen v) /\ closure_has_index g (addr_gen v) (addr_block v).
+
+Lemma graph_has_v_in_closure: forall g v, graph_has_v g v -> closure_has_v g v.
+Proof.
+  intros g v. destruct v as [gen index].
+  unfold graph_has_v, closure_has_v, closure_has_index, gen_has_index.
+  simpl. intros. intuition.
+Qed.
+
+
+Definition root_t: Type := Z + GC_Pointer + Addr.
+
+Instance root_t_inhabitant: Inhabitant root_t := inl (inl Z.zero).
+
+Definition roots_t: Type := list root_t.
+
+Definition root2val (g: HeapGraph) (fd: root_t) : val :=
+  match fd with
+  | inl (inl z) => odd_Z2val z
+  | inl (inr p) => GC_Pointer2val p
+  | inr v => vertex_address g v
+  end.
+
+
+Definition outlier_t: Type := list GC_Pointer.

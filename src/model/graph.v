@@ -19,6 +19,8 @@ From CertiGraph Require Import lib.List_ext.
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.util.
 
+Local Coercion pg_lg: LabeledGraph >-> PreGraph.
+
 
 Record Addr: Type := {
     addr_gen: nat;
@@ -191,4 +193,363 @@ Lemma previous_vertices_size__nonneg (g: HeapGraph) (gen i: nat):
 Proof.
     unfold previous_vertices_size.
     apply vertex_size_accum__fold_le.
+Qed.
+
+
+Definition vertex_offset (g: HeapGraph) (v: Addr): Z
+ := previous_vertices_size g (addr_gen v) (addr_block v) + 1.
+
+
+Definition nth_gen (g: HeapGraph) (gen: nat): Generation
+ := nth gen g.(glabel).(generations) null_generation.
+
+
+Definition graph_gen_size g gen
+ := previous_vertices_size g gen (generation_block_count (nth_gen g gen)).
+
+
+Definition graph_has_gen (g: HeapGraph) (n: nat): Prop
+ := (n < length g.(glabel).(generations))%nat.
+
+Lemma graph_has_gen_O (g: HeapGraph):
+    graph_has_gen g O.
+Proof.
+    hnf.
+    destruct (generations (glabel g)) as [|x xx] eqn:E ; simpl; try lia.
+    now pose proof (generations__not_nil (glabel g)).
+Qed.
+
+
+Definition gen_has_index (g: HeapGraph) (gen index: nat): Prop
+ := (index < generation_block_count (nth_gen g gen))%nat.
+
+
+Definition graph_has_v (g: HeapGraph) (v: Addr): Prop
+ := graph_has_gen g (addr_gen v) /\ gen_has_index g (addr_gen v) (addr_block v).
+
+
+Definition graph_has_gen_dec g n: {graph_has_gen g n} + {~ graph_has_gen g n}
+ := lt_dec n (length (generations (glabel g))).
+
+
+Definition gen_start (g: HeapGraph) (gen: nat): val
+ := if graph_has_gen_dec g gen
+    then generation_base (nth_gen g gen)
+    else Vundef.
+
+Lemma graph_has_gen_start_isptr (g: HeapGraph) (n: nat) (Hgn: graph_has_gen g n):
+    isptr (gen_start g n).
+Proof.
+    unfold gen_start.
+    if_tac ; try easy.
+    apply generation_base__isptr.
+Qed.
+
+
+Definition vertex_address (g: HeapGraph) (v: Addr): val
+ := offset_val (WORD_SIZE * vertex_offset g v) (gen_start g (addr_gen v)).
+
+Lemma vertex_address_the_same: forall (g1 g2: HeapGraph) v,
+    (forall v, g1.(vlabel) v = g2.(vlabel) v) ->
+    map generation_base g1.(glabel).(generations) = map generation_base g2.(glabel).(generations) ->
+    vertex_address g1 v = vertex_address g2 v.
+Proof.
+  intros. unfold vertex_address. f_equal.
+  - f_equal. unfold vertex_offset. f_equal. remember (addr_block v). clear Heqn.
+    induction n; simpl; auto. rewrite !previous_vertices_size__S, IHn. f_equal. unfold vertex_size.
+    rewrite H. reflexivity.
+  - assert (forall gen, graph_has_gen g1 gen <-> graph_has_gen g2 gen). {
+      intros. unfold graph_has_gen.
+      cut (length (generations (glabel g1)) = length (generations (glabel g2))).
+      - intros. rewrite H1. reflexivity.
+      - do 2 rewrite <- (map_length generation_base). rewrite H0. reflexivity.
+    } unfold gen_start. do 2 if_tac; [|rewrite H1 in H2; contradiction.. |reflexivity].
+    unfold nth_gen. rewrite <- !(map_nth generation_base), H0. reflexivity.
+Qed.
+
+
+Definition make_header (g: HeapGraph) (v: Addr): Z:=
+  let vb := vlabel g v in if vb.(block_mark)
+                          then 0 else
+                            vb.(block_tag) + (Z.shiftl vb.(block_color) 8) +
+                            (Z.shiftl (Zlength vb.(block_fields)) 10).
+
+Lemma make_header_mark_iff: forall g v,
+    make_header g v = 0 <-> block_mark (vlabel g v) = true.
+Proof.
+  intros. unfold make_header. destruct (block_mark (vlabel g v)). 1: intuition.
+  split; intros. 2: inversion H. exfalso.
+  destruct (block_tag__range (vlabel g v)) as [? _].
+  assert (0 <= Z.shiftl (block_color (vlabel g v)) 8). {
+    rewrite Z.shiftl_nonneg. apply (proj1 (block_color__range (vlabel g v))).
+  } assert (Z.shiftl (Zlength (block_fields (vlabel g v))) 10 <= 0) by lia.
+  clear -H2. assert (0 <= Z.shiftl (Zlength (block_fields (vlabel g v))) 10) by
+      (rewrite Z.shiftl_nonneg; apply Zlength_nonneg).
+  assert (Z.shiftl (Zlength (block_fields (vlabel g v))) 10 = 0) by lia. clear -H0.
+  rewrite Z.shiftl_eq_0_iff in H0 by lia.
+  pose proof (proj1 (block_fields__range (vlabel g v))). lia.
+Qed.
+
+Lemma make_header_range: forall g v, 0 <= make_header g v < two_p (WORD_SIZE * 8).
+Proof.
+  intros. unfold make_header. destruct (block_mark (vlabel g v)).
+  - pose proof (two_p_gt_ZERO (WORD_SIZE * 8)). unfold WORD_SIZE in *; lia.
+  - pose proof (block_tag__range (vlabel g v)). pose proof (block_color__range (vlabel g v)).
+    pose proof (block_fields__range (vlabel g v)). remember (block_tag (vlabel g v)) as z1.
+    clear Heqz1. remember (block_color (vlabel g v)) as z2. clear Heqz2.
+    remember (Zlength (block_fields (vlabel g v))) as z3. clear Heqz3.
+    assert (0 <= 8) by lia. apply (Zbits.Zshiftl_mul_two_p z2) in H2. rewrite H2.
+    clear H2. assert (0 <= 10) by lia. apply (Zbits.Zshiftl_mul_two_p z3) in H2.
+    rewrite H2. clear H2. assert (two_p 10 > 0) by (apply two_p_gt_ZERO; lia).
+    assert (two_p 8 > 0) by (apply two_p_gt_ZERO; lia). split.
+    + assert (0 <= z2 * two_p 8) by (apply Z.mul_nonneg_nonneg; lia).
+      assert (0 <= z3 * two_p 10) by (apply Z.mul_nonneg_nonneg; lia). lia.
+    + destruct H as [_ ?]. destruct H0 as [_ ?]. destruct H1 as [_ ?].
+      change 256 with (two_p 8) in H. change 4 with (two_p 2) in H0.
+      assert (z1 <= two_p 8 - 1) by lia. clear H.
+      assert (z2 <= two_p 2 - 1) by lia. clear H0.
+      assert (z3 <= two_p (WORD_SIZE * 8 - 10) - 1) by lia. clear H1.
+      apply Z.mul_le_mono_nonneg_r with (p := two_p 8) in H. 2: lia.
+      apply Z.mul_le_mono_nonneg_r with (p := two_p 10) in H0. 2: lia.
+      rewrite Z.mul_sub_distr_r in H, H0. rewrite Z.mul_1_l in H, H0.
+      assert (0 <= WORD_SIZE * 8 - 10) by (unfold WORD_SIZE; lia).
+      rewrite <- two_p_is_exp in H, H0 by lia. simpl Z.add in H, H0. clear H1.
+      Opaque two_p. simpl. Transparent two_p. lia.
+Qed.
+
+Lemma make_header_int_rep_mark_iff: forall g v,
+    (if Archi.ptr64 then Int64.repr (make_header g v) = Int64.repr 0
+     else Int.repr (make_header g v) = Int.repr 0) <->
+    block_mark (vlabel g v) = true.
+Proof.
+  intros. rewrite <- make_header_mark_iff. split; intros; [|rewrite H; reflexivity].
+  cbv delta [Archi.ptr64] in H. simpl in H. Transparent Int.repr Int64.repr.
+  inversion H. Opaque Int64.repr Int.repr. clear H. rewrite H1.
+  match goal with
+  | H : Int64.Z_mod_modulus _ = _ |- _ => rewrite Int64.Z_mod_modulus_eq in H
+  | H : Int.Z_mod_modulus _ = _ |- _ => rewrite Int.Z_mod_modulus_eq in H
+  end.
+  rewrite Z.mod_small in H1; auto. apply make_header_range.
+Qed.
+
+Lemma make_header_Wosize: forall g v,
+    block_mark (vlabel g v) = false ->
+    if Archi.ptr64 then
+      Int64.shru (Int64.repr (make_header g v)) (Int64.repr 10) =
+      Int64.repr (Zlength (block_fields (vlabel g v)))
+    else
+      Int.shru (Int.repr (make_header g v)) (Int.repr 10) =
+      Int.repr (Zlength (block_fields (vlabel g v))).
+Proof.
+  intros. cbv delta [Archi.ptr64]. simpl.
+  match goal with
+  | |- Int64.shru _ _ = Int64.repr _ =>
+    rewrite Int64.shru_div_two_p, !Int64.unsigned_repr
+  | |- Int.shru _ _ = Int.repr _ => rewrite Int.shru_div_two_p, !Int.unsigned_repr
+  end.
+  - f_equal. unfold make_header.
+    remember (vlabel g v) as r eqn:E. clear E.
+    rewrite H, !Zbits.Zshiftl_mul_two_p by lia. rewrite Z.div_add. 2: compute; lia.
+    pose proof (block_tag__range r). pose proof (block_color__range r).
+    cut ((block_tag r + block_color r * two_p 8) / two_p 10 = 0). 1: intros; lia.
+    apply Z.div_small. change 256 with (two_p 8) in H0. change 4 with (two_p 2) in H1.
+    assert (0 <= block_tag r <= two_p 8 - 1) by lia. clear H0. destruct H2.
+    assert (0 <= block_color r <= two_p 2 - 1) by lia. clear H1. destruct H3.
+    assert (two_p 8 > 0) by (apply two_p_gt_ZERO; lia). split.
+    + assert (0 <= block_color r * two_p 8) by (apply Z.mul_nonneg_nonneg; lia). lia.
+    + apply Z.mul_le_mono_nonneg_r with (p := two_p 8) in H3. 2: lia.
+      rewrite Z.mul_sub_distr_r, <- two_p_is_exp in H3 by lia. simpl Z.add in H3. lia.
+  - rep_lia.
+  - pose proof (make_header_range g v). unfold WORD_SIZE in *.
+    match goal with
+    | |- context [Int64.max_unsigned] =>
+      unfold Int64.max_unsigned, Int64.modulus, Int64.wordsize, Wordsize_64.wordsize
+    | |- context [Int.max_unsigned] =>
+      unfold Int.max_unsigned, Int.modulus, Int.wordsize, Wordsize_32.wordsize
+    end. simpl Z.mul in H0. rewrite two_power_nat_two_p. simpl Z.of_nat. lia.
+Qed.
+
+
+Definition field_t: Type := Z + GC_Pointer + Field.
+
+Instance field_t_inhabitant: Inhabitant field_t := inl (inl Z.zero).
+
+Definition GC_Pointer2val (x: GC_Pointer) : val :=
+  match x with | GCPtr b z => Vptr b z end.
+
+Definition field2val (g: HeapGraph) (fd: field_t) : val :=
+  match fd with
+  | inl (inl z) => odd_Z2val z
+  | inl (inr p) => GC_Pointer2val p
+  | inr e => vertex_address g (dst g e)
+  end.
+
+
+Fixpoint make_fields' (l_raw: list FieldValue) (v: Addr) (n: nat): list field_t :=
+  match l_raw with
+  | nil => nil
+  | Some (inl z) :: l => inl (inl z) :: make_fields' l v (n + 1)
+  | Some (inr ptr) :: l => inl (inr ptr) :: make_fields' l v (n + 1)
+  | None :: l => inr {| field_addr := v; field_index := n |} :: make_fields' l v (n + 1)
+  end.
+
+Lemma make_fields'_eq_length: forall l v n, length (make_fields' l v n) = length l.
+Proof.
+  intros. revert n. induction l; intros; simpl. 1: reflexivity.
+  destruct a; [destruct s|]; simpl; rewrite IHl; reflexivity.
+Qed.
+
+Lemma make_fields'_eq_Zlength: forall l v n, Zlength (make_fields' l v n) = Zlength l.
+Proof.
+  intros. rewrite !Zlength_correct. rewrite make_fields'_eq_length. reflexivity.
+Qed.
+
+Lemma make_fields'_edge_depends_on_index:
+  forall n l_raw i v e,
+    0 <= Z.of_nat n < Zlength l_raw ->
+    nth n (make_fields' l_raw v i) field_t_inhabitant = inr e ->
+    e = {| field_addr := v; field_index := n+i |}.
+Proof.
+  induction n as [|n' IHn'].
+  - intros. destruct l_raw as [| r l_raw]; try inversion H0.
+    destruct r; [destruct s|]; simpl in H0; inversion H0;
+      reflexivity.
+  - intro. destruct l_raw as [| r l_raw]; try inversion 2.
+    replace (S n' + i)%nat with (n' + S i)%nat by lia.
+    specialize (IHn' l_raw (S i) v e).
+    assert (0 <= Z.of_nat n' < Zlength l_raw) by
+          (rewrite Zlength_cons, Nat2Z.inj_succ in H; lia).
+      assert (nth n' (make_fields' l_raw v (S i)) field_t_inhabitant = inr e) by
+        (destruct r; [destruct s|]; simpl in H2;
+        replace (i + 1)%nat with (S i) in H2 by lia; assumption).
+      destruct r; [destruct s|]; simpl; apply IHn'; assumption.
+Qed.
+
+Lemma make_fields'_n_doesnt_matter: forall i l v n m gcptr,
+    nth i (make_fields' l v n) field_t_inhabitant = inl (inr gcptr) ->
+    nth i (make_fields' l v m) field_t_inhabitant = inl (inr gcptr).
+Proof.
+  intros.
+  unfold make_fields' in *.
+  generalize dependent i.
+  generalize dependent n.
+  generalize dependent m.
+  induction l.
+  + intros; assumption.
+  + induction i.
+    - destruct a; [destruct s|]; simpl; intros; try assumption; try inversion H.
+    - destruct a; [destruct s|]; simpl; intro;
+        apply IHl with (m:=(m+1)%nat) in H; assumption.
+Qed.
+
+Lemma make_fields'_item_was_in_list: forall l v n gcptr,
+    0 <= n < Zlength l ->
+    Znth n (make_fields' l v 0) = inl (inr gcptr) ->
+    Znth n l = Some (inr gcptr).
+Proof.
+  intros.
+  rewrite <- nth_Znth; rewrite <- nth_Znth in H0; [| rewrite Zlength_correct in *..];
+    try rewrite make_fields'_eq_length; [|assumption..].
+  generalize dependent n.
+  induction l.
+  - intros. rewrite nth_Znth in H0; try assumption.
+    unfold make_fields' in H0; rewrite Znth_nil in H0; inversion H0.
+  - intro n. induction (Z.to_nat n) eqn:?.
+    + intros. destruct a; [destruct s|]; simpl in *; try inversion H0; try reflexivity.
+    + intros. simpl in *. clear IHn0.
+      replace n0 with (Z.to_nat (Z.of_nat n0)) by apply Nat2Z.id.
+      assert (0 <= Z.of_nat n0 < Zlength l). {
+        split; try lia.
+        destruct H; rewrite Zlength_cons in H1.
+        apply Zsucc_lt_reg; rewrite <- Nat2Z.inj_succ.
+        rewrite <- Heqn0; rewrite Z2Nat.id; assumption.
+      }
+      destruct a; [destruct s|]; simpl in H0; apply IHl;
+        try assumption; apply make_fields'_n_doesnt_matter with (n:=1%nat);
+        rewrite Nat2Z.id; assumption.
+Qed.
+
+
+Definition make_fields (g: HeapGraph) (v: Addr): list field_t :=
+  make_fields' (vlabel g v).(block_fields) v O.
+
+Definition get_edges (g: HeapGraph) (v: Addr): list Field :=
+  filter_sum_right (make_fields g v).
+
+Lemma make_fields_eq_length: forall g v,
+    Zlength (make_fields g v) = Zlength (block_fields (vlabel g v)).
+Proof.
+  unfold make_fields. intros.
+  rewrite !Zlength_correct, make_fields'_eq_length. reflexivity.
+Qed.
+
+Lemma make_fields_Znth_edge: forall g v n e,
+    0 <= n < Zlength (block_fields (vlabel g v)) ->
+    Znth n (make_fields g v) = inr e -> e = {| field_addr := v; field_index := Z.to_nat n |}.
+Proof.
+  intros. rewrite <- nth_Znth in H0. 2: rewrite make_fields_eq_length; assumption.
+  apply make_fields'_edge_depends_on_index in H0.
+  - now rewrite Nat.add_0_r in H0.
+  - now rewrite Z2Nat.id.
+Qed.
+
+Lemma make_fields_edge_unique: forall g e v1 v2 n m,
+    0 <= n < Zlength (make_fields g v1) ->
+    0 <= m < Zlength (make_fields g v2) ->
+    Znth n (make_fields g v1) = inr e ->
+    Znth m (make_fields g v2) = inr e ->
+    n = m /\ v1 = v2.
+Proof.
+  intros. unfold make_fields in *.
+  rewrite make_fields'_eq_Zlength in *.
+  assert (0 <= Z.of_nat (Z.to_nat n) < Zlength (block_fields (vlabel g v1))) by
+      (destruct H; split; rewrite Z2Nat.id; assumption).
+  rewrite <- nth_Znth in H1 by
+      (rewrite make_fields'_eq_Zlength; assumption).
+  assert (0 <= Z.of_nat (Z.to_nat m) < Zlength (block_fields (vlabel g v2))) by
+       (destruct H0; split; rewrite Z2Nat.id; assumption).
+  rewrite <- nth_Znth in H2 by
+      (rewrite make_fields'_eq_Zlength; assumption).
+  pose proof (make_fields'_edge_depends_on_index
+                (Z.to_nat n) (block_fields (vlabel g v1)) 0 v1 e H3 H1).
+  pose proof (make_fields'_edge_depends_on_index
+                (Z.to_nat m) (block_fields (vlabel g v2)) 0 v2 e H4 H2).
+  rewrite H5 in H6. inversion H6.
+  rewrite Nat.add_cancel_r, Z2Nat.inj_iff in H9 by lia.
+  split; [assumption | reflexivity].
+Qed.
+
+
+Definition make_fields_vals (g: HeapGraph) (v: Addr): list val :=
+  let vb := vlabel g v in
+  let original_fields_val := map (field2val g) (make_fields g v) in
+  if vb.(block_mark)
+  then vertex_address g vb.(block_copied_vertex) :: tl original_fields_val
+  else original_fields_val.
+
+Lemma fields_eq_length: forall g v,
+    Zlength (make_fields_vals g v) = Zlength (block_fields (vlabel g v)).
+Proof.
+  intros. rewrite !Zlength_correct. f_equal. unfold make_fields_vals, make_fields.
+  destruct (block_mark (vlabel g v)).
+  - destruct (block_fields_head__cons (vlabel g v)) as [r [l [? ?]]].
+    rewrite H; simpl; destruct r; [destruct s|]; simpl;
+      rewrite map_length, make_fields'_eq_length; reflexivity.
+  - rewrite map_length, make_fields'_eq_length. reflexivity.
+Qed.
+
+
+Lemma make_fields_the_same: forall (g1 g2: HeapGraph) v,
+    (forall e, dst g1 e = dst g2 e) ->
+    (forall v, g1.(vlabel) v = g2.(vlabel) v) ->
+    map generation_base g1.(glabel).(generations) = map generation_base g2.(glabel).(generations) ->
+    make_fields_vals g1 v = make_fields_vals g2 v.
+Proof.
+  intros. unfold make_fields_vals, make_fields. remember O. clear Heqn. rewrite H0.
+  remember (block_fields (vlabel g2 v)) as l. clear Heql.
+  cut (forall fl, map (field2val g1) fl = map (field2val g2) fl).
+  - intros. rewrite H2. rewrite (vertex_address_the_same g1 g2) by assumption.
+    reflexivity.
+  - apply map_ext. intros. unfold field2val. destruct a. 1: reflexivity.
+    rewrite H. apply vertex_address_the_same; assumption.
 Qed.

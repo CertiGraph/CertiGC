@@ -17,6 +17,7 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
+From CertiGC Require Import model.compatible.
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.graph.
 From CertiGC Require Import model.heap.
@@ -331,4 +332,35 @@ Lemma reset_graph_gen_size_eq: forall g i j,
 Proof.
   intros. unfold graph_gen_size.
   rewrite pvs_reset_unchanged, reset_nth_gen_diff; auto.
+Qed.
+
+
+Lemma graph_thread_info_compatible_reset: forall g t_info gen,
+    graph_thread_info_compatible g t_info ->
+    graph_thread_info_compatible (reset_graph gen g)
+                                 (reset_nth_heap_thread_info gen t_info).
+Proof.
+  intros. destruct H as [? [? ?]].
+  split; [|split]; [|simpl; rewrite reset_nth_gen_info_length..].
+  - rewrite gsc_iff by
+        (simpl; rewrite remove_ve_glabel_unchanged, reset_nth_space_length,
+                reset_nth_gen_info_length; assumption).
+    intros n ?. rewrite gsc_iff in H by assumption. rewrite graph_has_gen_reset in H2.
+    specialize (H _ H2). red in H. simpl. unfold nth_gen, nth_space in *. simpl.
+    rewrite remove_ve_glabel_unchanged. destruct (Nat.eq_dec n gen).
+    + subst gen. red in H2. rewrite reset_nth_gen_info_same.
+      rewrite reset_nth_space_same by lia. intuition.
+    + rewrite reset_nth_gen_info_diff, reset_nth_space_diff by assumption.
+      destruct H as [? [? ?]]. split. 1: assumption. split. 1: assumption.
+      rewrite pvs_reset_unchanged. assumption.
+  - rewrite remove_ve_glabel_unchanged.
+    destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen).
+    + rewrite reset_nth_space_overflow; assumption.
+    + rewrite reset_nth_space_Znth by assumption. rewrite <- upd_Znth_map. simpl.
+      remember (heap_spaces (ti_heap t_info)).
+      assert (0 <= Z.of_nat gen < Zlength l0) by (rewrite Zlength_correct; lia).
+      replace (space_base (Znth (Z.of_nat gen) l0))
+        with (Znth (Z.of_nat gen) (map space_base l0)) by (rewrite Znth_map; auto).
+      rewrite upd_Znth_unchanged; [|rewrite Zlength_map]; assumption.
+  - rewrite remove_ve_glabel_unchanged, reset_nth_space_length. assumption.
 Qed.

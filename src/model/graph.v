@@ -137,6 +137,33 @@ Record Generations : Type := {
 Definition HeapGraph := LabeledGraph Addr Field Block unit Generations.
 
 
+Definition no_scan (g: HeapGraph) (v: Addr): Prop :=
+  NO_SCAN_TAG <= (vlabel g v).(block_tag).
+
+Definition vertex_pos_pairs (g: HeapGraph) (v: Addr) : list (Z + (Addr * Z)) :=
+  map (fun x => inr (v, Z.of_nat x))
+      (nat_inc_list (length (block_fields (vlabel g v)))).
+
+Lemma vpp_Zlength: forall g x,
+    Zlength (vertex_pos_pairs g x) = Zlength (block_fields (vlabel g x)).
+Proof.
+  intros. unfold vertex_pos_pairs.
+  rewrite Zlength_map, !Zlength_correct, nat_inc_list_length. reflexivity.
+Qed.
+
+Lemma vpp_Znth `[Inhabitant (Z + Addr * Z)]: forall (x : Addr) (g : HeapGraph) (i : Z),
+    0 <= i < Zlength (block_fields (vlabel g x)) ->
+    Znth i (vertex_pos_pairs g x) = inr (x, i).
+Proof.
+  intros. unfold vertex_pos_pairs.
+  assert (0 <= i < Zlength (nat_inc_list (length (block_fields (vlabel g x))))) by
+      (rewrite Zlength_correct, nat_inc_list_length, <- Zlength_correct; assumption).
+  rewrite Znth_map by assumption. do 2 f_equal. rewrite <- nth_Znth by assumption.
+  rewrite nat_inc_list_nth. 1: rewrite Z2Nat.id; lia.
+  rewrite <- ZtoNat_Zlength, <- Z2Nat.inj_lt; lia.
+Qed.
+
+
 Definition vertex_size (g: HeapGraph) (v: Addr): Z
  := Zlength (vlabel g v).(block_fields) + 1.
 
@@ -270,9 +297,12 @@ Proof.
     now pose proof (generations__not_nil (glabel g)).
 Qed.
 
-
 Definition gen_has_index (g: HeapGraph) (gen index: nat): Prop
  := (index < generation_block_count (nth_gen g gen))%nat.
+
+Definition gen_unmarked (g: HeapGraph) (gen: nat): Prop :=
+  graph_has_gen g gen ->
+  forall idx, gen_has_index g gen idx -> (vlabel g {| addr_gen := gen; addr_block := idx |}).(block_mark) = false.
 
 
 Lemma vo_lt_gs: forall g v,
@@ -658,6 +688,13 @@ Definition copy_compatible (g: HeapGraph): Prop :=
             graph_has_v g (vlabel g v).(block_copied_vertex) /\
             addr_gen v <> addr_gen (vlabel g v).(block_copied_vertex).
 
+Lemma lgd_copy_compatible: forall g v' e,
+    copy_compatible g ->
+    copy_compatible (labeledgraph_gen_dst g e v').
+Proof.
+  intros. unfold copy_compatible in *. intuition. Qed.
+
+
 Lemma mfv_all_is_ptr_or_int: forall g v,
     copy_compatible g -> no_dangling_dst g -> graph_has_v g v ->
     Forall is_pointer_or_integer (make_fields_vals g v).
@@ -773,11 +810,186 @@ Proof.
 Qed.
 
 
+Lemma lgd_f2v_eq_except_one: forall g fd e v',
+    fd <> (inr e) ->
+    field2val g fd = field2val (labeledgraph_gen_dst g e v') fd.
+Proof.
+  intros; unfold field2val; simpl.
+  destruct fd; [destruct s|]; try reflexivity.
+  unfold updateEdgeFunc; if_tac; [exfalso; apply H; rewrite H0|]; reflexivity.
+Qed.
+
+Lemma lgd_map_f2v_diff_vert_eq: forall g v v' v1 e n,
+    0 <= n < Zlength (make_fields g v) ->
+    Znth n (make_fields g v) = inr e ->
+    v1 <> v ->
+    map (field2val g) (make_fields g v1) =
+    map (field2val (labeledgraph_gen_dst g e v'))
+        (make_fields (labeledgraph_gen_dst g e v') v1).
+Proof.
+    intros.
+    rewrite lgd_make_fields_eq.
+    apply Znth_list_eq. split.
+    1: repeat rewrite Zlength_map; reflexivity.
+    intros. rewrite Zlength_map in H2.
+    repeat rewrite Znth_map by assumption.
+    apply lgd_f2v_eq_except_one. intro.
+    pose proof (make_fields_edge_unique g e v
+                                        v1 n j H H2 H0 H3).
+    destruct H4. unfold not in H1. symmetry in H5.
+    apply (H1 H5).
+Qed.
+
+Lemma lgd_f2v_eq_after_update: forall g v v' e n j,
+  0 <= n < Zlength (make_fields g v) ->
+  0 <= j < Zlength (make_fields g v) ->
+  Znth n (make_fields g v) = inr e ->
+  Znth j (upd_Znth n (map (field2val g)
+                          (make_fields g v)) (vertex_address g v')) =
+  Znth j
+    (map (field2val (labeledgraph_gen_dst g e v'))
+         (make_fields (labeledgraph_gen_dst g e v') v)).
+Proof.
+  intros.
+  rewrite Znth_map.
+  2: rewrite lgd_make_fields_eq; assumption.
+  assert (j = n \/ j <> n) by lia; destruct H2.
+  + subst j; rewrite upd_Znth_same.
+    2: rewrite Zlength_map; assumption.
+    replace (make_fields (labeledgraph_gen_dst g e v') v)
+      with (make_fields g v) by reflexivity.
+    rewrite H1; simpl field2val.
+    unfold updateEdgeFunc; if_tac; try reflexivity.
+    unfold complement in H2; assert (e = e) by reflexivity.
+    apply H2 in H3; exfalso; assumption.
+  + rewrite upd_Znth_diff_strong; [|rewrite Zlength_map|]; try assumption.
+    rewrite Znth_map by assumption.
+    apply (lgd_f2v_eq_except_one g (Znth j (make_fields g v))).
+    intro. pose proof (make_fields_edge_unique g e v v n j H H0 H1 H3).
+    lia.
+Qed.
+
+Lemma lgd_mfv_change_in_one_spot: forall g v e v' n,
+    0 <= n < Zlength (make_fields g v) ->
+    block_mark (vlabel g v) = false ->
+    Znth n (make_fields g v) = inr e ->
+    upd_Znth n (make_fields_vals g v) (vertex_address g v') =
+    (make_fields_vals (labeledgraph_gen_dst g e v') v).
+Proof.
+  intros.
+  rewrite (Znth_list_eq (upd_Znth n (make_fields_vals g v)
+               (vertex_address g v')) (make_fields_vals
+                     (labeledgraph_gen_dst g e v') v)).
+  rewrite upd_Znth_Zlength, fields_eq_length.
+  2: rewrite fields_eq_length; rewrite make_fields_eq_length in H; assumption.
+  split. 1: rewrite fields_eq_length; reflexivity.
+  intros.
+  unfold make_fields_vals.
+  replace (block_mark (vlabel (labeledgraph_gen_dst g e v') v))
+    with (block_mark (vlabel g v)) by reflexivity.
+  rewrite H0; rewrite <- make_fields_eq_length in H2.
+  apply lgd_f2v_eq_after_update; assumption.
+Qed.
+
+Lemma lgd_no_dangling_dst: forall g e v',
+    graph_has_v g v' ->
+    no_dangling_dst g ->
+     no_dangling_dst (labeledgraph_gen_dst g e v').
+Proof.
+  intros. unfold no_dangling_dst in *.
+  intros. rewrite <- lgd_graph_has_v.
+  simpl. unfold updateEdgeFunc; if_tac; [assumption | apply (H0 v)]; assumption.
+Qed.
+
+Lemma lgd_no_dangling_dst_copied_vert: forall g e v,
+    copy_compatible g ->
+    graph_has_v g v ->
+    block_mark (vlabel g v) = true ->
+    no_dangling_dst g ->
+    no_dangling_dst (labeledgraph_gen_dst g e (block_copied_vertex (vlabel g v))).
+Proof.
+  intros.
+  assert (graph_has_v g (block_copied_vertex (vlabel g v))) by apply (H v H0 H1).
+  apply lgd_no_dangling_dst; assumption.
+Qed.
+
+
+Lemma make_header_tag_prep64: forall z,
+    0 <= z < two_p (8 * 8) ->
+    Int64.and (Int64.repr z) (Int64.repr 255) =
+    Int64.sub (Int64.repr z)
+              (Int64.mul (Int64.repr (z / two_p 8)) (Int64.repr (two_p 8))).
+Proof.
+  intros. replace (Int64.repr 255) with (Int64.sub (Int64.repr 256) Int64.one) by
+      now vm_compute.
+  rewrite <- (Int64.modu_and _ _ (Int64.repr 8)) by now vm_compute.
+  rewrite Int64.modu_divu by (vm_compute; intro S; inversion S).
+  rewrite (Int64.divu_pow2 _ _ (Int64.repr 8)) by now vm_compute.
+  rewrite (Int64.mul_pow2 _ _ (Int64.repr 8)) by now vm_compute.
+  rewrite Int64.shru_div_two_p, !Int64.unsigned_repr; [| rep_lia | ].
+  - rewrite Int64.shl_mul_two_p, Int64.unsigned_repr by rep_lia. easy.
+  - simpl Z.mul in H. unfold Int64.max_unsigned, Int64.modulus.
+    unfold Int64.wordsize, Wordsize_64.wordsize. rewrite two_power_nat_two_p.
+    simpl Z.of_nat. lia.
+Qed.
+
+Lemma make_header_tag_prep32: forall z,
+    0 <= z < two_p (4 * 8) ->
+    Int.and (Int.repr z) (Int.repr 255) =
+    Int.sub (Int.repr z)
+              (Int.mul (Int.repr (z / two_p 8)) (Int.repr (two_p 8))).
+Proof.
+  intros. replace (Int.repr 255) with (Int.sub (Int.repr 256) Int.one) by
+      now vm_compute.
+  rewrite <- (Int.modu_and _ _ (Int.repr 8)) by now vm_compute.
+  rewrite Int.modu_divu by (vm_compute; intro S; inversion S).
+  rewrite (Int.divu_pow2 _ _ (Int.repr 8)) by now vm_compute.
+  rewrite (Int.mul_pow2 _ _ (Int.repr 8)) by now vm_compute.
+  rewrite Int.shru_div_two_p, !Int.unsigned_repr; [| rep_lia | ].
+  - rewrite Int.shl_mul_two_p, Int.unsigned_repr by rep_lia. easy.
+  - simpl Z.mul in H. unfold Int.max_unsigned, Int.modulus.
+    unfold Int.wordsize, Wordsize_32.wordsize. rewrite two_power_nat_two_p.
+    simpl Z.of_nat. lia.
+Qed.
+
+Lemma make_header_tag: forall g v,
+    block_mark (vlabel g v) = false ->
+    if Archi.ptr64 then
+        Int64.and (Int64.repr (make_header g v)) (Int64.repr 255) =
+        Int64.repr (block_tag (vlabel g v))
+    else Int.and (Int.repr (make_header g v)) (Int.repr 255) =
+         Int.repr (block_tag (vlabel g v)).
+Proof.
+  intros. cbv delta [Archi.ptr64]. simpl.
+  first [rewrite make_header_tag_prep32 | rewrite make_header_tag_prep64].
+  2: apply make_header_range.
+  unfold make_header in *. remember (vlabel g v) as r eqn:E. clear E.
+  rewrite H, !Zbits.Zshiftl_mul_two_p in * by lia. rewrite <- Z.add_assoc.
+  replace (block_color r * two_p 8 + Zlength (block_fields r) * two_p 10)
+    with ((block_color r + Zlength (block_fields r) * two_p 2) * two_p 8) by
+      (rewrite Z.mul_add_distr_r, <- Z.mul_assoc, <- two_p_is_exp by lia;
+       reflexivity). rewrite Z.div_add by (vm_compute; intros S; inversion S).
+  assert (block_tag r / two_p 8 = 0) by (apply Z.div_small, block_tag__range).
+  rewrite H0, Z.add_0_l.
+  first [rewrite mul_repr, sub_repr | rewrite mul64_repr, sub64_repr].
+  now rewrite <- Z.add_sub_assoc, Z.sub_diag, Z.add_0_r.
+Qed.
+
+
 Definition root_t: Type := Z + GC_Pointer + Addr.
 
 Instance root_t_inhabitant: Inhabitant root_t := inl (inl Z.zero).
 
 Definition roots_t: Type := list root_t.
+
+Lemma root_in_outlier: forall (roots: roots_t) outlier p,
+    In (inl (inr p)) roots ->
+    incl (filter_sum_right (filter_sum_left roots)) outlier -> In p outlier.
+Proof.
+  intros. apply H0. rewrite <- filter_sum_right_In_iff, <- filter_sum_left_In_iff.
+  assumption.
+Qed.
+
 
 Definition root2val (g: HeapGraph) (fd: root_t) : val :=
   match fd with

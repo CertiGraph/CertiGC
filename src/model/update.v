@@ -143,6 +143,30 @@ Proof.
   unfold enough_space_to_copy. intros. unfold rest_gen_size, nth_space in *. apply H0.
 Qed.
 
+Lemma utia_ti_heap: forall t_info i ad (Hm : 0 <= i < MAX_ARGS),
+    ti_heap (update_thread_info_arg t_info i ad Hm) = ti_heap t_info.
+Proof. intros. simpl. reflexivity. Qed.
+
+Lemma utiacti_gen_size: forall t_info i1 i2 s ad n
+    (Hi : 0 <= i1 < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i1 (heap_spaces (ti_heap t_info))) s)
+    (Hm : 0 <= i2 < MAX_ARGS),
+    gen_size (update_thread_info_arg (cut_thread_info t_info i1 s Hi Hh) i2 ad Hm) n =
+    gen_size t_info n.
+Proof.
+  intros. unfold gen_size, nth_space. rewrite utia_ti_heap. apply cti_gen_size.
+Qed.
+
+Lemma utiacti_space_base: forall t_info i1 i2 s ad n
+    (Hi : 0 <= i1 < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i1 (heap_spaces (ti_heap t_info))) s)
+    (Hm : 0 <= i2 < MAX_ARGS),
+    space_base
+      (nth_space (update_thread_info_arg (cut_thread_info t_info i1 s Hi Hh) i2 ad Hm)
+                 n) = space_base (nth_space t_info n).
+Proof. intros. unfold nth_space. rewrite utia_ti_heap. apply cti_space_base. Qed.
+
+
 Lemma forward_estc: forall
     g t_info v to index uv
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
@@ -201,4 +225,42 @@ Proof.
   intros. rewrite <- (lcv_vertex_address_new g v to H).
   apply upd_fun_thread_arg_compatible with (HB := Hm).
     apply lcv_fun_thread_arg_compatible_unchanged; assumption.
+Qed.
+
+Lemma lcv_super_compatible: forall
+    g t_info roots f_info outlier to v z
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
+    (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
+    graph_has_gen g to -> graph_has_v g v ->
+    super_compatible (g, t_info, roots) f_info outlier ->
+    super_compatible
+      (lgraph_copy_v g v to,
+       update_thread_info_arg
+         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
+         (Znth z (live_roots_indices f_info))
+         (vertex_address g (new_copied_v g to)) Hm,
+       upd_bunch z f_info roots (inr (new_copied_v g to))) f_info outlier.
+Proof.
+  intros. destruct H1 as [? [? [? ?]]]. split; [|split; [|split]].
+  - apply lcv_graph_thread_info_compatible; assumption.
+  - destruct H3. apply lcv_fun_thread_arg_compatible; assumption.
+  - apply lcv_roots_compatible; assumption.
+  - apply lcv_outlier_compatible; assumption.
+Qed.
+
+
+Lemma upd_bunch_rf_compatible: forall f_info roots z r,
+    roots_fi_compatible roots f_info ->
+    roots_fi_compatible (upd_bunch z f_info roots r) f_info.
+Proof.
+  intros. unfold roots_fi_compatible in *. destruct H.
+  assert (Zlength (upd_bunch z f_info roots r) = Zlength (live_roots_indices f_info))
+    by (rewrite upd_bunch_Zlength; assumption). split; intros. 1: assumption.
+  rewrite H1 in *. rewrite <- H in *.
+  destruct (Z.eq_dec (Znth i (live_roots_indices f_info))
+                     (Znth z (live_roots_indices f_info))).
+  - rewrite !upd_bunch_same; try assumption; try reflexivity.
+    rewrite H4 in e; assumption.
+  - rewrite !upd_bunch_diff; try assumption; [apply H0 | rewrite <- H4]; assumption.
 Qed.

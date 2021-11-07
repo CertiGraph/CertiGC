@@ -48,6 +48,8 @@ Definition field2forward (f: field_t): forward_t :=
 
 Definition forward_p_type: Type := Z + (Addr * Z).
 
+Instance forward_p_type_Inhabitant: Inhabitant forward_p_type := inl 0.
+
 Definition forward_p2forward_t
            (p: forward_p_type) (roots: roots_t) (g: HeapGraph): forward_t :=
   match p with
@@ -56,10 +58,6 @@ Definition forward_p2forward_t
                   then (inl (inr (vlabel g v).(block_copied_vertex)))
                   else field2forward (Znth n (make_fields g v))
   end.
-
-Definition vertex_pos_pairs (g: HeapGraph) (v: Addr) : list (forward_p_type) :=
-  map (fun x => inr (v, Z.of_nat x))
-      (nat_inc_list (length (block_fields (vlabel g v)))).
 
 Inductive forward_relation (from to: nat):
   nat -> forward_t -> HeapGraph -> HeapGraph -> Prop :=
@@ -348,6 +346,22 @@ Definition forward_condition g t_info from to: Prop :=
   graph_has_gen g from /\ graph_has_gen g to /\
   copy_compatible g /\ no_dangling_dst g.
 
+Lemma lgd_forward_condition: forall g t_info v to v' e,
+    addr_gen v <> to ->
+    graph_has_v g v ->
+    graph_has_v g v' ->
+    forward_condition g t_info (addr_gen v) to ->
+    forward_condition (labeledgraph_gen_dst g e v') t_info (addr_gen v) to.
+Proof.
+  intros. destruct H2 as [? [? [? [? ?]]]]. split; [|split; [|split; [|split]]].
+  - apply lgd_enough_space_to_copy; assumption.
+  - apply lgd_graph_has_gen; assumption.
+  - apply lgd_graph_has_gen; assumption.
+  - apply lgd_copy_compatible; assumption.
+  - apply lgd_no_dangling_dst; assumption.
+Qed.
+
+
 Lemma lcv_forward_condition: forall
     g t_info v to index uv
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
@@ -385,4 +399,229 @@ Proof.
   - apply lcv_graph_has_gen; assumption.
   - apply lcv_copy_compatible; assumption.
   - apply lcv_no_dangling_dst; assumption.
+Qed.
+
+
+Lemma fr_closure_has_v: forall depth from to p g g',
+    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall v, closure_has_v g v -> closure_has_v g' v.
+Proof.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
+  remember (fun g1 g2 v => closure_has_v g1 v -> closure_has_v g2 v) as P.
+  remember (fun (x1 x2: nat) => True) as R.
+  pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
+  apply H2; clear H2; intros; try assumption; try reflexivity.
+  - apply H3, H2. assumption.
+  - apply lcv_closure_has_v; assumption.
+Qed.
+
+
+Lemma fl_graph_has_v: forall from to depth l g g',
+    graph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall v, graph_has_v g v -> graph_has_v g' v.
+Proof.
+  intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
+  1: assumption. cut (graph_has_v g2 v).
+  - intros. assert (graph_has_gen g2 to) by
+        (apply (fr_graph_has_gen _ _ _ _ _ _ H H5); assumption).
+    apply (IHl _ _ H3 H8 _ H2).
+  - apply (fr_graph_has_v _ _ _ _ _ _ H H5 _ H1).
+Qed.
+
+Lemma fr_vertex_address: forall depth from to p g g',
+    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall v, closure_has_v g v -> vertex_address g v = vertex_address g' v.
+Proof.
+  intros. remember (fun g v (x: nat) => closure_has_v g v) as Q.
+  remember (fun g1 g2 v => vertex_address g1 v = vertex_address g2 v) as P.
+  remember (fun (x1 x2: nat) => True) as R.
+  pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
+  apply H2; clear H2; intros; try assumption; try reflexivity.
+  - rewrite H2. assumption.
+  - rewrite lcv_vertex_address; [reflexivity | assumption..].
+  - apply (fr_closure_has_v _ _ _ _ _ _ H2 H3 _ H4).
+  - apply lcv_closure_has_v; assumption.
+Qed.
+
+Lemma fl_vertex_address: forall from to depth l g g',
+    graph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall v, closure_has_v g v -> vertex_address g v = vertex_address g' v.
+Proof.
+  intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
+  1: reflexivity. transitivity (vertex_address g2 v).
+  - apply (fr_vertex_address _ _ _ _ _ _ H H5 _ H1).
+  - apply IHl; [|assumption|].
+    + erewrite <- fr_graph_has_gen; eauto.
+    + eapply fr_closure_has_v; eauto.
+Qed.
+
+Lemma fr_block_fields: forall depth from to p g g',
+    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
+Proof.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => graph_has_v g v) as Q.
+  remember (fun (g1 g2: HeapGraph) v =>
+              block_fields (vlabel g1 v) = block_fields (vlabel g2 v)) as P.
+  remember (fun (x1 x2: nat) => True) as R.
+  pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
+  apply H2; clear H2; intros; try assumption; try reflexivity.
+  - rewrite H2. apply H3.
+  - rewrite <- lcv_block_fields; [reflexivity | assumption..].
+  - apply (fr_graph_has_v _ _ _ _ _ _ H2 H3 _ H4).
+  - apply lcv_graph_has_v_old; assumption.
+Qed.
+
+Lemma fl_block_fields: forall from to depth l g g',
+    graph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
+Proof.
+  intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
+  1: reflexivity. transitivity (block_fields (vlabel g2 v)).
+  - apply (fr_block_fields _ _ _ _ _ _ H H5 _ H1).
+  - apply IHl; [|assumption|].
+    + erewrite <- fr_graph_has_gen; eauto.
+    + eapply fr_graph_has_v; eauto.
+Qed.
+
+
+Lemma fr_block_mark: forall depth from to p g g',
+    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall v, graph_has_v g v -> addr_gen v <> from ->
+              block_mark (vlabel g v) = block_mark (vlabel g' v).
+Proof.
+  intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) =>
+                      graph_has_v g v /\ addr_gen v <> x) as Q.
+  remember (fun (g1 g2: HeapGraph) v =>
+              block_mark (vlabel g1 v) = block_mark (vlabel g2 v)) as P.
+  remember (fun (x1 x2: nat) => True) as R.
+  pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
+  apply H3; clear H3; intros; try assumption; try reflexivity.
+  - rewrite H3. apply H4.
+  - destruct H4. rewrite <- lcv_block_mark; [reflexivity | try assumption..].
+    destruct x, v0. simpl in *. intro. inversion H9. subst. contradiction.
+  - destruct H5. split. 2: assumption.
+    apply (fr_graph_has_v _ _ _ _ _ _ H3 H4 _ H5).
+  - destruct H4. split. 2: assumption. apply lcv_graph_has_v_old; assumption.
+  - split; assumption.
+Qed.
+
+Lemma fl_block_mark: forall depth from to l g g',
+    graph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall v, graph_has_v g v -> addr_gen v <> from ->
+              block_mark (vlabel g v) = block_mark (vlabel g' v).
+Proof.
+  intros. revert g g' H H0 v H1 H2. induction l; intros; inversion H0; subst.
+  1: reflexivity. transitivity (block_mark (vlabel g2 v)).
+  - apply (fr_block_mark _ _ _ _ _ _ H H6 _ H1 H2).
+  - apply IHl; [|assumption| |assumption].
+    + erewrite <- fr_graph_has_gen; eauto.
+    + eapply fr_graph_has_v; eauto.
+Qed.
+
+
+Lemma forward_loop_add_tail: forall from to depth l x g1 g2 g3 roots,
+    forward_loop from to depth l g1 g2 ->
+    forward_relation from to depth (forward_p2forward_t (inr x) roots g2) g2 g3 ->
+    forward_loop from to depth (l +:: (inr x)) g1 g3.
+Proof.
+  intros. revert x g1 g2 g3 H H0. induction l; intros.
+  - simpl. inversion H. subst. apply fl_cons with g3. 2: constructor. apply H0.
+  - inversion H. subst. clear H. simpl app. apply fl_cons with g4. 1: assumption.
+    apply IHl with g2; assumption.
+Qed.
+
+Lemma forward_p2t_inr_roots: forall v n roots g,
+    forward_p2forward_t (inr (v, n)) roots g = forward_p2forward_t (inr (v, n)) nil g.
+Proof. intros. simpl. reflexivity. Qed.
+
+Lemma forward_loop_add_tail_vpp: forall from to depth x g g1 g2 g3 roots i,
+    (0 <= i < Zlength (block_fields (vlabel g x)))%Z ->
+    forward_loop from to depth (VST.floyd.sublist.sublist 0 i (vertex_pos_pairs g x))%Z g1 g2 ->
+    forward_relation from to depth (forward_p2forward_t (inr (x, i)) roots g2) g2 g3 ->
+    forward_loop from to depth (VST.floyd.sublist.sublist 0 (i + 1) (vertex_pos_pairs g x))%Z g1 g3.
+Proof.
+  intros. rewrite <- vpp_Zlength in H. rewrite sublist_last_1; [|lia..].
+  rewrite vpp_Zlength in H. rewrite vpp_Znth by assumption.
+  apply forward_loop_add_tail with (g2 := g2) (roots := roots); assumption.
+Qed.
+
+
+Lemma fr_gen_unmarked: forall from to depth p g g',
+    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall gen, from  <> gen -> gen_unmarked g gen -> gen_unmarked g' gen.
+Proof.
+  intros. remember (fun (g: HeapGraph) (gen: nat) (x: nat) => x <> gen) as Q.
+  remember (fun (g1 g2: HeapGraph) gen =>
+              gen_unmarked g1 gen -> gen_unmarked g2 gen) as P.
+  remember (fun (x1 x2: nat) => True) as R.
+  pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
+  apply H3; clear H3; intros; try assumption; try reflexivity.
+  - apply H4, H3. assumption.
+  - rewrite <- H7 in H4. apply lcv_gen_unmarked; assumption.
+Qed.
+
+
+Lemma frl_roots_Zlength: forall from to f_info l roots g roots' g',
+    Zlength roots = Zlength (live_roots_indices f_info) ->
+    forward_roots_loop from to f_info l roots g roots' g' ->
+    Zlength roots' = Zlength roots.
+Proof.
+  intros. induction H0. 1: reflexivity. rewrite IHforward_roots_loop.
+  - apply upd_roots_Zlength; assumption.
+  - rewrite upd_roots_Zlength; assumption.
+Qed.
+
+
+Opaque upd_roots.
+
+Lemma frl_add_tail: forall from to f_info l i g1 g2 g3 roots1 roots2,
+    forward_roots_loop from to f_info l roots1 g1 roots2 g2 ->
+    forward_relation from to O (root2forward (Znth (Z.of_nat i) roots2)) g2 g3 ->
+    forward_roots_loop
+      from to f_info (l +:: i) roots1 g1
+      (upd_roots from to (inl (Z.of_nat i)) g2 roots2 f_info) g3.
+Proof.
+  intros ? ? ? ?. induction l; intros.
+  - simpl. inversion H. subst. apply frl_cons with g3. 2: constructor. apply H0.
+  - inversion H. subst. clear H. simpl app. apply frl_cons with g4. 1: assumption.
+    apply IHl; assumption.
+Qed.
+
+Transparent upd_roots.
+
+Lemma frr_vertex_address: forall from to f_info roots1 g1 roots2 g2,
+    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall v, closure_has_v g1 v -> vertex_address g1 v = vertex_address g2 v.
+Proof.
+  intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
+  - eapply fr_vertex_address; eauto.
+  - rewrite <- fr_graph_has_gen; eauto.
+  - eapply fr_closure_has_v; eauto.
+Qed.
+
+Lemma frr_closure_has_v: forall from to f_info roots1 g1 roots2 g2,
+    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall v, closure_has_v g1 v -> closure_has_v g2 v.
+Proof.
+  intros. induction H0. 1: assumption. apply IHforward_roots_loop.
+  - rewrite <- fr_graph_has_gen; eauto.
+  - eapply fr_closure_has_v; eauto.
+Qed.
+
+Lemma frr_gen_unmarked: forall from to f_info roots1 g1 roots2 g2,
+    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen, gen <> from -> gen_unmarked g1 gen -> gen_unmarked g2 gen.
+Proof.
+  intros. induction H0. 1: assumption. apply IHforward_roots_loop.
+  - rewrite <- fr_graph_has_gen; eauto.
+  - eapply fr_gen_unmarked; eauto.
+Qed.
+
+Lemma upd_roots_rf_compatible: forall from to f_info roots p g,
+    roots_fi_compatible roots f_info ->
+    roots_fi_compatible (upd_roots from to p g roots f_info) f_info.
+Proof.
+  intros. unfold upd_roots. destruct p; [|assumption]. destruct (Znth z roots).
+  1: destruct s; assumption. if_tac. 2: assumption.
+  destruct (block_mark (vlabel g a)); apply upd_bunch_rf_compatible; assumption.
 Qed.

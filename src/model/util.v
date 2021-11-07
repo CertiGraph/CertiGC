@@ -406,6 +406,19 @@ Proof.
   - rewrite upd_Znth_diff; [reflexivity | assumption..].
 Qed.
 
+Lemma upd_Znth_diff_strong : forall {A}{d: Inhabitant A} i j l (u : A),
+    (0 <= j < Zlength l)%Z -> i <> j ->
+  Znth i (upd_Znth j l u) = Znth i l.
+Proof.
+  intros.
+  destruct (zlt i 0).
+  { rewrite !Znth_underflow; auto. }
+  destruct (zlt i (Zlength l)).
+  apply upd_Znth_diff; auto; lia.
+  { rewrite !Znth_overflow; auto.
+    rewrite upd_Znth_Zlength; auto. }
+Qed.
+
 
 Lemma In_Znth {A} {d: Inhabitant A}: forall (e: A) l,
     In e l -> exists i, (0 <= i < Zlength l)%Z /\ Znth i l = e.

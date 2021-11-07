@@ -6,6 +6,7 @@ From compcert Require Import common.Values.
 
 From VST Require Import floyd.sublist.
 From VST Require Import msl.Coqlib2.
+From VST Require Import veric.val_lemmas.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.graph.
@@ -36,6 +37,36 @@ Definition rest_gen_size (t_info: thread_info) (gen: nat): Z :=
 
 Definition enough_space_to_copy g t_info from to: Prop :=
   (unmarked_gen_size g from <= rest_gen_size t_info to)%Z.
+
+Lemma lgd_enough_space_to_copy: forall g e v' t_info gen sp,
+    enough_space_to_copy g t_info gen sp ->
+    enough_space_to_copy (labeledgraph_gen_dst g e v') t_info gen sp.
+Proof.
+  intros. unfold enough_space_to_copy in *. intuition. Qed.
+
+Definition space_address (t_info: thread_info) (gen: nat) :=
+  offset_val (SPACE_STRUCT_SIZE * Z.of_nat gen) (ti_heap_p t_info).
+
+Definition enough_space_to_have_g g t_info from to: Prop :=
+  (graph_gen_size g from <= rest_gen_size t_info to)%Z.
+
+
+
+Definition thread_info_relation t t':=
+  ti_heap_p t = ti_heap_p t' /\ (forall n, gen_size t n = gen_size t' n) /\
+  forall n, space_base (nth_space t n) = space_base (nth_space t' n).
+
+Lemma tir_id: forall t, thread_info_relation t t.
+Proof. intros. red. split; [|split]; reflexivity. Qed.
+
+Lemma tir_trans: forall t1 t2 t3,
+    thread_info_relation t1 t2 -> thread_info_relation t2 t3 ->
+    thread_info_relation t1 t3.
+Proof.
+  intros. destruct H as [? [? ?]], H0 as [? [? ?]].
+  split; [|split]; [rewrite H; assumption | intros; rewrite H1; apply H3|
+                   intros; rewrite H2; apply H4].
+Qed.
 
 
 Record fun_info : Type := {

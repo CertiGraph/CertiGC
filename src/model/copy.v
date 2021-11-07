@@ -901,3 +901,113 @@ Proof.
   - intros. rewrite <- H3. assumption.
   - rewrite <- !ZtoNat_Zlength, upd_Znth_Zlength, !ZtoNat_Zlength; assumption.
 Qed.
+
+Lemma lcv_super_compatible_unchanged: forall
+    g t_info roots f_info outlier to v
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
+    graph_has_gen g to -> graph_has_v g v ->
+    super_compatible (g, t_info, roots) f_info outlier ->
+    super_compatible
+      (lgraph_copy_v g v to,
+       (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh),
+       roots) f_info outlier.
+Proof.
+  intros. destruct H1 as [? [? [? ?]]]. split; [|split; [|split]].
+  - apply lcv_graph_thread_info_compatible; assumption.
+  - destruct H3. apply lcv_fun_thread_arg_compatible_unchanged; assumption.
+  - apply lcv_roots_compatible_unchanged; assumption.
+  - apply lcv_outlier_compatible; assumption.
+Qed.
+
+Lemma lcv_closure_has_v: forall g v to x,
+    graph_has_gen g to -> closure_has_v g x -> closure_has_v (lgraph_copy_v g v to) x.
+Proof.
+  intros. unfold closure_has_v in *. destruct x as [gen index]. simpl in *.
+  destruct H0. split. 1: rewrite <- lcv_graph_has_gen; assumption.
+  destruct (Nat.eq_dec gen to).
+  - subst gen. red. unfold nth_gen. simpl. rewrite cvmgil_eq by assumption.
+    simpl. red in H1. unfold nth_gen in H1. lia.
+  - red. rewrite lcv_nth_gen; assumption.
+Qed.
+
+
+Lemma lmc_block_fields: forall g old new x,
+    block_fields (vlabel g x) = block_fields (vlabel (lgraph_mark_copied g old new) x).
+Proof.
+  intros. destruct (Addr_EqDec old x).
+  - unfold equiv in e. subst. simpl. unfold update_copied_old_vlabel, update_vlabel.
+    rewrite if_true by reflexivity. simpl. reflexivity.
+  - assert (x <> old) by intuition.
+    rewrite lmc_vlabel_not_eq; [reflexivity | assumption].
+Qed.
+
+Lemma lcv_block_fields: forall g v to x,
+    graph_has_gen g to -> graph_has_v g x ->
+    block_fields (vlabel g x) = block_fields (vlabel (lgraph_copy_v g v to) x).
+Proof.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_block_fields, lacv_vlabel_old.
+  1: reflexivity. apply graph_has_v_not_eq; assumption.
+Qed.
+
+Lemma lcv_mfv_Zlen_eq: forall g v v' to,
+    graph_has_gen g to ->
+    graph_has_v g v ->
+    Zlength (make_fields_vals g v) =
+    Zlength (make_fields_vals (lgraph_copy_v g v' to) v).
+Proof.
+  intros. repeat rewrite fields_eq_length.
+  rewrite <- lcv_block_fields by assumption; reflexivity.
+Qed.
+
+
+Lemma lmc_block_mark: forall g old new x,
+    x <> old -> block_mark (vlabel g x) =
+                block_mark (vlabel (lgraph_mark_copied g old new) x).
+Proof.
+  intros. destruct (Addr_EqDec x old).
+  - unfold equiv in e. contradiction.
+  - rewrite lmc_vlabel_not_eq; [reflexivity | assumption].
+Qed.
+
+Lemma lcv_block_mark: forall g v to x,
+    x <> v -> graph_has_gen g to -> graph_has_v g x ->
+    block_mark (vlabel g x) = block_mark (vlabel (lgraph_copy_v g v to) x).
+Proof.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_block_mark by assumption.
+  rewrite lacv_vlabel_old. 1: reflexivity. apply graph_has_v_not_eq; assumption.
+Qed.
+
+
+Lemma lcv_vlabel_new: forall g v to,
+    addr_gen v <> to ->
+    vlabel (lgraph_copy_v g v to) (new_copied_v g to) = vlabel g v.
+Proof.
+  intros. unfold lgraph_copy_v.
+  rewrite lmc_vlabel_not_eq, lacv_vlabel_new;
+    [| unfold new_copied_v; intro; apply H; inversion H0; simpl]; reflexivity.
+Qed.
+
+
+Lemma lcv_graph_has_v_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
+    graph_has_gen g to -> graph_has_v (lgraph_copy_v g v to) x ->
+    graph_has_v g x \/ x = new_copied_v g to.
+Proof.
+  intros. unfold lgraph_copy_v in H0. rewrite <- lmc_graph_has_v in H0.
+  apply (lacv_graph_has_v_inv g v); assumption.
+Qed.
+
+Lemma lcv_gen_unmarked: forall (to : nat) (g : HeapGraph) (v : Addr),
+    graph_has_gen g to -> block_mark (vlabel g v) = false ->
+    forall gen, addr_gen v <> gen ->
+                gen_unmarked g gen -> gen_unmarked (lgraph_copy_v g v to) gen.
+Proof.
+  intros. unfold gen_unmarked in *. intros.
+  assert (graph_has_v (lgraph_copy_v g v to) {| addr_gen := gen; addr_block := idx |}) by (split; assumption).
+  apply lcv_graph_has_v_inv in H5. 2: assumption. destruct H5.
+  - pose proof H5. destruct H6. simpl in * |- . specialize (H2 H6 _ H7).
+    rewrite <- lcv_block_mark; try assumption. destruct v. simpl in *. intro. apply H1.
+    inversion H8. reflexivity.
+  - rewrite H5. rewrite lcv_vlabel_new; try assumption. unfold new_copied_v in H5.
+    inversion H5. subst. assumption.
+Qed.

@@ -126,12 +126,69 @@ Proof.
   apply H. assumption.
 Qed.
 
+Lemma lgd_rgc: forall g roots e v,
+    roots_graph_compatible roots g ->
+    roots_graph_compatible roots (labeledgraph_gen_dst g e v).
+Proof.
+  intros. red in H |-*. rewrite Forall_forall in *. intros.
+  rewrite <- lgd_graph_has_v. apply H. assumption.
+Qed.
+
+Lemma lgd_roots_compatible: forall g outlier roots e v,
+    roots_compatible g outlier roots ->
+    roots_compatible (labeledgraph_gen_dst g e v) outlier roots.
+Proof. intros. destruct H. split; [|apply lgd_rgc]; assumption. Qed.
+
+Lemma lgd_graph_thread_info_compatible:
+  forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr),
+  graph_thread_info_compatible g t_info ->
+  graph_thread_info_compatible (labeledgraph_gen_dst g e v') t_info.
+Proof.
+  intros; destruct H; split; assumption. Qed.
+
+Lemma lgd_fun_thread_arg_compatible:
+  forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr) f_info roots,
+    fun_thread_arg_compatible g t_info f_info roots ->
+    fun_thread_arg_compatible (labeledgraph_gen_dst g e v') t_info f_info roots.
+Proof.
+  intros. unfold fun_thread_arg_compatible in *.
+  rewrite <- H. apply map_ext_in. intros. destruct a; [destruct s|]; reflexivity.
+Qed.
+
+Lemma lgd_outlier_compatible:
+  forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr) outlier,
+    outlier_compatible g outlier ->
+    outlier_compatible (labeledgraph_gen_dst g e v') outlier.
+Proof.
+  intros. intro v. intros.
+  rewrite <- lgd_graph_has_v in H0.
+  unfold labeledgraph_gen_dst, pregraph_gen_dst, updateEdgeFunc; simpl.
+  apply (H v H0).
+Qed.
+
+Lemma lgd_super_compatible: forall g t_info roots f_info outlier v' e,
+    super_compatible (g, t_info, roots) f_info outlier ->
+    super_compatible ((labeledgraph_gen_dst g e v'), t_info, roots) f_info outlier.
+Proof.
+  intros. destruct H as [? [? [? ?]]]. split; [|split; [|split]].
+  - apply lgd_graph_thread_info_compatible; assumption.
+  - destruct H1. apply lgd_fun_thread_arg_compatible; assumption.
+  - apply lgd_roots_compatible; assumption.
+  - apply lgd_outlier_compatible; assumption.
+Qed.
+
 
 Definition forward_roots_compatible
            (from to: nat) (g: HeapGraph) (ti : thread_info): Prop :=
   (nth_space ti from).(space_allocated) <= (nth_space ti to).(space_capacity) -
                                       (nth_space ti to).(space_allocated).
 
+Definition roots_fi_compatible (roots: roots_t) f_info: Prop :=
+  Zlength roots = Zlength (live_roots_indices f_info) /\
+  forall i j,
+    0 <= i < Zlength roots -> 0 <= j < Zlength roots ->
+    Znth i (live_roots_indices f_info) = Znth j (live_roots_indices f_info) ->
+    Znth i roots = Znth j roots.
 
 
 Lemma graph_thread_v_in_range (g: HeapGraph) (t_info: thread_info) (v: Addr)

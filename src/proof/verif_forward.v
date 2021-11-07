@@ -1,5 +1,7 @@
-From CertiGC.spec Require Import gc_spec.
 From CertiGraph Require Import msl_ext.ramification_lemmas.
+From CertiGraph Require Import graph.graph_gen.
+
+From CertiGC.spec Require Import gc_spec.
 
 Local Open Scope logic.
 

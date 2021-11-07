@@ -28,6 +28,19 @@ Definition NURSERY_SIZE_eq: NURSERY_SIZE = Z.shiftl 1 16 := eq_refl.
 Hint Rewrite NURSERY_SIZE_eq: rep_lia.
 Global Opaque NURSERY_SIZE.
 
+Definition nth_gen_size (n: nat) := (NURSERY_SIZE * two_p (Z.of_nat n))%Z.
+
+Lemma nth_gen_size_le_S: forall n : nat, nth_gen_size n <= nth_gen_size (S n).
+Proof.
+    intros n. unfold nth_gen_size. rewrite Nat2Z.inj_succ, two_p_S by lia.
+    assert (two_p (Z.of_nat n) > 0) by (apply two_p_gt_ZERO; lia).
+    assert (0 < NURSERY_SIZE) by (vm_compute; reflexivity).
+    rewrite Z.mul_assoc, (Z.mul_comm NURSERY_SIZE 2).
+    assert (0 < NURSERY_SIZE * two_p (Z.of_nat n)). apply Z.mul_pos_pos; lia.
+    rewrite <- Z.add_diag, Z.mul_add_distr_r. lia.
+Qed.
+
+
 Definition MAX_ARGS: Z := 1024.
 Definition MAX_ARGS_eq: MAX_ARGS = 1024 := eq_refl.
 Hint Rewrite MAX_ARGS_eq: rep_lia.

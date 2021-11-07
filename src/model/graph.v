@@ -326,6 +326,39 @@ Qed.
 Definition graph_has_gen_dec g n: {graph_has_gen g n} + {~ graph_has_gen g n}
  := lt_dec n (length (generations (glabel g))).
 
+Definition add_new_gen (gi: Generations) (gen_i: Generation): Generations := {|
+  generations := generations gi +:: gen_i;
+  generations__not_nil := app_not_nil (generations gi) gen_i;
+|}.
+
+Definition lgraph_add_new_gen (g: HeapGraph) (gen_i: Generation): HeapGraph :=
+  Build_LabeledGraph _ _ _
+                     (pg_lg g) (vlabel g) (elabel g) (add_new_gen (glabel g) gen_i).
+
+Lemma ang_graph_has_gen: forall g gi gen,
+    graph_has_gen (lgraph_add_new_gen g gi) gen <->
+    graph_has_gen g gen \/ gen = length (generations (glabel g)).
+Proof.
+  intros. unfold graph_has_gen. simpl. rewrite app_length. simpl. lia.
+Qed.
+
+Lemma ang_nth_old: forall g gi gen,
+    graph_has_gen g gen -> nth_gen (lgraph_add_new_gen g gi) gen = nth_gen g gen.
+Proof. intros. unfold nth_gen. simpl. rewrite app_nth1; [reflexivity|assumption]. Qed.
+
+Lemma ang_nth_new: forall g gi,
+    nth_gen (lgraph_add_new_gen g gi) (length (generations (glabel g))) = gi.
+Proof.
+  intros. unfold nth_gen. simpl. rewrite app_nth2 by lia. rewrite Nat.sub_diag.
+  simpl. reflexivity.
+Qed.
+
+
+Definition new_gen_relation (gen: nat) (g1 g2: HeapGraph): Prop :=
+  if graph_has_gen_dec g1 gen then g1 = g2
+  else exists gen_i: Generation, generation_block_count gen_i = O /\
+                                      g2 = lgraph_add_new_gen g1 gen_i.
+
 
 Definition gen_start (g: HeapGraph) (gen: nat): val
  := if graph_has_gen_dec g gen
@@ -598,6 +631,52 @@ Qed.
 Definition graph_has_v (g: HeapGraph) (v: Addr): Prop
  := graph_has_gen g (addr_gen v) /\ gen_has_index g (addr_gen v) (addr_block v).
 
+Lemma ang_graph_has_v: forall g gi v,
+    graph_has_v g v -> graph_has_v (lgraph_add_new_gen g gi) v.
+Proof.
+  intros. destruct v as [gen idx]. destruct H; split; simpl in *.
+  - unfold graph_has_gen in *. simpl. rewrite app_length. simpl. lia.
+  - unfold gen_has_index in *. rewrite ang_nth_old; assumption.
+Qed.
+
+Lemma ang_graph_has_v_inv: forall g gi v,
+    generation_block_count gi = O -> graph_has_v (lgraph_add_new_gen g gi) v ->
+    graph_has_v g v.
+Proof.
+  intros. destruct v as [gen idx]. destruct H0; split; simpl in *.
+  - apply ang_graph_has_gen in H0. destruct H0; auto. red in H1. exfalso. subst.
+    rewrite ang_nth_new, H in H1. lia.
+  - apply ang_graph_has_gen in H0. red in H1. destruct H0.
+    + rewrite ang_nth_old in H1; assumption.
+    + exfalso. subst. rewrite ang_nth_new, H in H1. lia.
+Qed.
+
+Lemma ang_vertex_address_old: forall (g : HeapGraph) (gi : Generation) (v : Addr),
+    graph_has_v g v ->
+    vertex_address (lgraph_add_new_gen g gi) v = vertex_address g v.
+Proof.
+  intros. unfold vertex_address. f_equal. unfold gen_start. destruct H.
+  rewrite if_true by (rewrite ang_graph_has_gen; left; assumption).
+  rewrite if_true by assumption. rewrite ang_nth_old by assumption. reflexivity.
+Qed.
+
+
+Definition safe_to_copy_gen g from to: Prop :=
+  nth_gen_size from <= nth_gen_size to - graph_gen_size g to.
+
+Definition safe_to_copy (g: HeapGraph): Prop :=
+  forall n, graph_has_gen g (S n) -> safe_to_copy_gen g n (S n).
+
+Definition safe_to_copy_to_except (g: HeapGraph) (gen: nat): Prop :=
+  forall n, n <> O -> n <> gen -> graph_has_gen g n -> safe_to_copy_gen g (pred n) n .
+
+Lemma stc_stcte_O_iff: forall g, safe_to_copy g <-> safe_to_copy_to_except g O.
+Proof.
+  intros. unfold safe_to_copy, safe_to_copy_to_except. split; intros.
+  - destruct n. 1: contradiction. simpl. apply H; assumption.
+  - specialize (H (S n)). simpl in H. apply H; auto.
+Qed.
+
 
 Definition graph_has_e (g: HeapGraph) (e: Field): Prop :=
   let v := field_addr e in graph_has_v g v /\ In e (get_edges g v).
@@ -608,6 +687,32 @@ Definition gen2gen_no_edge (g: HeapGraph) (gen1 gen2: nat): Prop :=
 
 Definition no_edge2gen (g: HeapGraph) (gen: nat): Prop :=
   forall another, another <> gen -> gen2gen_no_edge g another gen.
+
+Definition no_backward_edge (g: HeapGraph): Prop :=
+  forall gen1 gen2, (gen1 > gen2)%nat -> gen2gen_no_edge g gen1 gen2.
+
+Definition firstn_gen_clear (g: HeapGraph) (n: nat): Prop :=
+  forall i, (i < n)%nat -> graph_gen_clear g i.
+
+Lemma fgc_nbe_no_edge2gen: forall g n,
+    firstn_gen_clear g n -> no_backward_edge g -> no_edge2gen g n.
+Proof.
+  intros. red in H, H0 |-* . intros. red. intros. destruct H2. simpl in *.
+  destruct (lt_eq_lt_dec another n) as [[?|?]|?]. 2: contradiction.
+  - specialize (H _ l). red in H. destruct H2. simpl in *.
+    red in H4. rewrite H in H4. lia.
+  - assert (another > n)%nat by lia. specialize (H0 _ _ H4). apply H0.
+    split; simpl; assumption.
+Qed.
+
+Lemma firstn_gen_clear_add: forall g gi i,
+    graph_has_gen g (Z.to_nat i) -> firstn_gen_clear g (Z.to_nat i) ->
+    firstn_gen_clear (lgraph_add_new_gen g gi) (Z.to_nat i).
+Proof.
+  intros. unfold firstn_gen_clear, graph_gen_clear in *. intros. specialize (H0 _ H1).
+  rewrite ang_nth_old; auto. unfold graph_has_gen in *. lia.
+Qed.
+
 
 Definition egeneration (e: Field): nat := addr_gen (field_addr e).
 
@@ -804,6 +909,79 @@ Proof.
   - simpl. destruct v; simpl. apply Z.le_refl.
   - apply (fold_left_Z_mono (vertex_size_accum g (addr_gen v)) [addr_block v] l1 l 0);
       [intros; apply Z.le_lteq; left; apply vertex_size_accum__mono | apply vertex_size_accum__comm | apply H1].
+Qed.
+
+
+Lemma ang_make_header: forall g gi v,
+    make_header g v = make_header (lgraph_add_new_gen g gi) v.
+Proof. intros. unfold make_header. reflexivity. Qed.
+
+Lemma ang_make_fields_vals_old: forall g gi v,
+    graph_has_v g v -> copy_compatible g -> no_dangling_dst g ->
+    make_fields_vals g v = make_fields_vals (lgraph_add_new_gen g gi) v.
+Proof.
+  intros. unfold make_fields_vals. simpl.
+  assert (map (field2val g) (make_fields g v) =
+          map (field2val (lgraph_add_new_gen g gi))
+              (make_fields (lgraph_add_new_gen g gi) v)). {
+    unfold make_fields. simpl. apply map_ext_in. intros.
+    destruct a; [destruct s|]; simpl; auto. rewrite ang_vertex_address_old; auto.
+    red in H1. apply (H1 v); auto. unfold get_edges.
+    rewrite <- filter_sum_right_In_iff. assumption. } rewrite <- H2.
+  destruct (block_mark (vlabel g v)) eqn:?; auto. f_equal.
+  rewrite ang_vertex_address_old; auto. destruct (H0 _ H Heqb). assumption.
+Qed.
+
+Lemma ang_graph_gen_size_old: forall g gi gen,
+    graph_has_gen g gen -> graph_gen_size g gen =
+                           graph_gen_size (lgraph_add_new_gen g gi) gen.
+Proof.
+  intros. unfold graph_gen_size. rewrite ang_nth_old by assumption.
+  apply fold_left_ext. intros. unfold vertex_size_accum. reflexivity.
+Qed.
+
+Lemma stcte_add: forall g gi i,
+    generation_block_count gi = O -> safe_to_copy_to_except g i ->
+    safe_to_copy_to_except (lgraph_add_new_gen g gi) i.
+Proof.
+  intros. unfold safe_to_copy_to_except in *. intros. rewrite ang_graph_has_gen in H3.
+  destruct H3.
+  - specialize (H0 _ H1 H2 H3). unfold safe_to_copy_gen in *.
+    rewrite <- ang_graph_gen_size_old; assumption.
+  - unfold safe_to_copy_gen. simpl. unfold graph_gen_size.
+    rewrite H3 at 4. rewrite ang_nth_new, H. unfold previous_vertices_size.
+    simpl. destruct n. 1: contradiction. simpl. rewrite Z.sub_0_r.
+    apply nth_gen_size_le_S.
+Qed.
+
+Lemma graph_unmarked_add: forall g gi,
+    generation_block_count gi = O -> graph_unmarked g ->
+    graph_unmarked (lgraph_add_new_gen g gi).
+Proof.
+  intros. unfold graph_unmarked in *. intros. apply ang_graph_has_v_inv in H1; auto.
+  simpl. apply H0. assumption.
+Qed.
+
+Lemma ang_get_edges: forall g gi v,
+    get_edges g v = get_edges (lgraph_add_new_gen g gi) v.
+Proof. intros. unfold get_edges, make_fields. simpl. reflexivity. Qed.
+
+Lemma no_backward_edge_add: forall g gi,
+    generation_block_count gi = O -> no_backward_edge g ->
+    no_backward_edge (lgraph_add_new_gen g gi).
+Proof.
+  intros. unfold no_backward_edge, gen2gen_no_edge in *. intros. simpl.
+  destruct H2. simpl in *. rewrite <- ang_get_edges in H3.
+  apply ang_graph_has_v_inv in H2; auto. apply H0; auto. split; simpl; auto.
+Qed.
+
+Lemma no_dangling_dst_add: forall g gi,
+    generation_block_count gi = O -> no_dangling_dst g ->
+    no_dangling_dst (lgraph_add_new_gen g gi).
+Proof.
+  intros. unfold no_dangling_dst in *. intros. simpl.
+  apply ang_graph_has_v_inv in H1; auto. rewrite <- ang_get_edges in H2.
+  apply ang_graph_has_v, (H0 v); auto.
 Qed.
 
 

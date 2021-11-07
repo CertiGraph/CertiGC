@@ -1011,3 +1011,41 @@ Proof.
       rewrite <- filter_sum_right_In_iff, <- Heqf. apply Znth_In.
       rewrite make_fields_eq_length. assumption.
 Qed.
+
+Lemma frr_nth_gen_unchanged: forall from to f_info roots1 g1 roots2 g2,
+    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen, gen <> to -> nth_gen g1 gen = nth_gen g2 gen.
+Proof.
+  intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
+  - eapply fr_O_nth_gen_unchanged; eauto.
+  - rewrite <- fr_graph_has_gen; eauto.
+Qed.
+
+Lemma frr_firstn_gen_clear: forall from to f_info roots1 g1 roots2 g2,
+    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen, (gen <= to)%nat ->
+                firstn_gen_clear g1 gen -> firstn_gen_clear g2 gen.
+Proof.
+  intros. unfold firstn_gen_clear, graph_gen_clear in *. intros.
+  erewrite <- frr_nth_gen_unchanged; eauto. lia.
+Qed.
+
+Lemma fr_O_stcg: forall from to p g1 g2,
+    graph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
+    forall gen1 gen2, graph_has_gen g1 gen2 -> gen2 <> to ->
+                      safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
+Proof.
+  intros. unfold safe_to_copy_gen in *.
+  erewrite <- (fr_O_graph_gen_size_unchanged from to); eauto.
+Qed.
+
+Lemma frr_stcg: forall from to f_info roots1 g1 roots2 g2,
+    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen1 gen2, graph_has_gen g1 gen2 -> gen2 <> to ->
+                      safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
+Proof.
+  intros. induction H0. 1: assumption. apply IHforward_roots_loop.
+  - erewrite <- (fr_graph_has_gen O from to); eauto.
+  - erewrite <- (fr_graph_has_gen O from to); eauto.
+  - eapply (fr_O_stcg from to); eauto.
+Qed.

@@ -10,6 +10,7 @@ From VST Require Import veric.base.
 From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Export graph.graph_gen.
+From CertiGraph Require Export graph.graph_model.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.graph.
@@ -26,6 +27,12 @@ Record thread_info: Type := {
     arg_size: Zlength ti_args = MAX_ARGS;
 }.
 
+Definition ti_add_new_space (ti: thread_info) (sp: Space) i
+           (Hs: 0 <= i < MAX_SPACES): thread_info :=
+  Build_thread_info (ti_heap_p ti) (add_new_space (ti_heap ti) sp i Hs)
+                    (ti_args ti) (arg_size ti).
+
+
 Definition nth_space (t_info: thread_info) (n: nat): Space :=
   nth n t_info.(ti_heap).(heap_spaces) null_space.
 
@@ -35,6 +42,24 @@ Proof.
   intros. unfold nth_space, Znth. rewrite if_false. 2: lia.
   rewrite Nat2Z.id. reflexivity.
 Qed.
+
+Lemma ans_nth_new: forall ti sp i (Hs: 0 <= i < MAX_SPACES),
+    nth_space (ti_add_new_space ti sp i Hs) (Z.to_nat i) = sp.
+Proof.
+  intros. rewrite nth_space_Znth. simpl. rewrite Z2Nat.id by lia.
+  rewrite upd_Znth_same; [reflexivity | rewrite heap_spaces__size; assumption].
+Qed.
+
+Lemma ans_nth_old: forall ti sp i (Hs: 0 <= i < MAX_SPACES) gen,
+    gen <> Z.to_nat i -> nth_space (ti_add_new_space ti sp i Hs) gen =
+                         nth_space ti gen.
+Proof.
+  intros. rewrite !nth_space_Znth. simpl. rewrite upd_Znth_diff_strong.
+  - reflexivity.
+  - rewrite heap_spaces__size. assumption.
+  - intro. apply H. subst. rewrite Nat2Z.id. reflexivity.
+Qed.
+
 
 Definition gen_size t_info n := space_capacity (nth_space t_info n).
 
@@ -75,8 +100,6 @@ Proof.
 Qed.
 
 
-Definition nth_gen_size (n: nat) := (NURSERY_SIZE * two_p (Z.of_nat n))%Z.
-
 Definition nth_gen_size_spec (tinfo: thread_info) (n: nat): Prop :=
   if Val.eq (nth_space tinfo n).(space_base) nullval
   then True
@@ -85,8 +108,33 @@ Definition nth_gen_size_spec (tinfo: thread_info) (n: nat): Prop :=
 Definition ti_size_spec (tinfo: thread_info): Prop :=
   Forall (nth_gen_size_spec tinfo) (nat_inc_list (Z.to_nat MAX_SPACES)).
 
-Definition safe_to_copy_gen g from to: Prop :=
-  nth_gen_size from <= nth_gen_size to - graph_gen_size g to.
+Lemma ti_size_spec_add: forall ti sp i (Hs: 0 <= i < MAX_SPACES),
+    space_capacity sp = nth_gen_size (Z.to_nat i) -> ti_size_spec ti ->
+    ti_size_spec (ti_add_new_space ti sp i Hs).
+Proof.
+  intros. unfold ti_size_spec in *. rewrite Forall_forall in *. intros.
+  specialize (H0 _ H1). unfold nth_gen_size_spec in *.
+  destruct (Nat.eq_dec x (Z.to_nat i)); unfold gen_size.
+  - subst x. rewrite !ans_nth_new. if_tac; auto.
+  - rewrite !ans_nth_old; assumption.
+Qed.
+
+Lemma ti_relation_size_spec: forall t_info1 t_info2 : thread_info,
+    thread_info_relation t_info1 t_info2 ->
+    ti_size_spec t_info1 -> ti_size_spec t_info2.
+Proof.
+  intros. unfold ti_size_spec in *. rewrite Forall_forall in *. intros.
+  specialize (H0 _ H1). unfold nth_gen_size_spec in *. destruct H as [? [? ?]].
+  rewrite <- H2, <- H3. assumption.
+Qed.
+
+
+Lemma ans_space_address: forall ti sp i (Hs: 0 <= i < MAX_SPACES) j,
+    space_address (ti_add_new_space ti sp i Hs) (Z.to_nat j) =
+    space_address ti (Z.to_nat j).
+Proof. intros. unfold space_address. simpl. reflexivity. Qed.
+
+
 
 Lemma ngs_range: forall i,
     0 <= i < MAX_SPACES -> 0 <= nth_gen_size (Z.to_nat i) < MAX_SPACE_SIZE.

@@ -499,3 +499,20 @@ Proof.
   intros. unfold gen2gen_no_edge. intros. simpl. rewrite remove_ve_dst_unchanged.
   apply H. rewrite graph_has_e_reset in H0. destruct H0. assumption.
 Qed.
+
+Lemma firstn_gen_clear_reset: forall g i,
+    firstn_gen_clear g i -> firstn_gen_clear (reset_graph i g) (S i).
+Proof.
+  intros. unfold firstn_gen_clear, graph_gen_clear in *. intros.
+  assert (i0 < i \/ i0 = i)%nat by lia. destruct H1.
+  - rewrite reset_nth_gen_diff by lia. apply H; assumption.
+  - subst i0. unfold nth_gen. simpl. rewrite reset_nth_gen_info_same.
+    simpl. reflexivity.
+Qed.
+
+Lemma reset_stct: forall g i gen1 gen2,
+    i <> gen2 -> safe_to_copy_gen g gen1 gen2 ->
+    safe_to_copy_gen (reset_graph i g) gen1 gen2.
+Proof.
+  intros. unfold safe_to_copy_gen in *. rewrite reset_graph_gen_size_eq; auto.
+Qed.

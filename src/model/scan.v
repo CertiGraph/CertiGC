@@ -392,3 +392,55 @@ Proof.
     erewrite svfl_block_fields; eauto. rewrite <- ZtoNat_Zlength.
     apply Z2Nat.inj_lt; lia.
 Qed.
+
+Lemma svfl_nth_gen_unchanged: forall from to v l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
+    forall gen, gen <> to -> nth_gen g1 gen = nth_gen g2 gen.
+Proof.
+  intros. induction H0; subst; try reflexivity. transitivity (nth_gen g2 gen).
+  - eapply fr_O_nth_gen_unchanged; eauto.
+  - apply IHscan_vertex_for_loop. rewrite <- fr_graph_has_gen; eauto.
+Qed.
+
+Lemma svwl_nth_gen_unchanged: forall from to l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
+    forall gen, gen <> to -> nth_gen g1 gen = nth_gen g2 gen.
+Proof.
+  do 3 intro. induction l; intros; inversion H0; subst; try reflexivity.
+  1: apply IHl; auto. transitivity (nth_gen g3 gen).
+  - eapply svfl_nth_gen_unchanged; eauto.
+  - apply IHl; auto. rewrite <- svfl_graph_has_gen; eauto.
+Qed.
+
+Lemma svwl_firstn_gen_clear: forall from to l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
+    forall gen, (gen <= to)%nat ->
+                firstn_gen_clear g1 gen -> firstn_gen_clear g2 gen.
+Proof.
+  intros. unfold firstn_gen_clear, graph_gen_clear in *. intros.
+  erewrite <- (svwl_nth_gen_unchanged from); eauto. lia.
+Qed.
+
+
+Lemma svfl_stcg: forall from to v l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
+    forall gen1 gen2, graph_has_gen g1 gen2 -> gen2 <> to ->
+                      safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
+Proof.
+  intros. induction H0; subst; try assumption. apply IHscan_vertex_for_loop.
+  - erewrite <- (fr_graph_has_gen O from to); eauto.
+  - erewrite <- (fr_graph_has_gen O from to); eauto.
+  - eapply (fr_O_stcg from to); eauto.
+Qed.
+
+Lemma svwl_stcg: forall from to l g1 g2,
+    graph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
+    forall gen1 gen2, graph_has_gen g1 gen2 -> gen2 <> to ->
+                      safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
+Proof.
+  do 3 intro. induction l; intros; inversion H0; subst; try assumption.
+  1: apply (IHl g1); auto. apply (IHl g3); auto.
+  - erewrite <- (svfl_graph_has_gen from to); eauto.
+  - erewrite <- (svfl_graph_has_gen from to); eauto.
+  - eapply (svfl_stcg from to); eauto.
+Qed.

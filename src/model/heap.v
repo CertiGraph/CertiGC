@@ -133,3 +133,15 @@ Proof.
     destruct h eqn:? . simpl. unfold heap_head. simpl. destruct heap_spaces0.
     1: inversion heap_spaces__size0. exists s, heap_spaces0. split; reflexivity.
 Qed.
+
+
+Lemma upd_heap_Zlength: forall (hp : Heap) (sp : Space) (i : Z),
+    0 <= i < MAX_SPACES -> Zlength (upd_Znth i (heap_spaces hp) sp) = MAX_SPACES.
+Proof.
+  intros. rewrite upd_Znth_Zlength; rewrite heap_spaces__size; [reflexivity | assumption].
+Qed.
+
+Definition add_new_space (hp: Heap) (sp: Space) i (Hs: 0 <= i < MAX_SPACES): Heap := {|
+  heap_spaces := upd_Znth i (heap_spaces hp) sp;
+  heap_spaces__size := upd_heap_Zlength hp sp i Hs
+|}.

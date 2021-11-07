@@ -310,3 +310,85 @@ Proof.
         now apply vo_lt_gs.
     }
 Qed.
+
+
+Lemma gti_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES),
+    graph_thread_info_compatible g ti ->
+    ~ graph_has_gen g (Z.to_nat i) -> graph_has_gen g (Z.to_nat (i - 1)) ->
+    (forall (gr: HeapGraph), generation_space_compatible gr (Z.to_nat i, gi, sp)) ->
+    graph_thread_info_compatible (lgraph_add_new_gen g gi)
+                                 (ti_add_new_space ti sp i Hs).
+Proof.
+  intros. unfold graph_thread_info_compatible in *. destruct H as [? [? ?]].
+  assert (length (generations (glabel g)) = Z.to_nat i). {
+    clear -H0 H1. unfold graph_has_gen in *.
+    rewrite Z2Nat.inj_sub in H1 by lia. simpl in H1. lia. }
+  pose proof (heap_spaces__size (ti_heap ti)).
+  assert (length (generations (glabel (lgraph_add_new_gen g gi))) <=
+          length (heap_spaces (ti_heap (ti_add_new_space ti sp i Hs))))%nat. {
+    simpl. rewrite <- !ZtoNat_Zlength, upd_Znth_Zlength by lia.
+    rewrite H6, ZtoNat_Zlength, app_length, H5. simpl. change (S O) with (Z.to_nat 1).
+    rewrite <- Z2Nat.inj_add, <- Z2Nat.inj_le by lia. lia. }
+  split; [|split]; auto.
+  - rewrite gsc_iff in H |- * by assumption. intros.
+    apply ang_graph_has_gen in H8. destruct H8.
+    + rewrite ang_nth_old by assumption. rewrite ans_nth_old.
+      1: apply H; assumption. red in H8. rewrite H5 in H8. lia.
+    + subst gen. rewrite ang_nth_new, H5, ans_nth_new. apply H2.
+  - simpl. rewrite <- upd_Znth_map. rewrite app_length. rewrite H5 in *. simpl.
+    change (S O) with (Z.to_nat 1).
+    rewrite <- Z2Nat.inj_add, <- sublist_skip in * by lia.
+    rewrite upd_Znth_Zlength; rewrite Zlength_map, heap_spaces__size in *. 2: assumption.
+    rewrite sublist_upd_Znth_r. 2: lia. 2: rewrite Zlength_map, heap_spaces__size; lia.
+    apply Forall_incl with (VST.floyd.sublist.sublist i MAX_SPACES (map space_base (heap_spaces (ti_heap ti)))) ; try assumption.
+    rewrite Z.add_comm. replace MAX_SPACES with (MAX_SPACES - i + i) at 1 by lia.
+    rewrite <- sublist_sublist with (j := MAX_SPACES) by lia.
+    unfold incl. intro a. apply VST.floyd.sublist.sublist_In.
+Qed.
+
+
+Lemma ang_roots_graph_compatible: forall roots g gi,
+    roots_graph_compatible roots g ->
+    roots_graph_compatible roots (lgraph_add_new_gen g gi).
+Proof.
+  intros. unfold roots_graph_compatible in *. rewrite Forall_forall in *. intros.
+  apply ang_graph_has_v. apply H. assumption.
+Qed.
+
+Lemma ang_roots_compatible: forall roots out g gi,
+    roots_compatible g out roots ->
+    roots_compatible (lgraph_add_new_gen g gi) out roots.
+Proof. intros. destruct H. split; auto. apply ang_roots_graph_compatible. auto. Qed.
+
+Lemma ang_outlier_compatible: forall g gi out,
+    generation_block_count gi = O -> outlier_compatible g out ->
+    outlier_compatible (lgraph_add_new_gen g gi) out.
+Proof.
+  intros. unfold outlier_compatible in *. intros.
+  apply ang_graph_has_v_inv in H1; auto. simpl. apply H0. assumption.
+Qed.
+
+Lemma fta_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) fi roots,
+    fun_thread_arg_compatible g ti fi roots -> roots_graph_compatible roots g ->
+    fun_thread_arg_compatible (lgraph_add_new_gen g gi)
+                              (ti_add_new_space ti sp i Hs) fi roots.
+Proof.
+  intros. unfold fun_thread_arg_compatible in *. simpl. rewrite <- H.
+  apply map_ext_in. intros. destruct a; [destruct s|]; simpl; try reflexivity.
+  apply ang_vertex_address_old. red in H0. rewrite Forall_forall in H0. apply H0.
+  rewrite <- filter_sum_right_In_iff. assumption.
+Qed.
+
+Lemma super_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) fi roots out,
+    ~ graph_has_gen g (Z.to_nat i) -> graph_has_gen g (Z.to_nat (i - 1)) ->
+    (forall (gr: HeapGraph), generation_space_compatible gr (Z.to_nat i, gi, sp)) ->
+    generation_block_count gi = O -> super_compatible (g, ti, roots) fi out ->
+    super_compatible (lgraph_add_new_gen g gi, ti_add_new_space ti sp i Hs, roots)
+                     fi out.
+Proof.
+  intros. destruct H3 as [? [? [? ?]]]. split; [|split; [|split]].
+  - apply gti_compatible_add; assumption.
+  - apply fta_compatible_add; [|destruct H5]; assumption.
+  - apply ang_roots_compatible; assumption.
+  - apply ang_outlier_compatible; assumption.
+Qed.

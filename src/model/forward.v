@@ -17,9 +17,10 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
-From CertiGC Require Import model.copy.
 From CertiGC Require Import model.compatible.
 From CertiGC Require Import model.constants.
+From CertiGC Require Import model.copy.
+From CertiGC Require Import model.cut.
 From CertiGC Require Import model.graph.
 From CertiGC Require Import model.heap.
 From CertiGC Require Import model.thread_info.
@@ -346,3 +347,42 @@ Definition forward_condition g t_info from to: Prop :=
   enough_space_to_copy g t_info from to /\
   graph_has_gen g from /\ graph_has_gen g to /\
   copy_compatible g /\ no_dangling_dst g.
+
+Lemma lcv_forward_condition: forall
+    g t_info v to index uv
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
+    (Hm : 0 <= index < MAX_ARGS),
+    addr_gen v <> to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
+    forward_condition g t_info (addr_gen v) to ->
+    forward_condition
+      (lgraph_copy_v g v to)
+      (update_thread_info_arg
+         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh) index uv Hm)
+      (addr_gen v) to.
+Proof.
+  intros. destruct H2 as [? [? [? [? ?]]]]. split; [|split; [|split; [|split]]].
+  - apply forward_estc; assumption.
+  - apply lcv_graph_has_gen; assumption.
+  - apply lcv_graph_has_gen; assumption.
+  - apply lcv_copy_compatible; assumption.
+  - apply lcv_no_dangling_dst; assumption.
+Qed.
+
+Lemma lcv_forward_condition_unchanged: forall
+    g t_info v to
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
+    addr_gen v <> to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
+    forward_condition g t_info (addr_gen v) to ->
+    forward_condition (lgraph_copy_v g v to)
+         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
+      (addr_gen v) to.
+Proof.
+  intros. destruct H2 as [? [? [? [? ?]]]]. split; [|split; [|split; [|split]]].
+  - apply forward_estc_unchanged; assumption.
+  - apply lcv_graph_has_gen; assumption.
+  - apply lcv_graph_has_gen; assumption.
+  - apply lcv_copy_compatible; assumption.
+  - apply lcv_no_dangling_dst; assumption.
+Qed.

@@ -186,6 +186,15 @@ Proof.
     now apply vertex_size_accum__fold_lt.
 Qed.
 
+Lemma vsa_fold_left:
+  forall (g : HeapGraph) (gen : nat) (l : list nat) (z1 z2 : Z),
+    fold_left (vertex_size_accum g gen) l (z2 + z1) =
+    fold_left (vertex_size_accum g gen) l z2 + z1.
+Proof.
+  intros. revert z1 z2. induction l; intros; simpl. 1: reflexivity.
+  rewrite <- IHl. f_equal. unfold vertex_size_accum. lia.
+Qed.
+
 
 Definition previous_vertices_size (g: HeapGraph) (gen i: nat): Z
  := fold_left (vertex_size_accum g gen) (nat_inc_list i) 0.
@@ -455,7 +464,6 @@ Proof.
     + apply IHl with (n + 1)%nat. assumption.
 Qed.
 
-
 Lemma make_fields'_eq_length: forall l v n, length (make_fields' l v n) = length l.
 Proof.
   intros. revert n. induction l; intros; simpl. 1: reflexivity.
@@ -546,6 +554,25 @@ Definition no_dangling_dst (g: HeapGraph): Prop :=
   forall v, graph_has_v g v ->
             forall e, In e (get_edges g v) -> graph_has_v g (dst g e).
 
+Lemma get_edges_In: forall g v s,
+    In {| field_addr := v; field_index := s|} (get_edges g v) <-> In s (map field_index (get_edges g v)).
+Proof.
+  intros. unfold get_edges, make_fields. remember (block_fields (vlabel g v)).
+  remember O as n. clear Heqn Heql. revert n. induction l; intros; simpl ; try easy.
+  destruct a as [a|] ; try destruct a as [a|a] ; simpl.
+  all: rewrite IHl ; try easy.
+  intuition. inversion H0. left; reflexivity.
+Qed.
+
+Lemma get_edges_fst: forall g v e, In e (get_edges g v) -> field_addr e = v.
+Proof.
+  intros g v e. unfold get_edges, make_fields. remember (block_fields (vlabel g v)).
+  remember O as n. clear Heqn Heql. revert n. induction l; intros; simpl in *.
+  - exfalso; assumption.
+  - destruct a; [destruct s|]; simpl in *;
+      [| | destruct H; [subst e; simpl; reflexivity|]]; apply IHl in H; assumption.
+Qed.
+
 
 Definition v_in_range (v: val) (start: val) (n: Z): Prop :=
   exists i, 0 <= i < n /\ v = offset_val i start.
@@ -612,6 +639,37 @@ Proof.
       rewrite map_length, make_fields'_eq_length; reflexivity.
   - rewrite map_length, make_fields'_eq_length. reflexivity.
 Qed.
+
+Lemma mfv_unmarked_all_is_ptr_or_int: forall (g : HeapGraph) (v : Addr),
+    no_dangling_dst g -> graph_has_v g v ->
+    Forall is_pointer_or_integer (map (field2val g) (make_fields g v)).
+Proof.
+  intros. rewrite Forall_forall. intros f ?. apply list_in_map_inv in H1.
+  destruct H1 as [x [? ?]]. destruct x as [[? | ?] | ?]; simpl in H1; subst.
+  - unfold odd_Z2val. exact I.
+  - destruct g0. exact I.
+  - apply isptr_is_pointer_or_integer. unfold vertex_address.
+    rewrite isptr_offset_val. apply graph_has_gen_start_isptr.
+    apply filter_sum_right_In_iff, H in H2; [destruct H2|]; assumption.
+Qed.
+
+Definition copy_compatible (g: HeapGraph): Prop :=
+  forall v, graph_has_v g v -> (vlabel g v).(block_mark) = true ->
+            graph_has_v g (vlabel g v).(block_copied_vertex) /\
+            addr_gen v <> addr_gen (vlabel g v).(block_copied_vertex).
+
+Lemma mfv_all_is_ptr_or_int: forall g v,
+    copy_compatible g -> no_dangling_dst g -> graph_has_v g v ->
+    Forall is_pointer_or_integer (make_fields_vals g v).
+Proof.
+  intros. rewrite Forall_forall. intros f ?. unfold make_fields_vals in H2.
+  pose proof (mfv_unmarked_all_is_ptr_or_int _ _ H0 H1). rewrite Forall_forall in H3.
+  specialize (H3 f). destruct (block_mark (vlabel g v)) eqn:? . 2: apply H3; assumption.
+  simpl in H2. destruct H2. 2: apply H3, In_tail; assumption.
+  subst f. unfold vertex_address. apply isptr_is_pointer_or_integer.
+  rewrite isptr_offset_val. apply graph_has_gen_start_isptr, (proj1 (H _ H1 Heqb)).
+Qed.
+
 
 
 Lemma make_fields_the_same: forall (g1 g2: HeapGraph) v,

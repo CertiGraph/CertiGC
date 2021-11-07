@@ -66,12 +66,6 @@ Definition fun_thread_arg_compatible
   map (root2val g) roots = map ((fun x y => Znth y x) ti.(ti_args)) fi.(live_roots_indices).
 
 
-Definition copy_compatible (g: HeapGraph): Prop :=
-  forall v, graph_has_v g v -> (vlabel g v).(block_mark) = true ->
-            graph_has_v g (vlabel g v).(block_copied_vertex) /\
-            addr_gen v <> addr_gen (vlabel g v).(block_copied_vertex).
-
-
 Definition super_compatible (g_ti_r: HeapGraph * thread_info * roots_t) (fi: fun_info) (out: outlier_t) : Prop
  := let (g_ti, r) := g_ti_r
  in let (g, ti) := g_ti

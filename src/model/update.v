@@ -8,6 +8,8 @@ From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.compatible.
 From CertiGC Require Import model.constants.
+From CertiGC Require Import model.copy.
+From CertiGC Require Import model.cut.
 From CertiGC Require Import model.graph.
 From CertiGC Require Import model.heap.
 From CertiGC Require Import model.thread_info.
@@ -121,4 +123,82 @@ Proof.
   intros. destruct H. split.
   - apply upd_roots_outlier_compatible; assumption.
   - apply upd_bunch_graph_compatible; assumption.
+Qed.
+
+Lemma upd_tf_arg_Zlength: forall (t: thread_info) (index: Z) (v: val),
+    0 <= index < MAX_ARGS -> Zlength (upd_Znth index (ti_args t) v) = MAX_ARGS.
+Proof.
+  intros. rewrite upd_Znth_Zlength; [apply arg_size | rewrite arg_size; assumption].
+Qed.
+
+Definition update_thread_info_arg (t: thread_info) (index: Z)
+           (v: val) (H: 0 <= index < MAX_ARGS): thread_info :=
+  Build_thread_info (ti_heap_p t) (ti_heap t) (upd_Znth index (ti_args t) v)
+                    (upd_tf_arg_Zlength t index v H).
+
+Lemma utia_estc: forall g t_info from to index v (H : 0 <= index < MAX_ARGS),
+    enough_space_to_copy g t_info from to ->
+    enough_space_to_copy g (update_thread_info_arg t_info index v H) from to.
+Proof.
+  unfold enough_space_to_copy. intros. unfold rest_gen_size, nth_space in *. apply H0.
+Qed.
+
+Lemma forward_estc: forall
+    g t_info v to index uv
+    (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
+    (Hm : 0 <= index < MAX_ARGS),
+    addr_gen v <> to -> graph_has_gen g to ->
+    graph_has_v g v -> block_mark (vlabel g v) = false ->
+    enough_space_to_copy g t_info (addr_gen v) to ->
+    enough_space_to_copy
+      (lgraph_copy_v g v to)
+      (update_thread_info_arg
+         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh) index uv Hm)
+      (addr_gen v) to.
+Proof.
+  intros. apply utia_estc. clear index uv Hm.
+  apply forward_estc_unchanged; assumption.
+Qed.
+
+Lemma lcv_roots_graph_compatible: forall g roots v to f_info z,
+    graph_has_gen g to ->
+    roots_graph_compatible roots g ->
+    roots_graph_compatible (upd_bunch z f_info roots (inr (new_copied_v g to)))
+                           (lgraph_copy_v g v to).
+Proof.
+  intros. apply upd_bunch_graph_compatible.
+  - apply lcv_rgc_unchanged; assumption.
+  - unfold lgraph_copy_v; rewrite <- lmc_graph_has_v;
+      apply lacv_graph_has_v_new; assumption.
+Qed.
+
+Lemma lcv_roots_compatible: forall g roots outlier v to f_info z,
+    graph_has_gen g to ->
+    roots_compatible g outlier roots ->
+    roots_compatible (lgraph_copy_v g v to) outlier
+                     (upd_bunch z f_info roots (inr (new_copied_v g to))).
+Proof.
+  intros. destruct H0. split.
+  - apply upd_roots_outlier_compatible; assumption.
+  - apply lcv_roots_graph_compatible; assumption.
+Qed.
+
+Lemma lcv_fun_thread_arg_compatible: forall
+    g t_info f_info roots z v to i s
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s)
+    (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
+    graph_has_gen g to -> roots_graph_compatible roots g ->
+    fun_thread_arg_compatible g t_info f_info roots ->
+    fun_thread_arg_compatible
+      (lgraph_copy_v g v to)
+      (update_thread_info_arg
+         (cut_thread_info t_info i s Hi Hh) (Znth z (live_roots_indices f_info))
+         (vertex_address g (new_copied_v g to)) Hm)
+      f_info (upd_bunch z f_info roots (inr (new_copied_v g to))).
+Proof.
+  intros. rewrite <- (lcv_vertex_address_new g v to H).
+  apply upd_fun_thread_arg_compatible with (HB := Hm).
+    apply lcv_fun_thread_arg_compatible_unchanged; assumption.
 Qed.

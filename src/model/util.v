@@ -9,10 +9,15 @@ From compcert Require Import common.Values.
 
 From VST Require Import floyd.list_solver.
 From VST Require Import floyd.sublist.
+From VST Require Import veric.val_lemmas.
 
 From CertiGraph Require Import lib.List_ext.
 
 Import ListNotations.
+
+
+Lemma isptr_is_pointer_or_integer: forall p, isptr p -> is_pointer_or_integer p.
+Proof. intros. destruct p; try contradiction. exact I. Qed.
 
 
 Definition odd_Z2val (x: Z): val
@@ -225,6 +230,25 @@ Proof.
   1: lia. rewrite Zlength_cons; lia.
 Qed.
 
+Lemma upd_Znth_tl {A}: forall (i: Z) (l: list A) (x: A),
+    (0 <= i)%Z -> l <> nil -> tl (upd_Znth (i + 1) l x) = upd_Znth i (tl l) x.
+Proof.
+  intros. destruct l; simpl. 1: contradiction.
+  destruct (Z_lt_le_dec i (Zlength l)).
+  2: rewrite !upd_Znth_out_of_range; auto; [|rewrite Zlength_cons]; lia.
+  rewrite !upd_Znth_unfold; auto. 2: rewrite Zlength_cons; lia.
+  unfold_sublist_old. replace (i - 0)%Z with i by lia.
+  replace (i + 1 - 0)%Z with (i + 1)%Z by lia. simpl.
+  assert (forall j, 0 <= j -> Z.to_nat (j + 1) = S (Z.to_nat j))%Z by
+      (intros; rewrite <- Z2Nat.inj_succ; lia).
+  rewrite (H1 _ H). simpl tl. do 3 f_equal.
+  - f_equal. rewrite Zlength_cons. lia.
+  - remember (S (Z.to_nat i)). replace (Z.to_nat (i + 1 + 1)) with (S n).
+    + simpl. reflexivity.
+    + do 2 rewrite H1 by lia. subst n. reflexivity.
+Qed.
+
+
 Lemma Znth_skip_hd_same: forall A (d: Inhabitant A) (l: list A) a n,
     (n > 0)%Z ->
     (Zlength l > 0)%Z ->
@@ -350,7 +374,6 @@ Proof.
   apply IHl; repeat intro; [apply H | apply H0]; right; assumption.
 Qed.
 
-
 Lemma Znth_list_eq {X: Type} {d: Inhabitant X}: forall (l1 l2: list X),
     l1 = l2 <-> (Zlength l1 = Zlength l2 /\
                  forall j, 0 <= j < Zlength l1 -> Znth j l1 = Znth j l2)%Z.
@@ -371,6 +394,16 @@ Proof.
     assert (0 <= j + 1 < Zlength (x :: l1))%Z. { rewrite Zlength_cons. pose proof (Zlength_nonneg l1). lia. }
     specialize (H0 _ H3). rewrite !Znth_pos_cons in H0 by assumption.
     now replace (j + 1 - 1)%Z with j in H0 by lia.
+Qed.
+
+Lemma upd_Znth_unchanged: forall {A : Type} {d : Inhabitant A} (i : Z) (l : list A),
+    (0 <= i < Zlength l)%Z -> upd_Znth i l (Znth i l) = l.
+Proof.
+  intros. assert (Zlength (upd_Znth i l (Znth i l)) = Zlength l) by
+      (rewrite upd_Znth_Zlength; [reflexivity | assumption]). rewrite Znth_list_eq.
+  split. 1: assumption. intros. rewrite H0 in H1. destruct (Z.eq_dec j i).
+  - subst j. rewrite upd_Znth_same; [reflexivity | assumption].
+  - rewrite upd_Znth_diff; [reflexivity | assumption..].
 Qed.
 
 

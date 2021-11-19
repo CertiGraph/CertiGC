@@ -75,7 +75,7 @@ Proof.
           intros. unfold space_address. now rewrite Z2Nat.id. }
   sep_apply (create_mem_mgr gv).
   unfold before_gc_thread_info_rep, heap_struct_rep. Intros. forward. pose proof H.
-  destruct H as [? _]. pose proof (gt_gs_compatible _ _ H _ (graph_has_gen_O _)).
+  destruct H as [? _]. pose proof (gt_gs_compatible _ _ H _ (heapgraph_has_gen__O _)).
   destruct H3 as [? [? ?]].
   replace (heap_head (ti_heap t_info)) with (nth_space t_info 0) by
       (destruct (heap_head__cons (ti_heap t_info)) as [hs [hl [? ?]]];
@@ -107,7 +107,7 @@ Proof.
            safe_to_copy_to_except g' (Z.to_nat i);
            firstn_gen_clear g' (Z.to_nat i);
            garbage_collect_loop f_info (nat_inc_list (Z.to_nat i)) roots g roots' g';
-           graph_has_gen g' (Z.to_nat i))
+           heapgraph_has_gen g' (Z.to_nat i))
      LOCAL (temp _h (ti_heap_p t_info'); temp _fi fi; temp _ti ti;
             gvars gv)
      SEP (thread_info_rep sh t_info' ti;
@@ -118,7 +118,7 @@ Proof.
           graph_rep g';
           ti_token_rep t_info')).
   - Exists g roots t_info. destruct H2 as [? [? [? ?]]].
-    pose proof (graph_has_gen_O g). entailer!. split; [|split; [|split]].
+    pose proof (heapgraph_has_gen__O g). entailer!. split; [|split; [|split]].
     + red. auto.
     + apply stc_stcte_O_iff; assumption.
     + red. intros. simpl in H12. lia.
@@ -136,7 +136,7 @@ Proof.
              safe_to_copy_to_except g1 (Z.to_nat i);
              firstn_gen_clear g1 (Z.to_nat i);
              new_gen_relation (Z.to_nat (i + 1)) g' g1;
-             graph_has_gen g1 (Z.to_nat (i + 1)))
+             heapgraph_has_gen g1 (Z.to_nat (i + 1)))
        LOCAL (temp _h (ti_heap_p t_info1); temp _fi fi; temp _ti ti;
               gvars gv; temp _i (Vint (Int.repr i)))
        SEP (thread_info_rep sh t_info1 ti;
@@ -191,21 +191,21 @@ Proof.
                    (Znth (i + 1) (map space_tri (heap_spaces (ti_heap t_info'))))
                    (space_address t_info' (Z.to_nat (i + 1)))).
       pose proof (t_info_space_address _ _ (proj1 H14) H19). simpl in H21.
-      assert (0 <= 2 * nth_gen_size (Z.to_nat i) < MAX_SPACE_SIZE) by
+      assert (0 <= 2 * generation_size (Z.to_nat i) < MAX_SPACE_SIZE) by
           (rewrite ngs_S by lia; apply ngs_range; rep_lia).
       forward_call (sh, (space_address t_info' (Z.to_nat (i + 1))),
-                    (2 * nth_gen_size (Z.to_nat i))%Z, gv, rsh).
+                    (2 * generation_size (Z.to_nat i))%Z, gv, rsh).
       * first [rewrite Int64.signed_repr by (apply ngs_int_singed_range; rep_lia) |
                rewrite Int.signed_repr by (apply ngs_int_singed_range; rep_lia)].
         rewrite ngs_S by lia. apply ngs_int_singed_range. rep_lia.
       * simpl. entailer!. f_equal. now rewrite Tf.
       * rewrite ngs_S by lia. Intros p. rewrite ngs_S in H22 by lia.
-        assert (Hso: 0 <= 0 <= (nth_gen_size (Z.to_nat (i + 1)))) by lia.
+        assert (Hso: 0 <= 0 <= (generation_size (Z.to_nat (i + 1)))) by lia.
         rewrite data_at__isptr. Intros.
         remember ({|
           space_base := p;
           space_allocated := 0;
-          space_capacity := nth_gen_size (Z.to_nat (i + 1));
+          space_capacity := generation_size (Z.to_nat (i + 1));
           space_sh := Ews;
           space__order := Hso;
           space__upper_bound := proj2 H22;
@@ -220,7 +220,7 @@ Proof.
         assert (forall (gr: HeapGraph) (gen: nat),
                    generation_space_compatible gr (gen, gi, sp)) by
             (intros; red; rewrite Heqsp, Heqgi; simpl; intuition).
-        remember (lgraph_add_new_gen g' gi) as g1.
+        remember (heapgraph_generations_append g' gi) as g1.
         remember (ti_add_new_space t_info' sp _ H20) as t_info1. pose proof H16.
         rewrite <- (space_base_isnull_iff g') in H16; auto. 2: apply (proj1 H8).
         assert (generation_block_count gi = O) by (subst gi; simpl; reflexivity).
@@ -231,8 +231,8 @@ Proof.
             (subst g1; apply firstn_gen_clear_add; assumption).
         assert (new_gen_relation (Z.to_nat (i + 1)) g' g1). {
           subst g1. red. rewrite if_false by assumption. exists gi. split; auto. }
-        gather_SEP (malloc_token Ews (tarray tvalue (nth_gen_size (Z.to_nat (i + 1)))) p) (ti_token_rep t_info').
-        assert (space_capacity sp = nth_gen_size (Z.to_nat (i + 1))) by
+        gather_SEP (malloc_token Ews (tarray tvalue (generation_size (Z.to_nat (i + 1)))) p) (ti_token_rep t_info').
+        assert (space_capacity sp = generation_size (Z.to_nat (i + 1))) by
             (subst sp; simpl; reflexivity). rewrite <- H29.
         assert (space_base sp = p) by (subst sp; simpl; reflexivity). rewrite <- H30.
         assert (space_base sp <> nullval) by
@@ -276,9 +276,9 @@ Proof.
         3: destruct H9 as [? [? [? [? ?]]]]; assumption.
         2: apply graph_unmarked_copy_compatible;
           destruct H9 as [? [? [? [? ?]]]]; assumption. rewrite <- Heqg1.
-        assert (graph_has_gen g1 (Z.to_nat (i + 1))). {
-          subst g1. rewrite ang_graph_has_gen. right. clear -H13 H16 H7.
-          unfold graph_has_gen in *.
+        assert (heapgraph_has_gen g1 (Z.to_nat (i + 1))). {
+          subst g1. rewrite heapgraph_has_gen__heapgraph_generations_append. right. clear -H13 H16 H7.
+          unfold heapgraph_has_gen in *.
           replace (Z.to_nat (i + 1)) with (Z.to_nat i + 1)%nat in *. 1: lia.
           change (S O) with (Z.to_nat 1). rewrite <- Z2Nat.inj_add by lia. auto. }
         assert (safe_to_copy_to_except g1 (Z.to_nat i)) by
@@ -310,9 +310,9 @@ Proof.
       Intros vret. destruct vret as [[g2 t_info2] roots2]. simpl fst in *.
       simpl snd in *. replace (ti_heap_p t_info1) with (ti_heap_p t_info2) by
           (rewrite (proj1 H28); reflexivity). unfold thread_info_rep, heap_struct_rep.
-      Intros. assert (graph_has_gen g2 (Z.to_nat (i + 1))) by
+      Intros. assert (heapgraph_has_gen g2 (Z.to_nat (i + 1))) by
           (rewrite <- do_gen_graph_has_gen; eauto).
-      assert (graph_has_gen g2 (Z.to_nat i)) by (red in H30 |-* ; lia).
+      assert (heapgraph_has_gen g2 (Z.to_nat i)) by (red in H30 |-* ; lia).
       assert (isptr (space_base (Znth i (heap_spaces (ti_heap t_info2))))). {
         rewrite <- (Z2Nat.id i), <- nth_space_Znth,
         <- (proj1 (gt_gs_compatible _ _ (proj1 H27) _ H31)) by lia.
@@ -366,7 +366,7 @@ Proof.
         assert (safe_to_copy_gen g2 (Z.to_nat i) (S (Z.to_nat i))). {
           red. destruct H27 as [? _]. destruct H36 as [_ [_ [_ [_ ?]]]].
           do 2 (erewrite <- ti_size_gen; eauto). rewrite <- H23 in *.
-          unfold gen_size, graph_gen_size. destruct (gt_gs_compatible _ _ H27 _ H30)
+          unfold gen_size, heapgraph_generation_size. destruct (gt_gs_compatible _ _ H27 _ H30)
             as [_ [_ ?]]. rewrite H41, !nth_space_Znth, !Z2Nat.id; lia. }
         assert (graph_thread_info_compatible g2 t_info2) by (apply (proj1 H27)).
         assert (graph_gen_clear g2 O) by (apply H37; rewrite H23; lia).

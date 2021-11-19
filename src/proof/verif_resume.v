@@ -12,7 +12,7 @@ Proof.
     Intros. exfalso. destruct t_info. simpl in *. subst. contradiction.
   - Intros. destruct (heap_head__cons (ti_heap t_info)) as [hs [hl [? ?]]].
     rewrite H1, <- H2, map_cons.
-    destruct (gt_gs_compatible _ _ H _ (graph_has_gen_O _)) as [? [? ?]].
+    destruct (gt_gs_compatible _ _ H _ (heapgraph_has_gen__O _)) as [? [? ?]].
     assert (isptr (space_base (heap_head (ti_heap t_info)))). {
       rewrite H2. unfold nth_space in H3. rewrite H1 in H3. simpl in H3.
       rewrite <- H3. apply generation_base__isptr. } unfold space_tri at 1. do 2 forward.
@@ -47,7 +47,7 @@ Proof.
       | H : Int.ltu _ _ = false |- _ => apply ltu_repr_false in H
       end; [lia | first [apply space_capacity__range | apply word_size_range]..].
     + rewrite <- Heqv in *. red in H0. rewrite H0 in H5.
-      unfold previous_vertices_size in H5. simpl in H5. unfold nth_space in H5.
+      unfold heapgraph_block_size_prev in H5. simpl in H5. unfold nth_space in H5.
       rewrite H1 in H5. simpl in H5. rewrite <- H2 in H5.
       replace_SEP
         4 (heap_struct_rep

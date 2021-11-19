@@ -72,7 +72,7 @@ Definition space_address (t_info: thread_info) (gen: nat) :=
   offset_val (SPACE_STRUCT_SIZE * Z.of_nat gen) (ti_heap_p t_info).
 
 Definition enough_space_to_have_g g t_info from to: Prop :=
-  (graph_gen_size g from <= rest_gen_size t_info to)%Z.
+  (heapgraph_generation_size g from <= rest_gen_size t_info to)%Z.
 
 
 
@@ -93,20 +93,20 @@ Proof.
 Qed.
 
 
-Definition nth_gen_size_spec (tinfo: thread_info) (n: nat): Prop :=
+Definition generation_size_spec (tinfo: thread_info) (n: nat): Prop :=
   if Val.eq (nth_space tinfo n).(space_base) nullval
   then True
-  else gen_size tinfo n = nth_gen_size n.
+  else gen_size tinfo n = generation_size n.
 
 Definition ti_size_spec (tinfo: thread_info): Prop :=
-  Forall (nth_gen_size_spec tinfo) (nat_inc_list (Z.to_nat MAX_SPACES)).
+  Forall (generation_size_spec tinfo) (nat_inc_list (Z.to_nat MAX_SPACES)).
 
 Lemma ti_size_spec_add: forall ti sp i (Hs: 0 <= i < MAX_SPACES),
-    space_capacity sp = nth_gen_size (Z.to_nat i) -> ti_size_spec ti ->
+    space_capacity sp = generation_size (Z.to_nat i) -> ti_size_spec ti ->
     ti_size_spec (ti_add_new_space ti sp i Hs).
 Proof.
   intros. unfold ti_size_spec in *. rewrite Forall_forall in *. intros.
-  specialize (H0 _ H1). unfold nth_gen_size_spec in *.
+  specialize (H0 _ H1). unfold generation_size_spec in *.
   destruct (Nat.eq_dec x (Z.to_nat i)); unfold gen_size.
   - subst x. rewrite !ans_nth_new. if_tac; auto.
   - rewrite !ans_nth_old; assumption.
@@ -117,7 +117,7 @@ Lemma ti_relation_size_spec: forall t_info1 t_info2 : thread_info,
     ti_size_spec t_info1 -> ti_size_spec t_info2.
 Proof.
   intros. unfold ti_size_spec in *. rewrite Forall_forall in *. intros.
-  specialize (H0 _ H1). unfold nth_gen_size_spec in *. destruct H as [? [? ?]].
+  specialize (H0 _ H1). unfold generation_size_spec in *. destruct H as [? [? ?]].
   rewrite <- H2, <- H3. assumption.
 Qed.
 
@@ -130,9 +130,9 @@ Proof. intros. unfold space_address. simpl. reflexivity. Qed.
 
 
 Lemma ngs_range: forall i,
-    0 <= i < MAX_SPACES -> 0 <= nth_gen_size (Z.to_nat i) < MAX_SPACE_SIZE.
+    0 <= i < MAX_SPACES -> 0 <= generation_size (Z.to_nat i) < MAX_SPACE_SIZE.
 Proof.
-  intros. unfold nth_gen_size. rewrite MAX_SPACES_eq in H.
+  intros. unfold generation_size. rewrite MAX_SPACES_eq in H.
   rewrite Z2Nat.id, NURSERY_SIZE_eq, Zbits.Zshiftl_mul_two_p,
   Z.mul_1_l, <- two_p_is_exp by lia. split.
   - cut (two_p (16 + i) > 0). 1: intros; lia. apply two_p_gt_ZERO. lia.
@@ -143,7 +143,7 @@ Qed.
 Lemma ngs_int_singed_range: forall i,
     0 <= i < MAX_SPACES ->
     (if Archi.ptr64 then Int64.min_signed else Int.min_signed) <=
-    nth_gen_size (Z.to_nat i) <=
+    generation_size (Z.to_nat i) <=
     (if Archi.ptr64 then Int64.max_signed else Int.max_signed).
 Proof.
   intros. apply ngs_range in H. destruct H. split.
@@ -153,9 +153,9 @@ Proof.
 Qed.
 
 Lemma ngs_S: forall i,
-    0 <= i -> 2 * nth_gen_size (Z.to_nat i) = nth_gen_size (Z.to_nat (i + 1)).
+    0 <= i -> 2 * generation_size (Z.to_nat i) = generation_size (Z.to_nat (i + 1)).
 Proof.
-  intros. unfold nth_gen_size. rewrite !Z2Nat.id by lia.
+  intros. unfold generation_size. rewrite !Z2Nat.id by lia.
   rewrite Z.mul_comm, <- Z.mul_assoc, (Z.mul_comm (two_p i)), <- two_p_S by assumption.
   reflexivity.
 Qed.

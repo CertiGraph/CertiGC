@@ -28,11 +28,11 @@ Definition NURSERY_SIZE_eq: NURSERY_SIZE = Z.shiftl 1 16 := eq_refl.
 Hint Rewrite NURSERY_SIZE_eq: rep_lia.
 Global Opaque NURSERY_SIZE.
 
-Definition nth_gen_size (n: nat) := (NURSERY_SIZE * two_p (Z.of_nat n))%Z.
+Definition generation_size (n: nat) := (NURSERY_SIZE * two_p (Z.of_nat n))%Z.
 
-Lemma nth_gen_size_le_S: forall n : nat, nth_gen_size n <= nth_gen_size (S n).
+Lemma generation_size_le_S: forall n : nat, generation_size n <= generation_size (S n).
 Proof.
-    intros n. unfold nth_gen_size. rewrite Nat2Z.inj_succ, two_p_S by lia.
+    intros n. unfold generation_size. rewrite Nat2Z.inj_succ, two_p_S by lia.
     assert (two_p (Z.of_nat n) > 0) by (apply two_p_gt_ZERO; lia).
     assert (0 < NURSERY_SIZE) by (vm_compute; reflexivity).
     rewrite Z.mul_assoc, (Z.mul_comm NURSERY_SIZE 2).
@@ -40,9 +40,9 @@ Proof.
     rewrite <- Z.add_diag, Z.mul_add_distr_r. lia.
 Qed.
 
-Lemma ngs_0_lt: forall i, 0 < nth_gen_size i.
+Lemma ngs_0_lt: forall i, 0 < generation_size i.
 Proof.
-    intros. unfold nth_gen_size.
+    intros. unfold generation_size.
     rewrite NURSERY_SIZE_eq, Zbits.Zshiftl_mul_two_p, Z.mul_1_l,
     <- two_p_is_exp by lia.
     cut (two_p (16 + Z.of_nat i) > 0); [|apply two_p_gt_ZERO]; lia.

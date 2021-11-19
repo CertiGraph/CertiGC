@@ -47,8 +47,8 @@ Definition forward_p2forward_t
            (p: forward_p_type) (roots: roots_t) (g: HeapGraph): forward_t :=
   match p with
   | inl root_index => root2forward (Znth root_index roots)
-  | inr (v, n) => if (vlabel g v).(block_mark) && (n =? 0)
-                  then (inl (inr (vlabel g v).(block_copied_vertex)))
+  | inr (v, n) => if (heapgraph_block g v).(block_mark) && (n =? 0)
+                  then (inl (inr (heapgraph_block g v).(block_copied_vertex)))
                   else field2forward (Znth n (make_fields g v))
   end.
 
@@ -59,32 +59,32 @@ Inductive forward_relation (from to: nat):
 | fr_v_not_in: forall depth v g,
     addr_gen v <> from -> forward_relation from to depth (inl (inr v)) g g
 | fr_v_in_forwarded: forall depth v g,
-    addr_gen v = from -> (vlabel g v).(block_mark) = true ->
+    addr_gen v = from -> (heapgraph_block g v).(block_mark) = true ->
     forward_relation from to depth (inl (inr v)) g g
 | fr_v_in_not_forwarded_O: forall v g,
-    addr_gen v = from -> (vlabel g v).(block_mark) = false ->
+    addr_gen v = from -> (heapgraph_block g v).(block_mark) = false ->
     forward_relation from to O (inl (inr v)) g (lgraph_copy_v g v to)
 | fr_v_in_not_forwarded_Sn: forall depth v g g',
-    addr_gen v = from -> (vlabel g v).(block_mark) = false ->
+    addr_gen v = from -> (heapgraph_block g v).(block_mark) = false ->
     let new_g := lgraph_copy_v g v to in
-    forward_loop from to depth (vertex_pos_pairs new_g (new_copied_v g to)) new_g g' ->
+    forward_loop from to depth (heapgraph_field_pairs new_g (new_copied_v g to)) new_g g' ->
     forward_relation from to (S depth) (inl (inr v)) g g'
 | fr_e_not_to: forall depth e (g: HeapGraph),
     addr_gen (dst g e) <> from -> forward_relation from to depth (inr e) g g
 | fr_e_to_forwarded: forall depth e (g: HeapGraph),
-    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(block_mark) = true ->
-    let new_g := labeledgraph_gen_dst g e (vlabel g (dst g e)).(block_copied_vertex) in
+    addr_gen (dst g e) = from -> (heapgraph_block g (dst g e)).(block_mark) = true ->
+    let new_g := labeledgraph_gen_dst g e (heapgraph_block g (dst g e)).(block_copied_vertex) in
     forward_relation from to depth (inr e) g new_g
 | fr_e_to_not_forwarded_O: forall e (g: HeapGraph),
-    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(block_mark) = false ->
+    addr_gen (dst g e) = from -> (heapgraph_block g (dst g e)).(block_mark) = false ->
     let new_g := labeledgraph_gen_dst (lgraph_copy_v g (dst g e) to) e
                                       (new_copied_v g to) in
     forward_relation from to O (inr e) g new_g
 | fr_e_to_not_forwarded_Sn: forall depth e (g g': HeapGraph),
-    addr_gen (dst g e) = from -> (vlabel g (dst g e)).(block_mark) = false ->
+    addr_gen (dst g e) = from -> (heapgraph_block g (dst g e)).(block_mark) = false ->
     let new_g := labeledgraph_gen_dst (lgraph_copy_v g (dst g e) to) e
                                       (new_copied_v g to) in
-    forward_loop from to depth (vertex_pos_pairs new_g (new_copied_v g to)) new_g g' ->
+    forward_loop from to depth (heapgraph_field_pairs new_g (new_copied_v g to)) new_g g' ->
     forward_relation from to (S depth) (inr e) g g'
 with
 forward_loop (from to: nat): nat -> list forward_p_type -> HeapGraph -> HeapGraph -> Prop :=
@@ -128,12 +128,12 @@ Proof.
 Qed.
 
 Lemma fr_graph_has_gen: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
-    forall x, graph_has_gen g x <-> graph_has_gen g' x.
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall x, heapgraph_has_gen g x <-> heapgraph_has_gen g' x.
 Proof.
   intros. remember (fun to g1 g2 =>
-                      graph_has_gen g1 to ->
-                      forall x, graph_has_gen g1 x <-> graph_has_gen g2 x) as P.
+                      heapgraph_has_gen g1 to ->
+                      forall x, heapgraph_has_gen g1 x <-> heapgraph_has_gen g2 x) as P.
   pose proof (fr_general_prop_bootstrap depth from to p g g' P). subst P.
   apply H1; clear H1; intros; try assumption; try reflexivity.
   - rewrite H1 by assumption. apply H2. rewrite <- H1; assumption.
@@ -141,29 +141,29 @@ Proof.
 Qed.
 
 Lemma fl_graph_has_gen: forall from to depth l g g',
-    graph_has_gen g to -> forward_loop from to depth l g g' ->
-    forall x, graph_has_gen g x <-> graph_has_gen g' x.
+    heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall x, heapgraph_has_gen g x <-> heapgraph_has_gen g' x.
 Proof.
   intros. revert g g' H H0 x. induction l; intros; inversion H0. 1: reflexivity.
-  subst. assert (forall y, graph_has_gen g y <-> graph_has_gen g2 y) by
+  subst. assert (forall y, heapgraph_has_gen g y <-> heapgraph_has_gen g2 y) by
       (intros; apply (fr_graph_has_gen _ _ _ _ _ _ H H4)).
-  transitivity (graph_has_gen g2 x). 1: apply H1. rewrite H1 in H.
+  transitivity (heapgraph_has_gen g2 x). 1: apply H1. rewrite H1 in H.
   apply IHl; assumption.
 Qed.
 
 Lemma fr_general_prop:
   forall depth from to p g g' A (Q: HeapGraph -> A -> nat -> Prop)
          (P: HeapGraph -> HeapGraph -> A -> Prop) (R: nat -> nat -> Prop),
-    R from to -> graph_has_gen g to -> (forall g v, P g g v) ->
+    R from to -> heapgraph_has_gen g to -> (forall g v, P g g v) ->
     (forall g1 g2 g3 v, P g1 g2 v -> P g2 g3 v -> P g1 g3 v) ->
     (forall g e v x, P g (labeledgraph_gen_dst g e v) x) ->
     (forall from g v to x,
-        graph_has_gen g to -> Q g x from -> (vlabel g v).(block_mark) = false ->
+        heapgraph_has_gen g to -> Q g x from -> (heapgraph_block g v).(block_mark) = false ->
         R from to -> addr_gen v = from -> P g (lgraph_copy_v g v to) x) ->
     (forall depth from to p g g',
-        graph_has_gen g to -> forward_relation from to depth p g g' ->
+        heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
         forall v, Q g v from -> Q g' v from) ->
-    (forall g v to x from, graph_has_gen g to -> Q g x from ->
+    (forall g v to x from, heapgraph_has_gen g to -> Q g x from ->
                            Q (lgraph_copy_v g v to) x from) ->
     (forall g e v x from, Q g x from -> Q (labeledgraph_gen_dst g e v) x from) ->
     forward_relation from to depth p g g' ->
@@ -179,7 +179,7 @@ Proof.
       2: assumption. subst g1.
       apply (H4 (addr_gen (dst g e))); [assumption.. | reflexivity].
   - assert (forall l from to g1 g2,
-               graph_has_gen g1 to -> forward_loop from to depth l g1 g2 ->
+               heapgraph_has_gen g1 to -> forward_loop from to depth l g1 g2 ->
                R from to -> forall v, Q g1 v from -> P g1 g2 v). {
       induction l; intros; inversion H11. 1: apply H1. subst.
       specialize (IHdepth _ _ _ _ _ _ _ _ _ H12 H10 H1 H2 H3 H4 H5 H6 H7 H17 _ H13).
@@ -189,14 +189,14 @@ Proof.
     clear IHdepth. inversion H8; subst; try (specialize (H1 g' v); assumption).
     + cut (P g new_g v).
       * intros. apply (H2 g new_g g'). 1: assumption.
-        assert (graph_has_gen new_g to) by
+        assert (heapgraph_has_gen new_g to) by
             (subst new_g; rewrite <- lcv_graph_has_gen; assumption).
         apply (H10 _ _ _ _ _ H12 H14 H). subst new_g. apply H6; assumption.
       * subst new_g. apply (H4 (addr_gen v0)); [assumption.. | reflexivity].
     + subst new_g. apply H3.
     + cut (P g new_g v).
       * intros. apply (H2 g new_g g'). 1: assumption.
-        assert (graph_has_gen new_g to) by
+        assert (heapgraph_has_gen new_g to) by
             (subst new_g; rewrite lgd_graph_has_gen, <- lcv_graph_has_gen; assumption).
         apply (H10 _ _ _ _ _ H12 H14 H). subst new_g. apply H7, H6; assumption.
       * subst new_g. remember (lgraph_copy_v g (dst g e) to) as g1.
@@ -207,7 +207,7 @@ Proof.
 Qed.
 
 Lemma fr_graph_has_v: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
     forall v, graph_has_v g v -> graph_has_v g' v.
 Proof.
   intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
@@ -222,11 +222,11 @@ Qed.
 
 
 Lemma fr_gen_start: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
-    forall x, gen_start g x = gen_start g' x.
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall x, heapgraph_generation_base g x = heapgraph_generation_base g' x.
 Proof.
   intros. remember (fun (g: HeapGraph) (v: nat) (x: nat) => True) as Q.
-  remember (fun g1 g2 x => gen_start g1 x = gen_start g2 x) as P.
+  remember (fun g1 g2 x => heapgraph_generation_base g1 x = heapgraph_generation_base g2 x) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H1; clear H1; intros; try assumption; try reflexivity.
@@ -235,52 +235,52 @@ Proof.
 Qed.
 
 Lemma fl_gen_start: forall from to depth l g g',
-    graph_has_gen g to -> forward_loop from to depth l g g' ->
-    forall x, gen_start g x = gen_start g' x.
+    heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall x, heapgraph_generation_base g x = heapgraph_generation_base g' x.
 Proof.
   intros. revert g g' H H0 x. induction l; intros; inversion H0. 1: reflexivity.
-  subst. transitivity (gen_start g2 x).
+  subst. transitivity (heapgraph_generation_base g2 x).
   - apply (fr_gen_start _ _ _ _ _ _ H H4).
-  - assert (graph_has_gen g2 to) by
+  - assert (heapgraph_has_gen g2 to) by
         (rewrite <- (fr_graph_has_gen _ _ _ _ _ _ H H4); assumption).
     apply IHl; assumption.
 Qed.
 
-Lemma fr_vertex_size: forall depth from to p g1 g2,
-    graph_has_gen g1 to -> forward_relation from to depth p g1 g2 ->
-    forall v, graph_has_v g1 v -> vertex_size g1 v = vertex_size g2 v.
+Lemma fr_heapgraph_block_size: forall depth from to p g1 g2,
+    heapgraph_has_gen g1 to -> forward_relation from to depth p g1 g2 ->
+    forall v, graph_has_v g1 v -> heapgraph_block_size g1 v = heapgraph_block_size g2 v.
 Proof.
   intros. remember (fun g v (x: nat) => graph_has_v g v) as Q.
-  remember (fun g1 g2 v => vertex_size g1 v = vertex_size g2 v) as P.
+  remember (fun g1 g2 v => heapgraph_block_size g1 v = heapgraph_block_size g2 v) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g1 g2 _ Q P R). subst Q P R.
   apply H2; clear H2; intros; try assumption; try reflexivity.
   - rewrite H2. assumption.
-  - rewrite lcv_vertex_size_old; [reflexivity | assumption..].
+  - rewrite lcv_heapgraph_block_size_old; [reflexivity | assumption..].
   - apply (fr_graph_has_v _ _ _ _ _ _ H2 H3 _ H4).
   - apply lcv_graph_has_v_old; assumption.
 Qed.
 
-Lemma fr_O_nth_gen_unchanged: forall from to p g1 g2,
-    graph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
-    forall gen, gen <> to -> nth_gen g1 gen = nth_gen g2 gen.
+Lemma fr_O_heapgraph_generation_unchanged: forall from to p g1 g2,
+    heapgraph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
+    forall gen, gen <> to -> heapgraph_generation g1 gen = heapgraph_generation g2 gen.
 Proof.
   intros. inversion H0; subst; try reflexivity.
-  - rewrite lcv_nth_gen; auto.
-  - subst new_g. transitivity (nth_gen (lgraph_copy_v g1 (dst g1 e) to) gen).
-    2: reflexivity. rewrite lcv_nth_gen; [reflexivity | assumption..].
+  - rewrite lcv_heapgraph_generation; auto.
+  - subst new_g. transitivity (heapgraph_generation (lgraph_copy_v g1 (dst g1 e) to) gen).
+    2: reflexivity. rewrite lcv_heapgraph_generation; [reflexivity | assumption..].
 Qed.
 
 Lemma fr_O_graph_gen_size_unchanged: forall from to p g1 g2,
-    graph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
-    forall gen, graph_has_gen g1 gen -> gen <> to ->
-                graph_gen_size g1 gen = graph_gen_size g2 gen.
+    heapgraph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
+    forall gen, heapgraph_has_gen g1 gen -> gen <> to ->
+                heapgraph_generation_size g1 gen = heapgraph_generation_size g2 gen.
 Proof.
-  intros. unfold graph_gen_size.
-  erewrite <- (fr_O_nth_gen_unchanged from to _ g1 g2); eauto.
-  unfold previous_vertices_size. apply fold_left_ext. intros.
-  unfold vertex_size_accum. f_equal. rewrite nat_inc_list_In_iff in H3.
-  eapply (fr_vertex_size O from to); eauto. split; simpl; assumption.
+  intros. unfold heapgraph_generation_size.
+  erewrite <- (fr_O_heapgraph_generation_unchanged from to _ g1 g2); eauto.
+  unfold heapgraph_block_size_prev. apply fold_left_ext. intros.
+  unfold heapgraph_block_size_accum. f_equal. rewrite nat_inc_list_In_iff in H3.
+  eapply (fr_heapgraph_block_size O from to); eauto. split; simpl; assumption.
 Qed.
 
 
@@ -288,8 +288,8 @@ Definition forward_p_compatible
            (p: forward_p_type) (roots: roots_t) (g: HeapGraph) (from: nat): Prop :=
   match p with
   | inl root_index => 0 <= root_index < Zlength roots
-  | inr (v, n) => graph_has_v g v /\ 0 <= n < Zlength (vlabel g v).(block_fields) /\
-                  (vlabel g v).(block_mark) = false /\ addr_gen v <> from
+  | inr (v, n) => graph_has_v g v /\ 0 <= n < Zlength (heapgraph_block g v).(block_fields) /\
+                  (heapgraph_block g v).(block_mark) = false /\ addr_gen v <> from
   end.
 
 
@@ -301,9 +301,9 @@ Definition upd_roots (from to: nat) (forward_p: forward_p_type)
                  | inl (inl z) => roots
                  | inl (inr p) => roots
                  | inr v => if Nat.eq_dec (addr_gen v) from
-                            then if (vlabel g v).(block_mark)
+                            then if (heapgraph_block g v).(block_mark)
                                  then upd_bunch index f_info roots
-                                                (inr (vlabel g v).(block_copied_vertex))
+                                                (inr (heapgraph_block g v).(block_copied_vertex))
                                  else upd_bunch index f_info roots
                                                 (inr (new_copied_v g to))
                             else roots
@@ -316,7 +316,7 @@ Lemma upd_roots_Zlength: forall from to p g roots f_info,
 Proof.
   intros. unfold upd_roots. destruct p. 2: reflexivity.
   destruct (Znth z roots). 1: destruct s; reflexivity. if_tac. 2: reflexivity.
-  destruct (block_mark (vlabel g a)); rewrite upd_bunch_Zlength; auto.
+  destruct (block_mark (heapgraph_block g a)); rewrite upd_bunch_Zlength; auto.
 Qed.
 
 
@@ -336,7 +336,7 @@ Definition forward_roots_relation from to f_info roots1 g1 roots2 g2 :=
 
 Definition forward_condition g t_info from to: Prop :=
   enough_space_to_copy g t_info from to /\
-  graph_has_gen g from /\ graph_has_gen g to /\
+  heapgraph_has_gen g from /\ heapgraph_has_gen g to /\
   copy_compatible g /\ no_dangling_dst g.
 
 Lemma lgd_forward_condition: forall g t_info v to v' e,
@@ -358,14 +358,14 @@ Qed.
 Lemma lcv_forward_condition: forall
     g t_info v to index uv
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v))
     (Hm : 0 <= index < MAX_ARGS),
-    addr_gen v <> to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
+    addr_gen v <> to -> graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
     forward_condition g t_info (addr_gen v) to ->
     forward_condition
       (lgraph_copy_v g v to)
       (update_thread_info_arg
-         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh) index uv Hm)
+         (cut_thread_info t_info (Z.of_nat to) (heapgraph_block_size g v) Hi Hh) index uv Hm)
       (addr_gen v) to.
 Proof.
   intros. destruct H2 as [? [? [? [? ?]]]]. split; [|split; [|split; [|split]]].
@@ -379,11 +379,11 @@ Qed.
 Lemma lcv_forward_condition_unchanged: forall
     g t_info v to
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v)),
-    addr_gen v <> to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v)),
+    addr_gen v <> to -> graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
     forward_condition g t_info (addr_gen v) to ->
     forward_condition (lgraph_copy_v g v to)
-         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
+         (cut_thread_info t_info (Z.of_nat to) (heapgraph_block_size g v) Hi Hh)
       (addr_gen v) to.
 Proof.
   intros. destruct H2 as [? [? [? [? ?]]]]. split; [|split; [|split; [|split]]].
@@ -396,7 +396,7 @@ Qed.
 
 
 Lemma fr_closure_has_v: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
     forall v, closure_has_v g v -> closure_has_v g' v.
 Proof.
   intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
@@ -410,51 +410,51 @@ Qed.
 
 
 Lemma fl_graph_has_v: forall from to depth l g g',
-    graph_has_gen g to -> forward_loop from to depth l g g' ->
+    heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
     forall v, graph_has_v g v -> graph_has_v g' v.
 Proof.
   intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
   1: assumption. cut (graph_has_v g2 v).
-  - intros. assert (graph_has_gen g2 to) by
+  - intros. assert (heapgraph_has_gen g2 to) by
         (apply (fr_graph_has_gen _ _ _ _ _ _ H H5); assumption).
     apply (IHl _ _ H3 H8 _ H2).
   - apply (fr_graph_has_v _ _ _ _ _ _ H H5 _ H1).
 Qed.
 
-Lemma fr_vertex_address: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
-    forall v, closure_has_v g v -> vertex_address g v = vertex_address g' v.
+Lemma fr_heapgraph_block_ptr: forall depth from to p g g',
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall v, closure_has_v g v -> heapgraph_block_ptr g v = heapgraph_block_ptr g' v.
 Proof.
   intros. remember (fun g v (x: nat) => closure_has_v g v) as Q.
-  remember (fun g1 g2 v => vertex_address g1 v = vertex_address g2 v) as P.
+  remember (fun g1 g2 v => heapgraph_block_ptr g1 v = heapgraph_block_ptr g2 v) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H2; clear H2; intros; try assumption; try reflexivity.
   - rewrite H2. assumption.
-  - rewrite lcv_vertex_address; [reflexivity | assumption..].
+  - rewrite lcv_heapgraph_block_ptr; [reflexivity | assumption..].
   - apply (fr_closure_has_v _ _ _ _ _ _ H2 H3 _ H4).
   - apply lcv_closure_has_v; assumption.
 Qed.
 
-Lemma fl_vertex_address: forall from to depth l g g',
-    graph_has_gen g to -> forward_loop from to depth l g g' ->
-    forall v, closure_has_v g v -> vertex_address g v = vertex_address g' v.
+Lemma fl_heapgraph_block_ptr: forall from to depth l g g',
+    heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall v, closure_has_v g v -> heapgraph_block_ptr g v = heapgraph_block_ptr g' v.
 Proof.
   intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
-  1: reflexivity. transitivity (vertex_address g2 v).
-  - apply (fr_vertex_address _ _ _ _ _ _ H H5 _ H1).
+  1: reflexivity. transitivity (heapgraph_block_ptr g2 v).
+  - apply (fr_heapgraph_block_ptr _ _ _ _ _ _ H H5 _ H1).
   - apply IHl; [|assumption|].
     + erewrite <- fr_graph_has_gen; eauto.
     + eapply fr_closure_has_v; eauto.
 Qed.
 
 Lemma fr_block_fields: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
-    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall v, graph_has_v g v -> block_fields (heapgraph_block g v) = block_fields (heapgraph_block g' v).
 Proof.
   intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => graph_has_v g v) as Q.
   remember (fun (g1 g2: HeapGraph) v =>
-              block_fields (vlabel g1 v) = block_fields (vlabel g2 v)) as P.
+              block_fields (heapgraph_block g1 v) = block_fields (heapgraph_block g2 v)) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H2; clear H2; intros; try assumption; try reflexivity.
@@ -465,11 +465,11 @@ Proof.
 Qed.
 
 Lemma fl_block_fields: forall from to depth l g g',
-    graph_has_gen g to -> forward_loop from to depth l g g' ->
-    forall v, graph_has_v g v -> block_fields (vlabel g v) = block_fields (vlabel g' v).
+    heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
+    forall v, graph_has_v g v -> block_fields (heapgraph_block g v) = block_fields (heapgraph_block g' v).
 Proof.
   intros. revert g g' H H0 v H1. induction l; intros; inversion H0; subst.
-  1: reflexivity. transitivity (block_fields (vlabel g2 v)).
+  1: reflexivity. transitivity (block_fields (heapgraph_block g2 v)).
   - apply (fr_block_fields _ _ _ _ _ _ H H5 _ H1).
   - apply IHl; [|assumption|].
     + erewrite <- fr_graph_has_gen; eauto.
@@ -478,14 +478,14 @@ Qed.
 
 
 Lemma fr_block_mark: forall depth from to p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
     forall v, graph_has_v g v -> addr_gen v <> from ->
-              block_mark (vlabel g v) = block_mark (vlabel g' v).
+              block_mark (heapgraph_block g v) = block_mark (heapgraph_block g' v).
 Proof.
   intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) =>
                       graph_has_v g v /\ addr_gen v <> x) as Q.
   remember (fun (g1 g2: HeapGraph) v =>
-              block_mark (vlabel g1 v) = block_mark (vlabel g2 v)) as P.
+              block_mark (heapgraph_block g1 v) = block_mark (heapgraph_block g2 v)) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H3; clear H3; intros; try assumption; try reflexivity.
@@ -499,12 +499,12 @@ Proof.
 Qed.
 
 Lemma fl_block_mark: forall depth from to l g g',
-    graph_has_gen g to -> forward_loop from to depth l g g' ->
+    heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
     forall v, graph_has_v g v -> addr_gen v <> from ->
-              block_mark (vlabel g v) = block_mark (vlabel g' v).
+              block_mark (heapgraph_block g v) = block_mark (heapgraph_block g' v).
 Proof.
   intros. revert g g' H H0 v H1 H2. induction l; intros; inversion H0; subst.
-  1: reflexivity. transitivity (block_mark (vlabel g2 v)).
+  1: reflexivity. transitivity (block_mark (heapgraph_block g2 v)).
   - apply (fr_block_mark _ _ _ _ _ _ H H6 _ H1 H2).
   - apply IHl; [|assumption| |assumption].
     + erewrite <- fr_graph_has_gen; eauto.
@@ -528,29 +528,29 @@ Lemma forward_p2t_inr_roots: forall v n roots g,
 Proof. intros. simpl. reflexivity. Qed.
 
 Lemma forward_loop_add_tail_vpp: forall from to depth x g g1 g2 g3 roots i,
-    (0 <= i < Zlength (block_fields (vlabel g x)))%Z ->
-    forward_loop from to depth (VST.floyd.sublist.sublist 0 i (vertex_pos_pairs g x))%Z g1 g2 ->
+    (0 <= i < Zlength (block_fields (heapgraph_block g x)))%Z ->
+    forward_loop from to depth (VST.floyd.sublist.sublist 0 i (heapgraph_field_pairs g x))%Z g1 g2 ->
     forward_relation from to depth (forward_p2forward_t (inr (x, i)) roots g2) g2 g3 ->
-    forward_loop from to depth (VST.floyd.sublist.sublist 0 (i + 1) (vertex_pos_pairs g x))%Z g1 g3.
+    forward_loop from to depth (VST.floyd.sublist.sublist 0 (i + 1) (heapgraph_field_pairs g x))%Z g1 g3.
 Proof.
-  intros. rewrite <- vpp_Zlength in H. rewrite sublist_last_1; [|lia..].
-  rewrite vpp_Zlength in H. rewrite vpp_Znth by assumption.
+  intros. rewrite <- heapgraph_field_pairs__Zlength in H. rewrite sublist_last_1; [|lia..].
+  rewrite heapgraph_field_pairs__Zlength in H. rewrite heapgraph_field_pairs__Znth by assumption.
   apply forward_loop_add_tail with (g2 := g2) (roots := roots); assumption.
 Qed.
 
 
-Lemma fr_gen_unmarked: forall from to depth p g g',
-    graph_has_gen g to -> forward_relation from to depth p g g' ->
-    forall gen, from  <> gen -> gen_unmarked g gen -> gen_unmarked g' gen.
+Lemma fr_heapgraph_generation_is_unmarked: forall from to depth p g g',
+    heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
+    forall gen, from  <> gen -> heapgraph_generation_is_unmarked g gen -> heapgraph_generation_is_unmarked g' gen.
 Proof.
   intros. remember (fun (g: HeapGraph) (gen: nat) (x: nat) => x <> gen) as Q.
   remember (fun (g1 g2: HeapGraph) gen =>
-              gen_unmarked g1 gen -> gen_unmarked g2 gen) as P.
+              heapgraph_generation_is_unmarked g1 gen -> heapgraph_generation_is_unmarked g2 gen) as P.
   remember (fun (x1 x2: nat) => True) as R.
   pose proof (fr_general_prop depth from to p g g' _ Q P R). subst Q P R.
   apply H3; clear H3; intros; try assumption; try reflexivity.
   - apply H4, H3. assumption.
-  - rewrite <- H7 in H4. apply lcv_gen_unmarked; assumption.
+  - rewrite <- H7 in H4. apply lcv_heapgraph_generation_is_unmarked; assumption.
 Qed.
 
 
@@ -582,18 +582,18 @@ Qed.
 
 Transparent upd_roots.
 
-Lemma frr_vertex_address: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall v, closure_has_v g1 v -> vertex_address g1 v = vertex_address g2 v.
+Lemma frr_heapgraph_block_ptr: forall from to f_info roots1 g1 roots2 g2,
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall v, closure_has_v g1 v -> heapgraph_block_ptr g1 v = heapgraph_block_ptr g2 v.
 Proof.
   intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
-  - eapply fr_vertex_address; eauto.
+  - eapply fr_heapgraph_block_ptr; eauto.
   - rewrite <- fr_graph_has_gen; eauto.
   - eapply fr_closure_has_v; eauto.
 Qed.
 
 Lemma frr_closure_has_v: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall v, closure_has_v g1 v -> closure_has_v g2 v.
 Proof.
   intros. induction H0. 1: assumption. apply IHforward_roots_loop.
@@ -601,13 +601,13 @@ Proof.
   - eapply fr_closure_has_v; eauto.
 Qed.
 
-Lemma frr_gen_unmarked: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall gen, gen <> from -> gen_unmarked g1 gen -> gen_unmarked g2 gen.
+Lemma frr_heapgraph_generation_is_unmarked: forall from to f_info roots1 g1 roots2 g2,
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen, gen <> from -> heapgraph_generation_is_unmarked g1 gen -> heapgraph_generation_is_unmarked g2 gen.
 Proof.
   intros. induction H0. 1: assumption. apply IHforward_roots_loop.
   - rewrite <- fr_graph_has_gen; eauto.
-  - eapply fr_gen_unmarked; eauto.
+  - eapply fr_heapgraph_generation_is_unmarked; eauto.
 Qed.
 
 Lemma upd_roots_rf_compatible: forall from to f_info roots p g,
@@ -616,7 +616,7 @@ Lemma upd_roots_rf_compatible: forall from to f_info roots p g,
 Proof.
   intros. unfold upd_roots. destruct p; [|assumption]. destruct (Znth z roots).
   1: destruct s; assumption. if_tac. 2: assumption.
-  destruct (block_mark (vlabel g a)); apply upd_bunch_rf_compatible; assumption.
+  destruct (block_mark (heapgraph_block g a)); apply upd_bunch_rf_compatible; assumption.
 Qed.
 
 
@@ -638,7 +638,7 @@ Proof.
     split; intros; auto. destruct H4; auto.
     destruct H3. apply H8 in H4; try assumption. rewrite Heqr, H5 in H4. inversion H4.
   - if_tac in H4.
-    + destruct (block_mark (vlabel g a)) eqn: ?; subst; split; intros.
+    + destruct (block_mark (heapgraph_block g a)) eqn: ?; subst; split; intros.
       * destruct H4; auto. symmetry in H4. rewrite upd_bunch_same in H5 by assumption.
         inversion H5. red in H0. rewrite Forall_forall in H0.
         assert (graph_has_v g a). {
@@ -659,7 +659,7 @@ Qed.
 
 
 Lemma fr_copy_compatible: forall depth from to p g g',
-    from <> to -> graph_has_gen g to -> forward_relation from to depth p g g' ->
+    from <> to -> heapgraph_has_gen g to -> forward_relation from to depth p g g' ->
     copy_compatible g -> copy_compatible g'.
 Proof.
   intros. remember (fun (g: HeapGraph) (v: Addr) (x: nat) => True) as Q.
@@ -673,7 +673,7 @@ Proof.
 Qed.
 
 Lemma fr_right_roots_graph_compatible: forall depth from to e g g' roots,
-    graph_has_gen g to -> forward_p_compatible (inr e) roots g from ->
+    heapgraph_has_gen g to -> forward_p_compatible (inr e) roots g from ->
     forward_relation from to depth (forward_p2forward_t (inr e) [] g) g g' ->
     roots_graph_compatible roots g -> roots_graph_compatible roots g'.
 Proof.
@@ -691,9 +691,9 @@ Qed.
 
 Lemma fl_edge_roots_graph_compatible: forall depth from to l g g' v roots,
     addr_gen v <> from ->
-    graph_has_gen g to -> graph_has_v g v -> block_mark (vlabel g v) = false ->
+    heapgraph_has_gen g to -> graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
     forward_loop from to depth (map (fun x : nat => inr (v, Z.of_nat x)) l) g g' ->
-    (forall i, In i l -> i < length (block_fields (vlabel g v)))%nat ->
+    (forall i, In i l -> i < length (block_fields (heapgraph_block g v)))%nat ->
     roots_graph_compatible roots g -> roots_graph_compatible roots g'.
 Proof.
   do 4 intro. induction l; intros; simpl in H3; inversion H3; subst. 1: assumption.
@@ -702,7 +702,7 @@ Proof.
     + rewrite <- fr_graph_has_gen; eauto.
     + eapply fr_graph_has_v; eauto.
     + rewrite <- H2. symmetry. eapply fr_block_mark; eauto.
-    + assert (block_fields (vlabel g v) = block_fields (vlabel g2 v)) by
+    + assert (block_fields (heapgraph_block g v) = block_fields (heapgraph_block g2 v)) by
           (eapply fr_block_fields; eauto). rewrite <- H7.
       intros; apply H4; right; assumption.
   - specialize (H4 _ (in_eq a l)). eapply fr_right_roots_graph_compatible; eauto.
@@ -716,11 +716,11 @@ Proof.
   intros. destruct p; simpl in *. 2: assumption. destruct (Znth z roots) eqn: ?.
   + destruct s; assumption.
   + if_tac. 2: assumption.
-    destruct (block_mark (vlabel g a)); apply upd_roots_outlier_compatible; assumption.
+    destruct (block_mark (heapgraph_block g a)); apply upd_roots_outlier_compatible; assumption.
 Qed.
 
 Lemma fr_roots_graph_compatible (depth from to: nat) (p : forward_p_type) (g g' : HeapGraph) (roots : roots_t) (f_info : fun_info)
-    (Hto: graph_has_gen g to)
+    (Hto: heapgraph_has_gen g to)
     (Hp: forward_p_compatible p roots g from)
     (Hg: copy_compatible g)
     (Hfwd: forward_relation from to depth (forward_p2forward_t p roots g) g g')
@@ -744,11 +744,11 @@ Proof.
       * rename H2 into Eblock_mark ; rewrite Eblock_mark.
         assert (graph_has_v new_g (new_copied_v g to)) by
           (subst new_g; apply lcv_graph_has_v_new; assumption).
-        remember (nat_inc_list (length (block_fields (vlabel new_g (new_copied_v g to))))) as new_fields.
+        remember (nat_inc_list (length (block_fields (heapgraph_block new_g (new_copied_v g to))))) as new_fields.
         assert (graph_has_v new_g (new_copied_v g to)) by (subst new_g; apply lcv_graph_has_v_new; assumption).
         remember (upd_bunch z f_info roots (inr (new_copied_v g to))) as roots'.
         assert (roots_graph_compatible roots' new_g) by (subst; subst new_g; apply lcv_roots_graph_compatible; assumption).
-        assert (block_mark (vlabel new_g (new_copied_v g to)) = false). {
+        assert (block_mark (heapgraph_block new_g (new_copied_v g to)) = false). {
           subst new_g. unfold lgraph_copy_v. rewrite <- lmc_block_mark.
           - now rewrite lacv_vlabel_new.
           - unfold new_copied_v. destruct a. destruct Heqroots'. simpl in *.
@@ -761,7 +761,7 @@ Proof.
 Qed.
 
 Lemma fr_roots_compatible: forall depth from to p g g' roots f_info outlier,
-    graph_has_gen g to -> forward_p_compatible p roots g from -> copy_compatible g ->
+    heapgraph_has_gen g to -> forward_p_compatible p roots g from -> copy_compatible g ->
     forward_relation from to depth (forward_p2forward_t p roots g) g g' ->
     roots_compatible g outlier roots -> from <> to ->
     roots_compatible g' outlier (upd_roots from to p g roots f_info).
@@ -774,7 +774,7 @@ Qed.
 Lemma frl_not_pointing: forall from to f_info l roots1 g1 roots2 g2,
     copy_compatible g1 -> roots_graph_compatible roots1 g1 -> from <> to ->
     (forall i, In i l -> i < length roots1)%nat -> roots_fi_compatible roots1 f_info ->
-    forward_roots_loop from to f_info l roots1 g1 roots2 g2 -> graph_has_gen g1 to ->
+    forward_roots_loop from to f_info l roots1 g1 roots2 g2 -> heapgraph_has_gen g1 to ->
     np_roots_rel from f_info roots1 roots2 (map Z.of_nat l).
 Proof.
   do 4 intro. induction l; intros; inversion H4; subst.
@@ -798,7 +798,7 @@ Qed.
 
 Lemma frr_not_pointing: forall from to f_info roots1 g1 roots2 g2,
     copy_compatible g1 -> roots_graph_compatible roots1 g1 -> from <> to ->
-    graph_has_gen g1 to -> roots_fi_compatible roots1 f_info ->
+    heapgraph_has_gen g1 to -> roots_fi_compatible roots1 f_info ->
     forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     roots_have_no_gen roots2 from.
 Proof.
@@ -821,9 +821,9 @@ Qed.
 
 
 Lemma frr_graph_has_gen: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to ->
+    heapgraph_has_gen g1 to ->
     forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall gen, graph_has_gen g1 gen <-> graph_has_gen g2 gen.
+    forall gen, heapgraph_has_gen g1 gen <-> heapgraph_has_gen g2 gen.
 Proof.
   intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
   - eapply fr_graph_has_gen; eauto.
@@ -842,7 +842,7 @@ Proof.
 Qed.
 
 Lemma frr_dst_unchanged: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall e, graph_has_v g1 (field_addr e) -> dst g1 e = dst g2 e.
 Proof.
   intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
@@ -852,7 +852,7 @@ Proof.
 Qed.
 
 Lemma fr_O_graph_has_v_inv: forall from to p g g',
-    graph_has_gen g to -> forward_relation from to O p g g' ->
+    heapgraph_has_gen g to -> forward_relation from to O p g g' ->
     forall v, graph_has_v g' v -> graph_has_v g v \/ v = new_copied_v g to.
 Proof.
   intros. inversion H0; subst; try (left; assumption);
@@ -862,43 +862,43 @@ Qed.
 
 
 Lemma fr_O_gen_v_num_to: forall from to p g g',
-    graph_has_gen g to -> forward_relation from to O p g g' ->
-    (gen_v_num g to <= gen_v_num g' to)%nat.
+    heapgraph_has_gen g to -> forward_relation from to O p g g' ->
+    (heapgraph_generation_block_count g to <= heapgraph_generation_block_count g' to)%nat.
 Proof.
   intros. inversion H0; subst; try lia; [|subst new_g..].
   - apply lcv_gen_v_num_to; auto.
-  - rewrite lgd_gen_v_num_to. lia.
-  - rewrite lgd_gen_v_num_to. apply lcv_gen_v_num_to. assumption.
+  - rewrite heapgraph_generation_block_count__labeledgraph_gen_dst. lia.
+  - rewrite heapgraph_generation_block_count__labeledgraph_gen_dst. apply lcv_gen_v_num_to. assumption.
 Qed.
 
 Lemma frr_gen_v_num_to: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    (gen_v_num g1 to <= gen_v_num g2 to)%nat.
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    (heapgraph_generation_block_count g1 to <= heapgraph_generation_block_count g2 to)%nat.
 Proof.
-  intros. induction H0. 1: lia. transitivity (gen_v_num g2 to).
+  intros. induction H0. 1: lia. transitivity (heapgraph_generation_block_count g2 to).
   - eapply fr_O_gen_v_num_to; eauto.
   - apply IHforward_roots_loop; rewrite <- fr_graph_has_gen; eauto.
 Qed.
 
 Lemma frr_graph_has_v_inv: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall v, graph_has_v g2 v -> graph_has_v g1 v \/
                                   (addr_gen v = to /\
-                                   gen_v_num g1 to <= addr_block v < gen_v_num g2 to)%nat.
+                                   heapgraph_generation_block_count g1 to <= addr_block v < heapgraph_generation_block_count g2 to)%nat.
 Proof.
   intros. induction H0. 1: left; assumption.
-  assert (graph_has_gen g2 to) by (rewrite <- fr_graph_has_gen; eauto).
+  assert (heapgraph_has_gen g2 to) by (rewrite <- fr_graph_has_gen; eauto).
   specialize (IHforward_roots_loop H3 H1). destruct IHforward_roots_loop.
   - eapply (fr_O_graph_has_v_inv from to _ g1 g2) in H0; eauto. destruct H0.
     1: left; assumption. right. unfold new_copied_v in H0. subst v.
-    clear H2. destruct H1. red in H1. simpl in *. unfold gen_v_num. lia.
+    clear H2. destruct H1. red in H1. simpl in *. unfold heapgraph_generation_block_count. lia.
   - right. destruct H4. split. 1: assumption. destruct H5. split. 2: assumption.
     apply fr_O_gen_v_num_to in H0; [lia | assumption].
 Qed.
 
 Lemma frr_block_fields: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall v, graph_has_v g1 v -> block_fields (vlabel g1 v) = block_fields (vlabel g2 v).
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall v, graph_has_v g1 v -> block_fields (heapgraph_block g1 v) = block_fields (heapgraph_block g2 v).
 Proof.
   intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
   - eapply fr_block_fields; eauto.
@@ -907,7 +907,7 @@ Proof.
 Qed.
 
 Lemma frr_gen2gen_no_edge: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall gen1 gen2, gen1 <> to -> gen2gen_no_edge g1 gen1 gen2 ->
                       gen2gen_no_edge g2 gen1 gen2.
 Proof.
@@ -940,7 +940,7 @@ Qed.
 
 
 Lemma frr_graph_has_v: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall v, graph_has_v g1 v -> graph_has_v g2 v.
 Proof.
   intros. induction H0; subst. 1: assumption. cut (graph_has_v g2 v).
@@ -949,7 +949,7 @@ Proof.
 Qed.
 
 Lemma fr_O_dst_changed_field: forall from to v n g g',
-    copy_compatible g -> no_dangling_dst g -> from <> to -> graph_has_gen g to ->
+    copy_compatible g -> no_dangling_dst g -> from <> to -> heapgraph_has_gen g to ->
     forward_p_compatible (inr (v, Z.of_nat n)) [] g from ->
     forward_relation from to O (forward_p2forward_t (inr (v, Z.of_nat n)) [] g) g g' ->
     forall e, Znth (Z.of_nat n) (make_fields g' v) = inr e ->
@@ -970,7 +970,7 @@ Proof.
 Qed.
 
 Lemma fr_O_no_dangling_dst: forall from to p g g' roots,
-    forward_p_compatible p roots g from -> graph_has_gen g to ->
+    forward_p_compatible p roots g from -> heapgraph_has_gen g to ->
     roots_graph_compatible roots g -> copy_compatible g ->
     forward_relation from to O (forward_p2forward_t p roots g) g g' ->
     no_dangling_dst g -> no_dangling_dst g'.
@@ -1004,27 +1004,27 @@ Proof.
       rewrite make_fields_eq_length. assumption.
 Qed.
 
-Lemma frr_nth_gen_unchanged: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall gen, gen <> to -> nth_gen g1 gen = nth_gen g2 gen.
+Lemma frr_heapgraph_generation_unchanged: forall from to f_info roots1 g1 roots2 g2,
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen, gen <> to -> heapgraph_generation g1 gen = heapgraph_generation g2 gen.
 Proof.
   intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
-  - eapply fr_O_nth_gen_unchanged; eauto.
+  - eapply fr_O_heapgraph_generation_unchanged; eauto.
   - rewrite <- fr_graph_has_gen; eauto.
 Qed.
 
 Lemma frr_firstn_gen_clear: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall gen, (gen <= to)%nat ->
                 firstn_gen_clear g1 gen -> firstn_gen_clear g2 gen.
 Proof.
   intros. unfold firstn_gen_clear, graph_gen_clear in *. intros.
-  erewrite <- frr_nth_gen_unchanged; eauto. lia.
+  erewrite <- frr_heapgraph_generation_unchanged; eauto. lia.
 Qed.
 
 Lemma fr_O_stcg: forall from to p g1 g2,
-    graph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
-    forall gen1 gen2, graph_has_gen g1 gen2 -> gen2 <> to ->
+    heapgraph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
+    forall gen1 gen2, heapgraph_has_gen g1 gen2 -> gen2 <> to ->
                       safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
 Proof.
   intros. unfold safe_to_copy_gen in *.
@@ -1032,8 +1032,8 @@ Proof.
 Qed.
 
 Lemma frr_stcg: forall from to f_info roots1 g1 roots2 g2,
-    graph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall gen1 gen2, graph_has_gen g1 gen2 -> gen2 <> to ->
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen1 gen2, heapgraph_has_gen g1 gen2 -> gen2 <> to ->
                       safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
 Proof.
   intros. induction H0. 1: assumption. apply IHforward_roots_loop.
@@ -1043,7 +1043,7 @@ Proof.
 Qed.
 
 Lemma frr_copy_compatible: forall from to f_info roots g roots' g',
-    from <> to -> graph_has_gen g to ->
+    from <> to -> heapgraph_has_gen g to ->
     forward_roots_relation from to f_info roots g roots' g' ->
     copy_compatible g -> copy_compatible g'.
 Proof.
@@ -1053,7 +1053,7 @@ Proof.
 Qed.
 
 Lemma frl_no_dangling_dst: forall from to f_info l roots g roots' g',
-    graph_has_gen g to -> copy_compatible g -> from <> to ->
+    heapgraph_has_gen g to -> copy_compatible g -> from <> to ->
     (forall i, In i l -> i < length roots)%nat ->
     Zlength roots = Zlength (live_roots_indices f_info) ->
     roots_graph_compatible roots g ->
@@ -1077,7 +1077,7 @@ Proof.
 Qed.
 
 Lemma frr_no_dangling_dst: forall from to f_info roots g roots' g',
-    graph_has_gen g to -> copy_compatible g -> from <> to ->
+    heapgraph_has_gen g to -> copy_compatible g -> from <> to ->
     Zlength roots = Zlength (live_roots_indices f_info) ->
     roots_graph_compatible roots g ->
     forward_roots_relation from to f_info roots g roots' g' ->

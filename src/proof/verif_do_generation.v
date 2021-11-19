@@ -7,19 +7,19 @@ Proof.
   start_function.
   pose proof H. pose proof H0. destruct H2 as [? _]. destruct H3 as [? [? [? _]]].
   assert (generation_space_compatible
-            g (from, nth_gen g from, nth_space t_info from)) by
+            g (from, heapgraph_generation g from, nth_space t_info from)) by
       (apply gt_gs_compatible; assumption). destruct H6 as [? [? ?]].
-  assert (generation_space_compatible g (to, nth_gen g to, nth_space t_info to)) by
+  assert (generation_space_compatible g (to, heapgraph_generation g to, nth_space t_info to)) by
       (apply gt_gs_compatible; assumption). destruct H9 as [? [? ?]].
   assert (isptr (space_base (nth_space t_info from))) by
       (rewrite <- H6; apply generation_base__isptr).
   assert (isptr (space_base (nth_space t_info to))) by
       (rewrite <- H9; apply generation_base__isptr).
-  assert (HS: forall gen, graph_has_gen g gen -> Z.of_nat gen < MAX_SPACES). {
-    intros. unfold graph_has_gen in H14. destruct H as [[_ [_ ?]] _].
+  assert (HS: forall gen, heapgraph_has_gen g gen -> Z.of_nat gen < MAX_SPACES). {
+    intros. unfold heapgraph_has_gen in H14. destruct H as [[_ [_ ?]] _].
     rewrite <- (heap_spaces__size (ti_heap t_info)). rewrite Zlength_correct.
     apply inj_lt. apply Nat.lt_le_trans with
-                      (Datatypes.length (generations (glabel g))); assumption. }
+                      (Datatypes.length (generations (heapgraph_generations g))); assumption. }
   assert (Z.of_nat from < MAX_SPACES) by (apply HS; assumption).
   assert (Z.of_nat to < MAX_SPACES) by (apply HS; assumption). clear HS.
   freeze [0;1;2;3] FR.
@@ -82,7 +82,7 @@ Proof.
     end.
     2: apply space_remaining__repable_signed.
     2: apply space_allocated__repable_signed. clear -H8 H3 Heqlte. red in H3.
-    unfold graph_gen_size, rest_gen_size in H3. rewrite H8 in H3. lia.
+    unfold heapgraph_generation_size, rest_gen_size in H3. rewrite H8 in H3. lia.
   - Intros. localize [space_struct_rep sh t_info from].
     unfold space_struct_rep, space_tri. do 2 (forward; [subst from_p; entailer!|]).
     replace_SEP 0 (space_struct_rep sh t_info from) by
@@ -90,10 +90,10 @@ Proof.
     unlocalize [thread_info_rep sh t_info ti].
     1: apply thread_info_rep_ramif_stable_1; assumption. apply dgc_imply_fc in H0.
     destruct H0 as [? [? [? ?]]]. rewrite <- Heqfrom_p.
-    replace from_p with (gen_start g from) by
-        (subst; unfold gen_start; rewrite if_true; assumption).
+    replace from_p with (heapgraph_generation_base g from) by
+        (subst; unfold heapgraph_generation_base; rewrite if_true; assumption).
     replace (offset_val (WORD_SIZE * space_capacity (nth_space t_info from))
-                        (gen_start g from)) with (limit_address g t_info from) by
+                        (heapgraph_generation_base g from)) with (limit_address g t_info from) by
         (unfold limit_address, gen_size; reflexivity).
     assert_PROP (isptr (space_address t_info to)). {
       unfold space_address. rewrite isptr_offset_val. unfold thread_info_rep.
@@ -110,12 +110,12 @@ Proof.
     simpl snd in *. freeze [0;1;2;3] FR. 
     replace (space_address t_info from) with (space_address t_info1 from) by
         (unfold space_address; rewrite (proj1 H26); reflexivity).
-    assert (space_base (nth_space t_info1 from) = gen_start g1 from). {
+    assert (space_base (nth_space t_info1 from) = heapgraph_generation_base g1 from). {
       destruct H23 as [? _]. destruct H25 as [_ [? _]].
       destruct (gt_gs_compatible _ _ H23 _ H25) as [? _]. rewrite <- H27.
-      unfold gen_start. rewrite if_true by assumption. reflexivity. }
+      unfold heapgraph_generation_base. rewrite if_true by assumption. reflexivity. }
     assert (isptr (space_base (nth_space t_info1 from))). {
-      rewrite H27. unfold gen_start. destruct H25 as [_ [? _]].
+      rewrite H27. unfold heapgraph_generation_base. destruct H25 as [_ [? _]].
       rewrite if_true by assumption. apply generation_base__isptr. }
     localize [space_struct_rep sh t_info1 from].
     unfold space_struct_rep, space_tri. do 2 forward.
@@ -124,7 +124,7 @@ Proof.
     unlocalize [thread_info_rep sh t_info1 ti].
     1: apply thread_info_rep_ramif_stable_1; assumption. thaw FR. rewrite H27.
     replace (offset_val (WORD_SIZE * space_capacity (nth_space t_info1 from))
-                        (gen_start g1 from)) with (limit_address g1 t_info1 from) by
+                        (heapgraph_generation_base g1 from)) with (limit_address g1 t_info1 from) by
         (unfold limit_address, gen_size; reflexivity).
     assert_PROP (offset_val WORD_SIZE (space_address t_info to) =
                  next_address t_info1 to). {
@@ -133,30 +133,30 @@ Proof.
       - simpl. rewrite offset_offset_val. f_equal.
       - unfold field_compatible in *. simpl.
         unfold in_members. simpl. intuition. }
-    assert (closure_has_v g {| addr_gen := to ; addr_block := generation_block_count (nth_gen g to) |}) by
+    assert (closure_has_v g {| addr_gen := to ; addr_block := generation_block_count (heapgraph_generation g to) |}) by
         (red; simpl; unfold closure_has_index; split; [assumption | lia]).
     replace (offset_val to_used to_p) with
         (offset_val (- WORD_SIZE)
-                    (vertex_address g1 {| addr_gen := to ; addr_block := generation_block_count (nth_gen g to) |})) by
-        (rewrite <- (frr_vertex_address _ _ _ _ _ _ _ H5 H24 _ H30); subst;
-         unfold vertex_address, vertex_offset, gen_start; simpl;
+                    (heapgraph_block_ptr g1 {| addr_gen := to ; addr_block := generation_block_count (heapgraph_generation g to) |})) by
+        (rewrite <- (frr_heapgraph_block_ptr _ _ _ _ _ _ _ H5 H24 _ H30); subst;
+         unfold heapgraph_block_ptr, heapgraph_block_offset, heapgraph_generation_base; simpl;
          rewrite offset_offset_val, H11, H9, if_true by assumption;
          f_equal; unfold WORD_SIZE; lia). eapply frr_closure_has_v in H30; eauto.
     destruct H30. simpl in H30, H31.
     assert (0 < gen_size t_info1 to) by (rewrite <- (proj1 (proj2 H26)); assumption).
-    assert (gen_unmarked g1 to) by (eapply (frr_gen_unmarked _ _ _ _ g _ g1); eauto).
+    assert (heapgraph_generation_is_unmarked g1 to) by (eapply (frr_heapgraph_generation_is_unmarked _ _ _ _ g _ g1); eauto).
     forward_call (rsh, sh, gv, fi, ti, g1, t_info1, f_info, roots1, outlier,
-                  from, to, generation_block_count (nth_gen g to)). 1: intuition.
+                  from, to, generation_block_count (heapgraph_generation g to)). 1: intuition.
     Intros vret. destruct vret as [g2 t_info2]. simpl fst in *. simpl snd in *.
     forward_if True; Intros; [contradiction | forward; entailer! |].
     replace (space_address t_info1 from) with (space_address t_info2 from) in * by
         (unfold space_address; rewrite (proj1 H37); reflexivity).
-    assert (space_base (nth_space t_info2 from) = gen_start g2 from). {
+    assert (space_base (nth_space t_info2 from) = heapgraph_generation_base g2 from). {
       destruct H34 as [? _]. destruct H35 as [_ [? _]].
       destruct (gt_gs_compatible _ _ H34 _ H35) as [? _]. rewrite <- H38.
-      unfold gen_start. rewrite if_true by assumption. reflexivity. }
+      unfold heapgraph_generation_base. rewrite if_true by assumption. reflexivity. }
     assert (isptr (space_base (nth_space t_info2 from))). {
-      rewrite H38. unfold gen_start. destruct H35 as [_ [? _]].
+      rewrite H38. unfold heapgraph_generation_base. destruct H35 as [_ [? _]].
       rewrite if_true by assumption. apply generation_base__isptr. } 
     freeze [0;1;2;3] FR. localize [space_struct_rep sh t_info2 from].
     unfold space_struct_rep, space_tri. forward.
@@ -174,7 +174,7 @@ Proof.
     rewrite H40. clear H40. Opaque Znth. forward. Transparent Znth. 1: entailer!.
     rewrite Znth_map by (rewrite heap_spaces__size; rep_lia).
     rewrite <- nth_space_Znth. unfold space_tri at 2 3. thaw FR.
-    assert (graph_has_gen g2 from) by (destruct H35 as [_ [? _]]; assumption).
+    assert (heapgraph_has_gen g2 from) by (destruct H35 as [_ [? _]]; assumption).
     rewrite (graph_rep_reset g2 from) by assumption. Intros.     
     sep_apply (heap_rest_rep_reset g2 t_info2 from (proj1 H34) H40).
     rewrite <- heap_struct_rep_eq.

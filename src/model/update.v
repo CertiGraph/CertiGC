@@ -79,7 +79,7 @@ Lemma upd_fun_thread_arg_compatible: forall g t_info f_info roots z,
     forall (v : Addr) (HB : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
       fun_thread_arg_compatible
         g (upd_thread_info_arg t_info (Znth z (live_roots_indices f_info))
-                               (vertex_address g v) HB) f_info
+                               (heapgraph_block_ptr g v) HB) f_info
         (upd_bunch z f_info roots (inr v)).
 Proof.
   intros. red in H |-* . unfold upd_thread_info_arg. simpl. rewrite Znth_list_eq in H.
@@ -169,15 +169,15 @@ Proof. intros. unfold nth_space. rewrite utia_ti_heap. apply cti_space_base. Qed
 Lemma forward_estc: forall
     g t_info v to index uv
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v))
     (Hm : 0 <= index < MAX_ARGS),
-    addr_gen v <> to -> graph_has_gen g to ->
-    graph_has_v g v -> block_mark (vlabel g v) = false ->
+    addr_gen v <> to -> heapgraph_has_gen g to ->
+    graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
     enough_space_to_copy g t_info (addr_gen v) to ->
     enough_space_to_copy
       (lgraph_copy_v g v to)
       (update_thread_info_arg
-         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh) index uv Hm)
+         (cut_thread_info t_info (Z.of_nat to) (heapgraph_block_size g v) Hi Hh) index uv Hm)
       (addr_gen v) to.
 Proof.
   intros. apply utia_estc. clear index uv Hm.
@@ -185,7 +185,7 @@ Proof.
 Qed.
 
 Lemma lcv_roots_graph_compatible: forall g roots v to f_info z,
-    graph_has_gen g to ->
+    heapgraph_has_gen g to ->
     roots_graph_compatible roots g ->
     roots_graph_compatible (upd_bunch z f_info roots (inr (new_copied_v g to)))
                            (lgraph_copy_v g v to).
@@ -197,7 +197,7 @@ Proof.
 Qed.
 
 Lemma lcv_roots_compatible: forall g roots outlier v to f_info z,
-    graph_has_gen g to ->
+    heapgraph_has_gen g to ->
     roots_compatible g outlier roots ->
     roots_compatible (lgraph_copy_v g v to) outlier
                      (upd_bunch z f_info roots (inr (new_copied_v g to))).
@@ -212,16 +212,16 @@ Lemma lcv_fun_thread_arg_compatible: forall
     (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
     (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s)
     (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
-    graph_has_gen g to -> roots_graph_compatible roots g ->
+    heapgraph_has_gen g to -> roots_graph_compatible roots g ->
     fun_thread_arg_compatible g t_info f_info roots ->
     fun_thread_arg_compatible
       (lgraph_copy_v g v to)
       (update_thread_info_arg
          (cut_thread_info t_info i s Hi Hh) (Znth z (live_roots_indices f_info))
-         (vertex_address g (new_copied_v g to)) Hm)
+         (heapgraph_block_ptr g (new_copied_v g to)) Hm)
       f_info (upd_bunch z f_info roots (inr (new_copied_v g to))).
 Proof.
-  intros. rewrite <- (lcv_vertex_address_new g v to H).
+  intros. rewrite <- (lcv_heapgraph_block_ptr_new g v to H).
   apply upd_fun_thread_arg_compatible with (HB := Hm).
     apply lcv_fun_thread_arg_compatible_unchanged; assumption.
 Qed.
@@ -229,16 +229,16 @@ Qed.
 Lemma lcv_super_compatible: forall
     g t_info roots f_info outlier to v z
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
-    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (vertex_size g v))
+    (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v))
     (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
-    graph_has_gen g to -> graph_has_v g v ->
+    heapgraph_has_gen g to -> graph_has_v g v ->
     super_compatible (g, t_info, roots) f_info outlier ->
     super_compatible
       (lgraph_copy_v g v to,
        update_thread_info_arg
-         (cut_thread_info t_info (Z.of_nat to) (vertex_size g v) Hi Hh)
+         (cut_thread_info t_info (Z.of_nat to) (heapgraph_block_size g v) Hi Hh)
          (Znth z (live_roots_indices f_info))
-         (vertex_address g (new_copied_v g to)) Hm,
+         (heapgraph_block_ptr g (new_copied_v g to)) Hm,
        upd_bunch z f_info roots (inr (new_copied_v g to))) f_info outlier.
 Proof.
   intros. destruct H1 as [? [? [? ?]]]. split; [|split; [|split]].

@@ -27,7 +27,7 @@ Definition reset_gen_info (gi: Generation) : Generation := {|
     generation_sh__writable := generation_sh__writable gi;
 |}.
 
-Fixpoint reset_nth_gen_info
+Fixpoint reset_heapgraph_generation_info
          (n: nat) (gi: list Generation) : list Generation :=
   match n with
   | O => match gi with
@@ -36,54 +36,54 @@ Fixpoint reset_nth_gen_info
          end
   | S m => match gi with
            | nil => nil
-           | g :: l => g :: reset_nth_gen_info m l
+           | g :: l => g :: reset_heapgraph_generation_info m l
            end
   end.
 
-  Lemma reset_nth_gen_info_length: forall n gl,
-  length (reset_nth_gen_info n gl) = length gl.
+  Lemma reset_heapgraph_generation_info_length: forall n gl,
+  length (reset_heapgraph_generation_info n gl) = length gl.
 Proof.
 intros. revert n. induction gl; simpl; intros; destruct n; simpl;
                     [| | | rewrite IHgl]; reflexivity.
 Qed.
 
-Lemma reset_nth_gen_info_not_nil: forall n g, reset_nth_gen_info n (generations g) <> nil.
+Lemma reset_heapgraph_generation_info_not_nil: forall n g, reset_heapgraph_generation_info n (generations g) <> nil.
 Proof.
 intros. pose proof (generations__not_nil g). destruct (generations g).
 - contradiction.
 - destruct n; simpl; discriminate.
 Qed.
 
-Lemma reset_nth_gen_info_diff: forall gl i j a,
-  i <> j -> nth i (reset_nth_gen_info j gl) a = nth i gl a.
+Lemma reset_heapgraph_generation_info_diff: forall gl i j a,
+  i <> j -> nth i (reset_heapgraph_generation_info j gl) a = nth i gl a.
 Proof.
 intros ? ? ?. revert gl i. induction j; intros; simpl; destruct gl; try reflexivity.
 - destruct i. 1: contradiction. simpl. reflexivity.
 - destruct i. 1: reflexivity. simpl. apply IHj. lia.
 Qed.
 
-Lemma reset_nth_gen_info_same: forall gl i,
-  nth i (reset_nth_gen_info i gl) null_generation = reset_gen_info (nth i gl null_generation).
+Lemma reset_heapgraph_generation_info_same: forall gl i,
+  nth i (reset_heapgraph_generation_info i gl) null_generation = reset_gen_info (nth i gl null_generation).
 Proof.
 intros. revert gl. induction i; intros; destruct gl; simpl in *; try reflexivity.
 apply IHi.
 Qed.
 
-Lemma reset_nth_gen_info_overflow: forall gl i,
-  (length gl <= i)%nat -> reset_nth_gen_info i gl = gl.
+Lemma reset_heapgraph_generation_info_overflow: forall gl i,
+  (length gl <= i)%nat -> reset_heapgraph_generation_info i gl = gl.
 Proof.
 intros ? ?. revert gl. induction i; intros; destruct gl; simpl in *; try reflexivity.
 1: lia. rewrite IHi; [reflexivity | lia].
 Qed.
 
 Definition reset_nth_graph_info (n: nat) (g: Generations) : Generations := {|
-    generations := reset_nth_gen_info n g.(generations);
-    generations__not_nil := reset_nth_gen_info_not_nil n g;
+    generations := reset_heapgraph_generation_info n g.(generations);
+    generations__not_nil := reset_heapgraph_generation_info_not_nil n g;
 |}.
 
 
 Lemma generation_base__reset: forall n l,
-   map generation_base (reset_nth_gen_info n l) = map generation_base l.
+   map generation_base (reset_heapgraph_generation_info n l) = map generation_base l.
 Proof.
   intros. revert n.
   induction l; intros; simpl; destruct n; simpl; [| | | rewrite IHl]; reflexivity.
@@ -91,8 +91,8 @@ Qed.
 
 
 Definition reset_nth_glabel (n: nat) (g: HeapGraph) : HeapGraph :=
-  Build_LabeledGraph _ _ _ (pg_lg g) (vlabel g) (elabel g)
-                     (reset_nth_graph_info n (glabel g)).
+  Build_LabeledGraph _ _ _ (pg_lg g) (heapgraph_block g) (elabel g)
+                     (reset_nth_graph_info n (heapgraph_generations g)).
 
 Definition pregraph_remove_vertex_and_edges
         (g: HeapGraph) (v: Addr): PreGraph Addr Field :=
@@ -100,37 +100,37 @@ fold_left pregraph_remove_edge (get_edges g v) (pregraph_remove_vertex g v).
 
 Definition lgraph_remove_vertex_and_edges (g: HeapGraph) (v: Addr): HeapGraph :=
   Build_LabeledGraph _ _ _ (pregraph_remove_vertex_and_edges g v)
-                     (vlabel g) (elabel g) (glabel g).
+                     (heapgraph_block g) (elabel g) (heapgraph_generations g).
 
-Definition remove_nth_gen_ve (g: HeapGraph) (gen: nat): HeapGraph :=
+Definition remove_heapgraph_generation_ve (g: HeapGraph) (gen: nat): HeapGraph :=
   let all_nv := map (fun idx => {| addr_gen := gen; addr_block := idx |})
-                    (nat_inc_list (generation_block_count (nth_gen g gen))) in
+                    (nat_inc_list (generation_block_count (heapgraph_generation g gen))) in
   fold_left lgraph_remove_vertex_and_edges all_nv g.
 
 Lemma remove_ve_glabel_unchanged: forall g gen,
-    glabel (remove_nth_gen_ve g gen) = glabel g.
+    heapgraph_generations (remove_heapgraph_generation_ve g gen) = heapgraph_generations g.
 Proof.
-  intros. unfold remove_nth_gen_ve.
+  intros. unfold remove_heapgraph_generation_ve.
   remember (map (fun idx : nat => {| addr_gen := gen; addr_block := idx |})
-                (nat_inc_list (generation_block_count (nth_gen g gen)))). clear Heql.
+                (nat_inc_list (generation_block_count (heapgraph_generation g gen)))). clear Heql.
   revert g. induction l; intros; simpl. 1: reflexivity. rewrite IHl. reflexivity.
 Qed.
 
 Lemma remove_ve_vlabel_unchanged: forall g gen v,
-    vlabel (remove_nth_gen_ve g gen) v = vlabel g v.
+    heapgraph_block (remove_heapgraph_generation_ve g gen) v = heapgraph_block g v.
 Proof.
-  intros. unfold remove_nth_gen_ve.
+  intros. unfold remove_heapgraph_generation_ve.
   remember (map (fun idx : nat => {| addr_gen := gen; addr_block := idx |})
-                (nat_inc_list (generation_block_count (nth_gen g gen)))). clear Heql.
+                (nat_inc_list (generation_block_count (heapgraph_generation g gen)))). clear Heql.
   revert g v. induction l; intros; simpl. 1: reflexivity. rewrite IHl. reflexivity.
 Qed.
 
 Lemma remove_ve_dst_unchanged: forall g gen e,
-    dst (remove_nth_gen_ve g gen) e = dst g e.
+    dst (remove_heapgraph_generation_ve g gen) e = dst g e.
 Proof.
-  intros. unfold remove_nth_gen_ve.
+  intros. unfold remove_heapgraph_generation_ve.
   remember (map (fun idx : nat => {| addr_gen := gen; addr_block := idx |})
-                (nat_inc_list (generation_block_count (nth_gen g gen)))). clear Heql.
+                (nat_inc_list (generation_block_count (heapgraph_generation g gen)))). clear Heql.
   revert g e. induction l; intros; simpl. 1: reflexivity. rewrite IHl.
   clear. simpl. unfold pregraph_remove_vertex_and_edges.
   transitivity (dst (pregraph_remove_vertex g a) e). 2: reflexivity.
@@ -140,27 +140,27 @@ Proof.
 Qed.
 
 Definition reset_graph (n: nat) (g: HeapGraph) : HeapGraph :=
-  reset_nth_glabel n (remove_nth_gen_ve g n).
+  reset_nth_glabel n (remove_heapgraph_generation_ve g n).
 
 Lemma graph_has_gen_reset: forall (g: HeapGraph) gen1 gen2,
-    graph_has_gen (reset_graph gen1 g) gen2 <-> graph_has_gen g gen2.
+    heapgraph_has_gen (reset_graph gen1 g) gen2 <-> heapgraph_has_gen g gen2.
 Proof.
-  intros. unfold graph_has_gen. simpl. rewrite reset_nth_gen_info_length.
+  intros. unfold heapgraph_has_gen. simpl. rewrite reset_heapgraph_generation_info_length.
   rewrite remove_ve_glabel_unchanged. reflexivity.
 Qed.
 
-Lemma reset_nth_gen_diff: forall g i j,
-    i <> j -> nth_gen (reset_graph j g) i = nth_gen g i.
+Lemma reset_heapgraph_generation_diff: forall g i j,
+    i <> j -> heapgraph_generation (reset_graph j g) i = heapgraph_generation g i.
 Proof.
-  intros. unfold nth_gen, reset_graph. simpl.
+  intros. unfold heapgraph_generation, reset_graph. simpl.
   rewrite remove_ve_glabel_unchanged.
-  apply reset_nth_gen_info_diff. assumption.
+  apply reset_heapgraph_generation_info_diff. assumption.
 Qed.
 
-Lemma vertex_address_reset: forall (g: HeapGraph) v n,
-    vertex_address (reset_graph n g) v = vertex_address g v.
+Lemma heapgraph_block_ptr_reset: forall (g: HeapGraph) v n,
+    heapgraph_block_ptr (reset_graph n g) v = heapgraph_block_ptr g v.
 Proof.
-  intros. apply vertex_address_the_same; unfold reset_graph; simpl.
+  intros. apply heapgraph_block_ptr__eq; unfold reset_graph; simpl.
   - intros. rewrite remove_ve_vlabel_unchanged. reflexivity.
   - rewrite remove_ve_glabel_unchanged, generation_base__reset. reflexivity.
 Qed.
@@ -174,10 +174,10 @@ Proof.
   - rewrite remove_ve_glabel_unchanged. apply generation_base__reset.
 Qed.
 
-Lemma make_header_reset: forall (g: HeapGraph) v n,
-    make_header (reset_graph n g) v = make_header g v.
+Lemma heapgraph_block_header__reset: forall (g: HeapGraph) v n,
+    heapgraph_block_header (reset_graph n g) v = heapgraph_block_header g v.
 Proof.
-  intros. unfold make_header. simpl vlabel. rewrite remove_ve_vlabel_unchanged.
+  intros. unfold heapgraph_block_header. simpl heapgraph_block. rewrite remove_ve_vlabel_unchanged.
   reflexivity.
 Qed.
 
@@ -298,32 +298,32 @@ Qed.
 
 
 Lemma reset_nth_sh_diff: forall g i j,
-    i <> j -> nth_sh (reset_graph j g) i = nth_sh g i.
-Proof. intros. unfold nth_sh. rewrite reset_nth_gen_diff; auto. Qed.
+    i <> j -> heapgraph_generation_sh (reset_graph j g) i = heapgraph_generation_sh g i.
+Proof. intros. unfold heapgraph_generation_sh. rewrite reset_heapgraph_generation_diff; auto. Qed.
 
 Lemma reset_nth_sh: forall g i j,
-    nth_sh (reset_graph j g) i = nth_sh g i.
+    heapgraph_generation_sh (reset_graph j g) i = heapgraph_generation_sh g i.
 Proof.
   intros. destruct (Nat.eq_dec i j).
-  - subst. unfold reset_graph, nth_sh, nth_gen. simpl.
-    rewrite reset_nth_gen_info_same, remove_ve_glabel_unchanged. reflexivity.
+  - subst. unfold reset_graph, heapgraph_generation_sh, heapgraph_generation. simpl.
+    rewrite reset_heapgraph_generation_info_same, remove_ve_glabel_unchanged. reflexivity.
   - apply reset_nth_sh_diff. assumption.
 Qed.
 
 Lemma pvs_reset_unchanged: forall g gen n l,
-    previous_vertices_size (reset_graph gen g) n l =
-    previous_vertices_size g n l.
+    heapgraph_block_size_prev (reset_graph gen g) n l =
+    heapgraph_block_size_prev g n l.
 Proof.
-  intros. unfold previous_vertices_size. apply fold_left_ext. intros.
-  unfold vertex_size_accum. f_equal. unfold vertex_size. simpl.
+  intros. unfold heapgraph_block_size_prev. apply fold_left_ext. intros.
+  unfold heapgraph_block_size_accum. f_equal. unfold heapgraph_block_size. simpl.
   rewrite remove_ve_vlabel_unchanged. reflexivity.
 Qed.
 
 Lemma reset_graph_gen_size_eq: forall g i j,
-    i <> j -> graph_gen_size (reset_graph i g) j = graph_gen_size g j.
+    i <> j -> heapgraph_generation_size (reset_graph i g) j = heapgraph_generation_size g j.
 Proof.
-  intros. unfold graph_gen_size.
-  rewrite pvs_reset_unchanged, reset_nth_gen_diff; auto.
+  intros. unfold heapgraph_generation_size.
+  rewrite pvs_reset_unchanged, reset_heapgraph_generation_diff; auto.
 Qed.
 
 
@@ -333,16 +333,16 @@ Lemma graph_thread_info_compatible_reset: forall g t_info gen,
                                  (reset_nth_heap_thread_info gen t_info).
 Proof.
   intros. destruct H as [? [? ?]].
-  split; [|split]; [|simpl; rewrite reset_nth_gen_info_length..].
+  split; [|split]; [|simpl; rewrite reset_heapgraph_generation_info_length..].
   - rewrite gsc_iff by
         (simpl; rewrite remove_ve_glabel_unchanged, reset_nth_space_length,
-                reset_nth_gen_info_length; assumption).
+                reset_heapgraph_generation_info_length; assumption).
     intros n ?. rewrite gsc_iff in H by assumption. rewrite graph_has_gen_reset in H2.
-    specialize (H _ H2). red in H. simpl. unfold nth_gen, nth_space in *. simpl.
+    specialize (H _ H2). red in H. simpl. unfold heapgraph_generation, nth_space in *. simpl.
     rewrite remove_ve_glabel_unchanged. destruct (Nat.eq_dec n gen).
-    + subst gen. red in H2. rewrite reset_nth_gen_info_same.
+    + subst gen. red in H2. rewrite reset_heapgraph_generation_info_same.
       rewrite reset_nth_space_same by lia. intuition.
-    + rewrite reset_nth_gen_info_diff, reset_nth_space_diff by assumption.
+    + rewrite reset_heapgraph_generation_info_diff, reset_nth_space_diff by assumption.
       destruct H as [? [? ?]]. split. 1: assumption. split. 1: assumption.
       rewrite pvs_reset_unchanged. assumption.
   - rewrite remove_ve_glabel_unchanged.
@@ -367,17 +367,17 @@ Proof.
   destruct H. rewrite !Zlength_map in *. split. 1: assumption. intros.
   specialize (H0 _ H1). rewrite Znth_map in * by assumption. simpl. rewrite <- H0.
   destruct (Znth j r) eqn: ?; simpl. 1: reflexivity.
-  apply vertex_address_reset.
+  apply heapgraph_block_ptr_reset.
 Qed.
 
-Lemma gen_has_index_reset: forall (g: HeapGraph) gen1 gen2 idx,
-    gen_has_index (reset_graph gen1 g) gen2 idx <->
-    gen_has_index g gen2 idx /\ gen1 <> gen2.
+Lemma heapgraph_generation_has_index_reset: forall (g: HeapGraph) gen1 gen2 idx,
+    heapgraph_generation_has_index (reset_graph gen1 g) gen2 idx <->
+    heapgraph_generation_has_index g gen2 idx /\ gen1 <> gen2.
 Proof.
-  intros. unfold gen_has_index. unfold nth_gen. simpl.
+  intros. unfold heapgraph_generation_has_index. unfold heapgraph_generation. simpl.
   rewrite remove_ve_glabel_unchanged. destruct (Nat.eq_dec gen1 gen2).
-  - subst. rewrite reset_nth_gen_info_same. simpl. intuition.
-  - rewrite reset_nth_gen_info_diff by auto. intuition.
+  - subst. rewrite reset_heapgraph_generation_info_same. simpl. intuition.
+  - rewrite reset_heapgraph_generation_info_diff by auto. intuition.
 Qed.
 
 Lemma graph_has_v_reset: forall (g: HeapGraph) gen v,
@@ -385,8 +385,8 @@ Lemma graph_has_v_reset: forall (g: HeapGraph) gen v,
     graph_has_v g v /\ gen <> addr_gen v.
 Proof.
   intros. split; intros; destruct v; unfold graph_has_v in *; simpl in *.
-  - rewrite graph_has_gen_reset, gen_has_index_reset in H. intuition.
-  - rewrite graph_has_gen_reset, gen_has_index_reset. intuition.
+  - rewrite graph_has_gen_reset, heapgraph_generation_has_index_reset in H. intuition.
+  - rewrite graph_has_gen_reset, heapgraph_generation_has_index_reset. intuition.
 Qed.
 
 Lemma rgc_reset: forall g gen roots,
@@ -397,7 +397,7 @@ Proof.
   intros. red in H |-*. rewrite Forall_forall in *. intros.
   specialize (H _ H1). destruct H. split.
   - rewrite graph_has_gen_reset. assumption.
-  - rewrite gen_has_index_reset. split. 1: assumption.
+  - rewrite heapgraph_generation_has_index_reset. split. 1: assumption.
     rewrite <- filter_sum_right_In_iff in H1. apply H0 in H1. auto.
 Qed.
 
@@ -444,18 +444,18 @@ Proof.
 Qed.
 
 
-Lemma gen_unmarked_reset_same: forall g gen,
-    gen_unmarked (reset_graph gen g) gen.
+Lemma heapgraph_generation_is_unmarked_reset_same: forall g gen,
+    heapgraph_generation_is_unmarked (reset_graph gen g) gen.
 Proof.
   intros. red. intros. rewrite graph_has_gen_reset in H.
-  rewrite gen_has_index_reset in H0. destruct H0. contradiction.
+  rewrite heapgraph_generation_has_index_reset in H0. destruct H0. contradiction.
 Qed.
 
-Lemma gen_unmarked_reset_diff: forall g gen1 gen2,
-    gen_unmarked g gen2 -> gen_unmarked (reset_graph gen1 g) gen2.
+Lemma heapgraph_generation_is_unmarked_reset_diff: forall g gen1 gen2,
+    heapgraph_generation_is_unmarked g gen2 -> heapgraph_generation_is_unmarked (reset_graph gen1 g) gen2.
 Proof.
-  intros. unfold gen_unmarked in *. intros. rewrite graph_has_gen_reset in H0.
-  rewrite gen_has_index_reset in H1. destruct H1. specialize (H H0 _ H1). simpl.
+  intros. unfold heapgraph_generation_is_unmarked in *. intros. rewrite graph_has_gen_reset in H0.
+  rewrite heapgraph_generation_has_index_reset in H1. destruct H1. specialize (H H0 _ H1). simpl.
   rewrite remove_ve_vlabel_unchanged. assumption.
 Qed.
 
@@ -497,8 +497,8 @@ Lemma firstn_gen_clear_reset: forall g i,
 Proof.
   intros. unfold firstn_gen_clear, graph_gen_clear in *. intros.
   assert (i0 < i \/ i0 = i)%nat by lia. destruct H1.
-  - rewrite reset_nth_gen_diff by lia. apply H; assumption.
-  - subst i0. unfold nth_gen. simpl. rewrite reset_nth_gen_info_same.
+  - rewrite reset_heapgraph_generation_diff by lia. apply H; assumption.
+  - subst i0. unfold heapgraph_generation. simpl. rewrite reset_heapgraph_generation_info_same.
     simpl. reflexivity.
 Qed.
 

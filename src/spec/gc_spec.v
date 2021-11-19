@@ -178,11 +178,11 @@ Definition forward_p_address
                         thread_info_type
                         [ArraySubsc (Znth root_index (live_roots_indices f_info));
                            StructField _args] ti
-  | inr (v, n) => offset_val (WORD_SIZE * n) (vertex_address g v)
+  | inr (v, n) => offset_val (WORD_SIZE * n) (heapgraph_block_ptr g v)
   end.
 
 Definition limit_address g t_info from :=
-  offset_val (WORD_SIZE * gen_size t_info from) (gen_start g from).
+  offset_val (WORD_SIZE * gen_size t_info from) (heapgraph_generation_base g from).
 
 Definition next_address t_info to :=
   field_address heap_type
@@ -206,7 +206,7 @@ Definition forward_spec :=
           forward_condition g t_info from to;
           0 <= depth <= Int.max_signed;
           from <> to)
-    PARAMS (gen_start g from;
+    PARAMS (heapgraph_generation_base g from;
            limit_address g t_info from;
            next_address t_info to;
            forward_p_address forward_p ti f_info g;
@@ -246,7 +246,7 @@ Definition forward_roots_spec :=
           super_compatible (g, t_info, roots) f_info outlier;
           forward_condition g t_info from to;
           from <> to)
-    PARAMS (gen_start g from;
+    PARAMS (heapgraph_generation_base g from;
            limit_address g t_info from;
            next_address t_info to;
            fi; ti)
@@ -283,10 +283,10 @@ Definition do_scan_spec :=
           super_compatible (g, t_info, roots) f_info outlier;
           forward_condition g t_info from to;
           from <> to; closure_has_index g to to_index;
-          0 < gen_size t_info to; gen_unmarked g to)
-    PARAMS (gen_start g from;
+          0 < gen_size t_info to; heapgraph_generation_is_unmarked g to)
+    PARAMS (heapgraph_generation_base g from;
            limit_address g t_info from;
-           offset_val (- WORD_SIZE) (vertex_address g {| addr_gen := to ; addr_block := to_index |});
+           offset_val (- WORD_SIZE) (heapgraph_block_ptr g {| addr_gen := to ; addr_block := to_index |});
            next_address t_info to)
     GLOBALS ()
     SEP (all_string_constants rsh gv;

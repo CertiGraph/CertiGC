@@ -29,7 +29,7 @@ Proof.
      LOCAL (temp _args (offset_val (if Archi.ptr64 then 24 else 12) ti);
             temp _n (Z2val n);
             temp _roots (offset_val (if Archi.ptr64 then 16 else 8) fi);
-            temp _from_start (gen_start g' from);
+            temp _from_start (heapgraph_generation_base g' from);
             temp _from_limit (limit_address g' t_info' from);
             temp _next (next_address t_info' to))
      SEP (all_string_constants rsh gv;
@@ -85,7 +85,7 @@ Proof.
       * Intros vret. destruct vret as [[g2 t_info2] roots2]. simpl fst in *.
         simpl snd in *. simpl forward_p2forward_t in H16. Exists g2 t_info2 roots2.
         assert (thread_info_relation t_info t_info2) by (eapply tir_trans; eauto).
-        assert (gen_start g' from = gen_start g2 from). {
+        assert (heapgraph_generation_base g' from = heapgraph_generation_base g2 from). {
           eapply fr_gen_start; eauto. destruct H11 as [_ [_ [? _]]].
           assumption. }
         assert (limit_address g2 t_info2 from = limit_address g' t_info' from) by

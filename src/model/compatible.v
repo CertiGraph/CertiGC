@@ -39,7 +39,7 @@ Proof.
   intros.
   apply H0 in H; apply H; clear H; clear H0.
   unfold make_fields in H2.
-  apply make_fields'_item_was_in_list in H2; try assumption.
+  apply fields_to_cells_item_was_in_list in H2; try assumption.
   rewrite <- filter_sum_right_In_iff, <- filter_option_In_iff.
   rewrite <- H2; apply Znth_In; assumption.
 Qed.

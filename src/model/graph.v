@@ -597,119 +597,132 @@ Proof.
 Qed.
 
 
-Definition field_t: Type := Z + GC_Pointer + Field.
+Definition Cell:
+    Type
+ := Z + GC_Pointer + Field
+.
 
-Instance field_t_inhabitant: Inhabitant field_t := inl (inl Z.zero).
+Instance Cell_inhabitant: Inhabitant Cell := inl (inl Z.zero).
 
-Definition GC_Pointer2val (x: GC_Pointer) : val :=
-  match x with | GCPtr b z => Vptr b z end.
+Definition GC_Pointer2val (x: GC_Pointer):
+    val
+ := match x with | GCPtr b z => Vptr b z end
+.
 
-Definition field2val (g: HeapGraph) (fd: field_t) : val :=
-  match fd with
-  | inl (inl z) => odd_Z2val z
-  | inl (inr p) => GC_Pointer2val p
-  | inr e => heapgraph_block_ptr g (dst g e)
-  end.
+Definition heapgraph_cell_val (g: HeapGraph) (fd: Cell):
+    val
+ := match fd with
+    | inl (inl z) => odd_Z2val z
+    | inl (inr p) => GC_Pointer2val p
+    | inr e => heapgraph_block_ptr g (dst g e)
+    end
+.
 
 
-Fixpoint make_fields' (l_raw: list FieldValue) (v: Addr) (n: nat): list field_t :=
-  match l_raw with
-  | nil => nil
-  | Some (inl z) :: l => inl (inl z) :: make_fields' l v (n + 1)
-  | Some (inr ptr) :: l => inl (inr ptr) :: make_fields' l v (n + 1)
-  | None :: l => inr {| field_addr := v; field_index := n |} :: make_fields' l v (n + 1)
-  end.
+Fixpoint fields_to_cells (l_raw: list FieldValue) (v: Addr) (n: nat):
+    list Cell
+ := match l_raw with
+    | nil => nil
+    | Some (inl z) :: l => inl (inl z) :: fields_to_cells l v (n + 1)
+    | Some (inr ptr) :: l => inl (inr ptr) :: fields_to_cells l v (n + 1)
+    | None :: l => inr {| field_addr := v; field_index := n |} :: fields_to_cells l v (n + 1)
+    end
+.
 
-Lemma e_in_make_fields': forall l v n e,
-    In (inr e) (make_fields' l v n) -> exists s, e = {| field_addr := v; field_index := s |}.
+Lemma fields_to_cells__in (l: list FieldValue) (v: Addr) (n: nat) (e: Field)
+    (He: In (inr e) (fields_to_cells l v n)):
+    exists s, e = {| field_addr := v; field_index := s |}.
 Proof.
-  induction l; intros; simpl in *. 1: exfalso; assumption. destruct a; [destruct s|].
-  - simpl in H. destruct H. 1: inversion H. apply IHl with (n + 1)%nat. assumption.
-  - simpl in H. destruct H. 1: inversion H. apply IHl with (n + 1)%nat. assumption.
-  - simpl in H. destruct H.
-    + inversion H. exists n. reflexivity.
-    + apply IHl with (n + 1)%nat. assumption.
+    revert v n e He ; induction l as [|f l IHl] ; intros v n e He ; simpl in * ; try easy.
+    destruct f as [f|].
+    + destruct f as [f|f].
+      all: destruct He as [He|He] ; now try apply IHl with (n + 1)%nat.
+    + destruct He as [He|He].
+      - exists n. congruence.
+      - now apply IHl with (n + 1)%nat.
 Qed.
 
-Lemma make_fields'_eq_length: forall l v n, length (make_fields' l v n) = length l.
+Lemma fields_to_cells__length (l: list FieldValue) (v: Addr) (n: nat):
+    length (fields_to_cells l v n) = length l.
 Proof.
-  intros. revert n. induction l; intros; simpl. 1: reflexivity.
-  destruct a; [destruct s|]; simpl; rewrite IHl; reflexivity.
+    revert n ; induction l as [|f l IHl] ; intro n ; simpl ; try easy.
+    destruct f as [f|] ; try destruct f as [f|f] ; simpl.
+    all: now rewrite IHl.
 Qed.
 
-Lemma make_fields'_eq_Zlength: forall l v n, Zlength (make_fields' l v n) = Zlength l.
+Lemma fields_to_cells__Zlength (l: list FieldValue) (v: Addr) (n: nat):
+    Zlength (fields_to_cells l v n) = Zlength l.
 Proof.
-  intros. rewrite !Zlength_correct. rewrite make_fields'_eq_length. reflexivity.
+    now rewrite !Zlength_correct, fields_to_cells__length.
 Qed.
 
-Lemma make_fields'_edge_depends_on_index:
-  forall n l_raw i v e,
-    0 <= Z.of_nat n < Zlength l_raw ->
-    nth n (make_fields' l_raw v i) field_t_inhabitant = inr e ->
+Lemma fields_to_cells__nth (n: nat) (l_raw: list FieldValue) (i: nat) (v: Addr) (e: Field)
+    (Hn: 0 <= Z.of_nat n < Zlength l_raw)
+    (He: nth n (fields_to_cells l_raw v i) Cell_inhabitant = inr e):
     e = {| field_addr := v; field_index := n+i |}.
 Proof.
-  induction n as [|n' IHn'].
-  - intros. destruct l_raw as [| r l_raw]; try inversion H0.
-    destruct r; [destruct s|]; simpl in H0; inversion H0;
-      reflexivity.
-  - intro. destruct l_raw as [| r l_raw]; try inversion 2.
+  revert l_raw i v e Hn He ; induction n as [|n' IHn'] ; intros l_raw i v e Hn He.
+  - destruct l_raw as [| r l_raw]; try inversion He.
+    destruct r; [destruct s|]; simpl in He; now inversion He.
+  - destruct l_raw as [| r l_raw]; try inversion He.
     replace (S n' + i)%nat with (n' + S i)%nat by lia.
     specialize (IHn' l_raw (S i) v e).
-    assert (0 <= Z.of_nat n' < Zlength l_raw) by
-          (rewrite Zlength_cons, Nat2Z.inj_succ in H; lia).
-      assert (nth n' (make_fields' l_raw v (S i)) field_t_inhabitant = inr e) by
-        (destruct r; [destruct s|]; simpl in H2;
-        replace (i + 1)%nat with (S i) in H2 by lia; assumption).
-      destruct r; [destruct s|]; simpl; apply IHn'; assumption.
+    assert (0 <= Z.of_nat n' < Zlength l_raw) as Hn'.
+    {
+      rewrite Zlength_cons, Nat2Z.inj_succ in Hn.
+      lia.
+    }
+    assert (nth n' (fields_to_cells l_raw v (S i)) Cell_inhabitant = inr e) as He'.
+    {
+        destruct r ; [destruct s|] ; simpl in He ; now replace (i + 1)%nat with (S i) in He by lia.
+    }
+    destruct r ; [destruct s|] ; simpl ; now apply IHn'.
 Qed.
 
-Lemma make_fields'_n_doesnt_matter: forall i l v n m gcptr,
-    nth i (make_fields' l v n) field_t_inhabitant = inl (inr gcptr) ->
-    nth i (make_fields' l v m) field_t_inhabitant = inl (inr gcptr).
+Lemma fields_to_cells__n_doesnt_matter (i: nat) (l: list FieldValue) (v: Addr) (n m: nat) (gcptr: GC_Pointer)
+    (Hn: nth i (fields_to_cells l v n) Cell_inhabitant = inl (inr gcptr)):
+    nth i (fields_to_cells l v m) Cell_inhabitant = inl (inr gcptr).
 Proof.
-  intros.
-  unfold make_fields' in *.
-  generalize dependent i.
-  generalize dependent n.
-  generalize dependent m.
-  induction l.
-  + intros; assumption.
-  + induction i.
-    - destruct a; [destruct s|]; simpl; intros; try assumption; try inversion H.
-    - destruct a; [destruct s|]; simpl; intro;
-        apply IHl with (m:=(m+1)%nat) in H; assumption.
+    intros.
+    unfold fields_to_cells in *.
+    generalize dependent i.
+    generalize dependent n.
+    generalize dependent m.
+    induction l.
+    + intros; assumption.
+    + induction i.
+      - destruct a; [destruct s|]; simpl; intros; now try inversion Hn.
+      - destruct a; [destruct s|]; simpl; intro; now apply IHl with (m:=(m+1)%nat) in Hn.
 Qed.
 
-Lemma make_fields'_item_was_in_list: forall l v n gcptr,
-    0 <= n < Zlength l ->
-    Znth n (make_fields' l v 0) = inl (inr gcptr) ->
+Lemma fields_to_cells_item_was_in_list (l: list FieldValue) (v: Addr) (n: Z) (gcptr: GC_Pointer)
+    (Hn: 0 <= n < Zlength l)
+    (Hgcptr: Znth n (fields_to_cells l v 0) = inl (inr gcptr)):
     Znth n l = Some (inr gcptr).
 Proof.
-  intros.
-  rewrite <- nth_Znth; rewrite <- nth_Znth in H0; [| rewrite Zlength_correct in *..];
-    try rewrite make_fields'_eq_length; [|assumption..].
-  generalize dependent n.
-  induction l.
-  - intros. rewrite nth_Znth in H0; try assumption.
-    unfold make_fields' in H0; rewrite Znth_nil in H0; inversion H0.
-  - intro n. induction (Z.to_nat n) eqn:?.
-    + intros. destruct a; [destruct s|]; simpl in *; try inversion H0; try reflexivity.
-    + intros. simpl in *. clear IHn0.
-      replace n0 with (Z.to_nat (Z.of_nat n0)) by apply Nat2Z.id.
-      assert (0 <= Z.of_nat n0 < Zlength l). {
-        split; try lia.
-        destruct H; rewrite Zlength_cons in H1.
-        apply Zsucc_lt_reg; rewrite <- Nat2Z.inj_succ.
-        rewrite <- Heqn0; rewrite Z2Nat.id; assumption.
-      }
-      destruct a; [destruct s|]; simpl in H0; apply IHl;
-        try assumption; apply make_fields'_n_doesnt_matter with (n:=1%nat);
-        rewrite Nat2Z.id; assumption.
+    rewrite <- nth_Znth; rewrite <- nth_Znth in Hgcptr; [| rewrite Zlength_correct in *..]; try rewrite fields_to_cells__length; [|assumption..].
+    generalize dependent n.
+    induction l.
+    - intros. rewrite nth_Znth in Hgcptr; try assumption.
+      unfold fields_to_cells in Hgcptr; rewrite Znth_nil in Hgcptr; inversion Hgcptr.
+    - intro n. induction (Z.to_nat n) eqn:?.
+      + intros. destruct a; [destruct s|]; simpl in *; try inversion Hgcptr; try reflexivity.
+      + intros. simpl in *. clear IHn0.
+        replace n0 with (Z.to_nat (Z.of_nat n0)) by apply Nat2Z.id.
+        assert (0 <= Z.of_nat n0 < Zlength l) as Hn0.
+        {
+          split; try lia.
+          apply Zsucc_lt_reg.
+          rewrite Zlength_cons in Hn.
+          rewrite <- Nat2Z.inj_succ, <- Heqn0, Z2Nat.id ; lia.
+        }
+        destruct a ; [destruct s|] ; simpl in Hgcptr ; apply IHl ; try easy.
+        all: apply fields_to_cells__n_doesnt_matter with (n:=1%nat) ; now rewrite Nat2Z.id.
 Qed.
 
 
-Definition make_fields (g: HeapGraph) (v: Addr): list field_t :=
-  make_fields' (heapgraph_block g v).(block_fields) v O.
+Definition make_fields (g: HeapGraph) (v: Addr): list Cell :=
+  fields_to_cells (heapgraph_block g v).(block_fields) v O.
 
 Definition get_edges (g: HeapGraph) (v: Addr): list Field :=
   filter_sum_right (make_fields g v).
@@ -871,7 +884,7 @@ Lemma make_fields_eq_length: forall g v,
     Zlength (make_fields g v) = Zlength (block_fields (heapgraph_block g v)).
 Proof.
   unfold make_fields. intros.
-  rewrite !Zlength_correct, make_fields'_eq_length. reflexivity.
+  rewrite !Zlength_correct, fields_to_cells__length. reflexivity.
 Qed.
 
 Lemma make_fields_Znth_edge: forall g v n e,
@@ -879,7 +892,7 @@ Lemma make_fields_Znth_edge: forall g v n e,
     Znth n (make_fields g v) = inr e -> e = {| field_addr := v; field_index := Z.to_nat n |}.
 Proof.
   intros. rewrite <- nth_Znth in H0. 2: rewrite make_fields_eq_length; assumption.
-  apply make_fields'_edge_depends_on_index in H0.
+  apply fields_to_cells__nth in H0.
   - now rewrite Nat.add_0_r in H0.
   - now rewrite Z2Nat.id.
 Qed.
@@ -892,18 +905,18 @@ Lemma make_fields_edge_unique: forall g e v1 v2 n m,
     n = m /\ v1 = v2.
 Proof.
   intros. unfold make_fields in *.
-  rewrite make_fields'_eq_Zlength in *.
+  rewrite fields_to_cells__Zlength in *.
   assert (0 <= Z.of_nat (Z.to_nat n) < Zlength (block_fields (heapgraph_block g v1))) by
       (destruct H; split; rewrite Z2Nat.id; assumption).
   rewrite <- nth_Znth in H1 by
-      (rewrite make_fields'_eq_Zlength; assumption).
+      (rewrite fields_to_cells__Zlength; assumption).
   assert (0 <= Z.of_nat (Z.to_nat m) < Zlength (block_fields (heapgraph_block g v2))) by
        (destruct H0; split; rewrite Z2Nat.id; assumption).
   rewrite <- nth_Znth in H2 by
-      (rewrite make_fields'_eq_Zlength; assumption).
-  pose proof (make_fields'_edge_depends_on_index
+      (rewrite fields_to_cells__Zlength; assumption).
+  pose proof (fields_to_cells__nth
                 (Z.to_nat n) (block_fields (heapgraph_block g v1)) 0 v1 e H3 H1).
-  pose proof (make_fields'_edge_depends_on_index
+  pose proof (fields_to_cells__nth
                 (Z.to_nat m) (block_fields (heapgraph_block g v2)) 0 v2 e H4 H2).
   rewrite H5 in H6. inversion H6.
   rewrite Nat.add_cancel_r, Z2Nat.inj_iff in H9 by lia.
@@ -913,7 +926,7 @@ Qed.
 
 Definition make_fields_vals (g: HeapGraph) (v: Addr): list val :=
   let vb := heapgraph_block g v in
-  let original_fields_val := map (field2val g) (make_fields g v) in
+  let original_fields_val := map (heapgraph_cell_val g) (make_fields g v) in
   if vb.(block_mark)
   then heapgraph_block_ptr g vb.(block_copied_vertex) :: tl original_fields_val
   else original_fields_val.
@@ -925,13 +938,13 @@ Proof.
   destruct (block_mark (heapgraph_block g v)).
   - destruct (block_fields_head__cons (heapgraph_block g v)) as [r [l [? ?]]].
     rewrite H; simpl; destruct r; [destruct s|]; simpl;
-      rewrite map_length, make_fields'_eq_length; reflexivity.
-  - rewrite map_length, make_fields'_eq_length. reflexivity.
+      rewrite map_length, fields_to_cells__length; reflexivity.
+  - rewrite map_length, fields_to_cells__length. reflexivity.
 Qed.
 
 Lemma mfv_unmarked_all_is_ptr_or_int: forall (g : HeapGraph) (v : Addr),
     no_dangling_dst g -> graph_has_v g v ->
-    Forall is_pointer_or_integer (map (field2val g) (make_fields g v)).
+    Forall is_pointer_or_integer (map (heapgraph_cell_val g) (make_fields g v)).
 Proof.
   intros. rewrite Forall_forall. intros f ?. apply list_in_map_inv in H1.
   destruct H1 as [x [? ?]]. destruct x as [[? | ?] | ?]; simpl in H1; subst.
@@ -1004,10 +1017,10 @@ Lemma make_fields_the_same: forall (g1 g2: HeapGraph) v,
 Proof.
   intros. unfold make_fields_vals, make_fields. remember O. clear Heqn. rewrite H0.
   remember (block_fields (heapgraph_block g2 v)) as l. clear Heql.
-  cut (forall fl, map (field2val g1) fl = map (field2val g2) fl).
+  cut (forall fl, map (heapgraph_cell_val g1) fl = map (heapgraph_cell_val g2) fl).
   - intros. rewrite H2. rewrite (heapgraph_block_ptr__eq g1 g2) by assumption.
     reflexivity.
-  - apply map_ext. intros. unfold field2val. destruct a. 1: reflexivity.
+  - apply map_ext. intros. unfold heapgraph_cell_val. destruct a. 1: reflexivity.
     rewrite H. apply heapgraph_block_ptr__eq; assumption.
 Qed.
 
@@ -1053,8 +1066,8 @@ Lemma ang_make_fields_vals_old: forall g gi v,
     make_fields_vals g v = make_fields_vals (heapgraph_generations_append g gi) v.
 Proof.
   intros. unfold make_fields_vals. simpl.
-  assert (map (field2val g) (make_fields g v) =
-          map (field2val (heapgraph_generations_append g gi))
+  assert (map (heapgraph_cell_val g) (make_fields g v) =
+          map (heapgraph_cell_val (heapgraph_generations_append g gi))
               (make_fields (heapgraph_generations_append g gi) v)). {
     unfold make_fields. simpl. apply map_ext_in. intros.
     destruct a; [destruct s|]; simpl; auto. rewrite ang_heapgraph_block_ptr_old; auto.
@@ -1172,9 +1185,9 @@ Qed.
 
 Lemma lgd_f2v_eq_except_one: forall g fd e v',
     fd <> (inr e) ->
-    field2val g fd = field2val (labeledgraph_gen_dst g e v') fd.
+    heapgraph_cell_val g fd = heapgraph_cell_val (labeledgraph_gen_dst g e v') fd.
 Proof.
-  intros; unfold field2val; simpl.
+  intros; unfold heapgraph_cell_val; simpl.
   destruct fd; [destruct s|]; try reflexivity.
   unfold updateEdgeFunc; if_tac; [exfalso; apply H; rewrite H0|]; reflexivity.
 Qed.
@@ -1183,8 +1196,8 @@ Lemma lgd_map_f2v_diff_vert_eq: forall g v v' v1 e n,
     0 <= n < Zlength (make_fields g v) ->
     Znth n (make_fields g v) = inr e ->
     v1 <> v ->
-    map (field2val g) (make_fields g v1) =
-    map (field2val (labeledgraph_gen_dst g e v'))
+    map (heapgraph_cell_val g) (make_fields g v1) =
+    map (heapgraph_cell_val (labeledgraph_gen_dst g e v'))
         (make_fields (labeledgraph_gen_dst g e v') v1).
 Proof.
     intros.
@@ -1204,10 +1217,10 @@ Lemma lgd_f2v_eq_after_update: forall g v v' e n j,
   0 <= n < Zlength (make_fields g v) ->
   0 <= j < Zlength (make_fields g v) ->
   Znth n (make_fields g v) = inr e ->
-  Znth j (upd_Znth n (map (field2val g)
+  Znth j (upd_Znth n (map (heapgraph_cell_val g)
                           (make_fields g v)) (heapgraph_block_ptr g v')) =
   Znth j
-    (map (field2val (labeledgraph_gen_dst g e v'))
+    (map (heapgraph_cell_val (labeledgraph_gen_dst g e v'))
          (make_fields (labeledgraph_gen_dst g e v') v)).
 Proof.
   intros.
@@ -1218,7 +1231,7 @@ Proof.
     2: rewrite Zlength_map; assumption.
     replace (make_fields (labeledgraph_gen_dst g e v') v)
       with (make_fields g v) by reflexivity.
-    rewrite H1; simpl field2val.
+    rewrite H1; simpl heapgraph_cell_val.
     unfold updateEdgeFunc; if_tac; try reflexivity.
     unfold complement in H2; assert (e = e) by reflexivity.
     apply H2 in H3; exfalso; assumption.

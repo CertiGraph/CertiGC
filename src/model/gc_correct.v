@@ -221,9 +221,9 @@ Proof.
   rewrite NoDup_cons_iff. split; trivial. intro.
   apply list_in_map_inv in H. destruct H as [x [? ?]].
   rewrite <- filter_sum_right_In_iff in H0.
-  apply In_nth with (d := field_t_inhabitant) in H0. destruct H0 as [p [? ?]].
-  apply make_fields'_edge_depends_on_index in H1; [subst x; simpl in H; lia|].
-  rewrite make_fields'_eq_length in H0. rewrite Zlength_correct. split; [lia|].
+  apply In_nth with (d := Cell_inhabitant) in H0. destruct H0 as [p [? ?]].
+  apply fields_to_cells__nth in H1; [subst x; simpl in H; lia|].
+  rewrite fields_to_cells__length in H0. rewrite Zlength_correct. split; [lia|].
   apply Nat2Z.inj_lt; assumption.
 Qed.
 
@@ -1749,12 +1749,12 @@ Proof.
                                     ((dst g1 e, new_copied_v g1 to) :: l1)). {
         apply lcv_semi_iso; auto. red in Hd. destruct H0. red in H0. rewrite H0.
         apply (Hd v); auto. unfold get_edges. rewrite <- filter_sum_right_In_iff.
-        rewrite <- Heqf. apply Znth_In. now rewrite make_fields_eq_length. } split.
+        rewrite <- Heqc. apply Znth_In. now rewrite make_fields_eq_length. } split.
       * cut (gc_graph_semi_iso g (lgraph_copy_v g1 (dst g1 e) to)
                                (addr_gen (dst g1 e)) to
                                ((dst g1 e, new_copied_v g1 to) :: l1)). 2: assumption.
         intros. assert (Hfn: field_addr e <> new_copied_v g1 to). {
-          apply make_fields_Znth_edge in Heqf; auto. subst e. simpl.
+          apply make_fields_Znth_edge in Heqc; auto. subst e. simpl.
           destruct v as [gen idx]. red in H4. simpl in H4. destruct H4. red in H13.
           intro. unfold new_copied_v in H15. inversion H15. subst gen idx.
           lia. } eapply (lgd_semi_iso _ _ _ _ _ v n e) in H12; eauto.
@@ -1769,7 +1769,7 @@ Proof.
            ++ rewrite <- lcv_block_mark; auto. intro. now subst v.
         -- simpl. rewrite pcv_dst_old; auto.
         -- unfold lgraph_copy_v. rewrite lmc_make_fields, lacv_make_fields_not_eq.
-              1: easy. apply make_fields_Znth_edge in Heqf; auto. now subst e.
+              1: easy. apply make_fields_Znth_edge in Heqc; auto. now subst e.
         -- simpl dst. rewrite pcv_dst_old; auto. apply lcv_block_mark_old.
       * apply semi_iso_DoubleNoDup in Hm; auto. rewrite roots_map_map_cons; auto.
         rewrite (surjective _ _ H8), roots_map_the_same; auto. intros. red in Hr.
@@ -2255,22 +2255,22 @@ Proof.
     destruct (Znth n (make_fields g1 v)) eqn:? ; [destruct s|]; simpl in H4;
       inversion H4; subst; try easy.
     + rename f into e. subst new_g.
-      assert (field_addr e = v) by (apply make_fields_Znth_edge in Heqf; auto; now subst e).
+      assert (field_addr e = v) by (apply make_fields_Znth_edge in Heqc; auto; now subst e).
       assert (evalid g1 e). {
         destruct H1 as [? [? ?]]. red in H1, H10, H11. rewrite H10. split; rewrite H9.
-        1: easy. unfold get_edges. rewrite <- filter_sum_right_In_iff, <- Heqf.
+        1: easy. unfold get_edges. rewrite <- filter_sum_right_In_iff, <- Heqc.
         apply Znth_In. now rewrite make_fields_eq_length. }
       apply lgd_block_copied_vertex_prop; auto. rewrite H9; auto.
     + rename f into e. subst new_g. eapply lcv_block_copied_vertex_prop in H5; eauto.
       remember (lgraph_copy_v g1 (dst g1 e) to) as g3.
-      assert (field_addr e = v) by (apply make_fields_Znth_edge in Heqf; auto; now subst e).
+      assert (field_addr e = v) by (apply make_fields_Znth_edge in Heqc; auto; now subst e).
       assert (dst g1 e = dst g3 e). {
         subst g3. simpl. rewrite pcv_dst_old; auto. rewrite H9.
         now apply graph_has_v_not_eq with (to := to) in H3. }
       assert (new_copied_v g1 to = block_copied_vertex (heapgraph_block g3 (dst g3 e))). {
         rewrite <- H10. subst g3. simpl. rewrite ucov_block_copied_vertex. easy. }
       assert (graph_has_e g1 e). { split; rewrite H9.
-        1: easy. unfold get_edges. rewrite <- filter_sum_right_In_iff, <- Heqf.
+        1: easy. unfold get_edges. rewrite <- filter_sum_right_In_iff, <- Heqc.
         apply Znth_In. now rewrite make_fields_eq_length. }
       assert (evalid g1 e). {
         destruct H1 as [? [? ?]]. red in H1, H14, H15. now rewrite H14. }
@@ -2603,7 +2603,7 @@ Proof.
         -- rewrite in_map_iff in H5. destruct H5 as [ve [? ?]]. subst e0. simpl in *.
            assert (evalid g1 e) by (apply H13; auto).
            assert (addr_gen (field_addr e) = to). {
-             apply make_fields_Znth_edge in Heqf; auto. subst e. now simpl. }
+             apply make_fields_Znth_edge in Heqc; auto. subst e. now simpl. }
            specialize (H7 _ H5 H19 (eq_refl (addr_gen (dst g1 e)))).
            rewrite reachable_from_roots in H7. destruct H7 as [i [r [? [? ?]]]].
            exists i, r. do 2 (split; auto). pose proof H21.
@@ -2803,7 +2803,7 @@ Proof.
         -- subst v. rewrite ucov_block_mark in H17. left. destruct Hb as [He Hb].
            red in Hb. assert (evalid g1 e) by (apply H12; auto).
            assert (addr_gen (field_addr e) = to). {
-             apply make_fields_Znth_edge in Heqf; auto. subst e. now simpl. }
+             apply make_fields_Znth_edge in Heqc; auto. subst e. now simpl. }
            specialize (Hb _ H19 H20 H14). rewrite reachable_from_roots in *.
            destruct Hb as [i [r [? [? ?]]]]. exists i, r. do 2 (split; auto).
            apply reachable_trans with (field_addr e); auto. destruct H1 as [? [? ?]].

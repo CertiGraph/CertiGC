@@ -32,7 +32,7 @@ Definition root2forward (r: root_t): forward_t :=
   | inr v => inl (inr v)
   end.
 
-Definition field2forward (f: field_t): forward_t :=
+Definition field2forward (f: Cell): forward_t :=
   match f with
   | inl (inl z) => inl (inl (inl z))
   | inl (inr p) => inl (inl (inr p))
@@ -931,7 +931,7 @@ Proof.
   assert (forall e0, inr e0 = Znth (Z.of_nat n) (make_fields g v) -> e0 <> e). {
     intros. symmetry in H6. apply make_fields_Znth_edge in H6. 2: assumption.
     rewrite Nat2Z.id in H6. rewrite <- H6 in H2. auto. }
-  destruct f; [destruct s |]; simpl in H0; inversion H0; subst; try reflexivity.
+  destruct c; [destruct s |]; simpl in H0; inversion H0; subst; try reflexivity.
   - subst new_g. rewrite lgd_dst_old. 1: reflexivity. apply H6; assumption.
   - subst new_g. rewrite lgd_dst_old. 2: apply H6; assumption. simpl.
     rewrite pcv_dst_old. 1: reflexivity. intro. rewrite H7 in H1. destruct H1.
@@ -958,9 +958,9 @@ Proof.
   intros. simpl in *. destruct H3 as [? [? [? ?]]]. rewrite H7 in H4. simpl in H4.
   assert (make_fields g v = make_fields g' v) by
       (unfold make_fields; erewrite fr_block_fields; eauto). rewrite <- H9 in *.
-  clear H9. remember (Znth (Z.of_nat n) (make_fields g v)). destruct f; inversion H5.
-  subst. clear H5. symmetry in Heqf. pose proof Heqf.
-  apply make_fields_Znth_edge in Heqf. 2: assumption. simpl in H4. subst.
+  clear H9. remember (Znth (Z.of_nat n) (make_fields g v)). destruct c; inversion H5.
+  subst. clear H5. symmetry in Heqc. pose proof Heqc.
+  apply make_fields_Znth_edge in Heqc. 2: assumption. simpl in H4. subst.
   rewrite Nat2Z.id in *.
   inversion H4; subst; try assumption; subst new_g; rewrite lgd_dst_new.
   - apply H in H12. 1: destruct H12; auto. specialize (H0 _ H3). apply H0.
@@ -991,7 +991,7 @@ Proof.
       simpl in H5. destruct (Znth z (make_fields g a)) eqn:? ; [destruct s|];
                      simpl in H5; inversion H5. subst. clear H5.
       specialize (H4 _ H). apply H4. unfold get_edges.
-      rewrite <- filter_sum_right_In_iff, <- Heqf. apply Znth_In.
+      rewrite <- filter_sum_right_In_iff, <- Heqc. apply Znth_In.
       rewrite make_fields_eq_length. assumption.
   - subst new_g. apply lgd_no_dangling_dst. 1: apply lcv_graph_has_v_new; auto.
     apply lcv_no_dangling_dst; auto. destruct p; simpl in H5.
@@ -1000,7 +1000,7 @@ Proof.
       simpl in H5. destruct (Znth z (make_fields g a)) eqn:? ; [destruct s|];
                      simpl in H5; inversion H5. subst. clear H5.
       specialize (H4 _ H). apply H4. unfold get_edges.
-      rewrite <- filter_sum_right_In_iff, <- Heqf. apply Znth_In.
+      rewrite <- filter_sum_right_In_iff, <- Heqc. apply Znth_In.
       rewrite make_fields_eq_length. assumption.
 Qed.
 

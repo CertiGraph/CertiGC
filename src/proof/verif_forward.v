@@ -666,12 +666,12 @@ Proof.
     unlocalize [graph_rep g]. 1: apply graph_vertex_ramif_stable; assumption. thaw FR.
     unfold make_fields_vals.
     rewrite H12, Znth_map; [|rewrite make_fields_eq_length; assumption].
-    assert_PROP (valid_int_or_ptr (field2val g (Znth n (make_fields g v)))). {
+    assert_PROP (valid_int_or_ptr (heapgraph_cell_val g (Znth n (make_fields g v)))). {
       destruct (Znth n (make_fields g v)) eqn:?; [destruct s|].
-      - unfold field2val; unfold odd_Z2val.
+      - unfold heapgraph_cell_val; unfold odd_Z2val.
         replace (2 * z + 1) with (z + z + 1) by lia.
         entailer!. apply valid_int_or_ptr_ii1.
-      - unfold field2val, outlier_rep.
+      - unfold heapgraph_cell_val, outlier_rep.
         apply in_gcptr_outlier with (gcptr:= g0) (outlier:=outlier) (n:=n) in H0;
           try assumption.
         apply (in_map single_outlier_rep outlier g0) in H0.
@@ -686,13 +686,13 @@ Proof.
           rewrite H1. entailer!; now apply andp_left1.
         }
         sep_apply (single_outlier_rep_valid_int_or_ptr g0); entailer!.
-      - rename f into e. unfold field2val.
+      - rename f into e. unfold heapgraph_cell_val.
         unfold no_dangling_dst in H10.
         apply H10 with (e:=e) in H0.
         1: sep_apply (graph_rep_valid_int_or_ptr g (dst g e) H0); entailer!.
-        unfold get_edges; rewrite <- filter_sum_right_In_iff, <- Heqf.
+        unfold get_edges; rewrite <- filter_sum_right_In_iff, <- Heqc.
         now apply Znth_In; rewrite make_fields_eq_length. }
-    forward_call (field2val g (Znth n (make_fields g v))).
+    forward_call (heapgraph_cell_val g (Znth n (make_fields g v))).
     remember (graph_rep g * heap_rest_rep (ti_heap t_info) * outlier_rep outlier) as P.
     pose proof (graph_and_heap_rest_data_at_ _ _ _ H7 H).
     unfold generation_data_at_ in H18. remember (heapgraph_generation_base g from) as fp.
@@ -706,14 +706,14 @@ Proof.
     destruct (Znth n (make_fields g v)) eqn:? ; [destruct s|].
     (* Z + GC_Pointer + EType *)
     + (* Z *)
-      unfold field2val, odd_Z2val. forward_if.
+      unfold heapgraph_cell_val, odd_Z2val. forward_if.
       1: exfalso; apply H20'; reflexivity.
       forward. Exists g t_info roots. entailer!. split.
       * easy.
       * unfold forward_condition, thread_info_relation.
-        simpl. rewrite Heqf, H12. simpl. constructor; [constructor|easy].
+        simpl. rewrite Heqc, H12. simpl. constructor; [constructor|easy].
     + (* GC_Pointer *)
-      destruct g0. unfold field2val, GC_Pointer2val. forward_if.
+      destruct g0. unfold heapgraph_cell_val, GC_Pointer2val. forward_if.
       2: exfalso; apply Int.one_not_zero; assumption.
       forward_call (Vptr b i). 
       unfold thread_info_rep; Intros.
@@ -736,7 +736,7 @@ Proof.
         rewrite HeqP. Intros.
         gather_SEP (graph_rep _) (heap_rest_rep _).
         sep_apply H18. rewrite Heqfn in v0.
-        pose proof in_gcptr_outlier g (GCPtr b i) outlier n v H0 H6 H11 Heqf.
+        pose proof in_gcptr_outlier g (GCPtr b i) outlier n v H0 H6 H11 Heqc.
         sep_apply (outlier_rep_single_rep outlier (GCPtr b i)).
         Intros.
         gather_SEP (data_at_ _ _ _) (single_outlier_rep _).
@@ -751,21 +751,21 @@ Proof.
         forward. Exists g t_info roots. entailer!.
         -- split3.
            ++ unfold roots_compatible. easy.
-           ++ simpl. rewrite Heqf, H12. simpl. constructor.
+           ++ simpl. rewrite Heqc, H12. simpl. constructor.
            ++ easy.
         -- unfold thread_info_rep. entailer!.
     + (* EType *)
       rename f into e.
-      unfold field2val. remember (dst g e) as v'.
+      unfold heapgraph_cell_val. remember (dst g e) as v'.
       assert (isptr (heapgraph_block_ptr g v')). { (**)
         unfold heapgraph_block_ptr; unfold offset_val.
         remember (addr_gen v') as n'.
         assert (graph_has_v g v'). {
           unfold no_dangling_dst in H10.
-          subst. clear -H0 H10 H11 e Heqf.
+          subst. clear -H0 H10 H11 e Heqc.
           apply (H10 v H0).
           unfold get_edges;
-          rewrite <- filter_sum_right_In_iff, <- Heqf; apply Znth_In.
+          rewrite <- filter_sum_right_In_iff, <- Heqc; apply Znth_In.
           now rewrite make_fields_eq_length.
         }
         destruct H20. rewrite <- Heqn' in H20.
@@ -783,10 +783,10 @@ Proof.
       clear H19. Intros. assert (graph_has_v g v'). { (**)
         rewrite Heqv'.
         unfold no_dangling_dst in H10.
-        clear -H10 H0 e Heqf H11. apply (H10 v H0).
+        clear -H10 H0 e Heqc H11. apply (H10 v H0).
         unfold get_edges.
         rewrite <- filter_sum_right_In_iff.
-        rewrite <- Heqf.
+        rewrite <- Heqc.
         apply Znth_In.
         rewrite make_fields_eq_length; assumption.
       }
@@ -894,7 +894,7 @@ Proof.
           split; [|split; [|split; [|split]]]; try reflexivity.
           ++ now constructor.
           ++ simpl forward_p2forward_t.
-             rewrite H12, Heqf. simpl. now constructor.
+             rewrite H12, Heqc. simpl. now constructor.
           ++ now constructor.
           ++ easy.
         -- (* not yet forwarded *)
@@ -1210,7 +1210,7 @@ Proof.
                 assert (In e (get_edges g v)). { (**)
                   unfold get_edges.
                   rewrite <- filter_sum_right_In_iff.
-                  rewrite <- Heqf.
+                  rewrite <- Heqc.
                   apply (Znth_In n (make_fields g v)).
                   rewrite make_fields_eq_length. assumption.
                 }
@@ -1335,17 +1335,17 @@ Proof.
                      entailer!. simpl.
                      replace (Z.to_nat depth) with (S (Z.to_nat (depth - 1))) by
                          (rewrite <- Z2Nat.inj_succ; [f_equal|]; lia).
-                     rewrite Heqf, H12. simpl.
+                     rewrite Heqc, H12. simpl.
                      constructor; [reflexivity | assumption..].
                      Transparent super_compatible.
               ** assert (depth = 0) by lia. subst depth. clear H56.
                  deadvars!. clear Heqnv. forward.
-                 Exists g1 t_info' roots. entailer!. simpl. rewrite Heqf.
+                 Exists g1 t_info' roots. entailer!. simpl. rewrite Heqc.
                  simpl field2forward. rewrite H12. simpl. now constructor.
       * forward_if. 1: exfalso; apply H22'; reflexivity.
         rewrite H21 in n0. forward.
         Exists g t_info roots. entailer!; simpl.
-        -- rewrite H12, Heqf. simpl. split; auto. split; [|split].
+        -- rewrite H12, Heqc. simpl. split; auto. split; [|split].
            ++ constructor. auto.
            ++ split; auto.
            ++ apply tir_id.

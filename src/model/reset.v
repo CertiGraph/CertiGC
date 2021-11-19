@@ -96,7 +96,7 @@ Definition reset_nth_glabel (n: nat) (g: HeapGraph) : HeapGraph :=
 
 Definition pregraph_remove_vertex_and_edges
         (g: HeapGraph) (v: Addr): PreGraph Addr Field :=
-fold_left pregraph_remove_edge (get_edges g v) (pregraph_remove_vertex g v).
+fold_left pregraph_remove_edge (heapgraph_block_fields g v) (pregraph_remove_vertex g v).
 
 Definition lgraph_remove_vertex_and_edges (g: HeapGraph) (v: Addr): HeapGraph :=
   Build_LabeledGraph _ _ _ (pregraph_remove_vertex_and_edges g v)
@@ -134,7 +134,7 @@ Proof.
   revert g e. induction l; intros; simpl. 1: reflexivity. rewrite IHl.
   clear. simpl. unfold pregraph_remove_vertex_and_edges.
   transitivity (dst (pregraph_remove_vertex g a) e). 2: reflexivity.
-  remember (pregraph_remove_vertex g a) as g'. remember (get_edges g a) as l.
+  remember (pregraph_remove_vertex g a) as g'. remember (heapgraph_block_fields g a) as l.
   clear a g Heqg' Heql. rename g' into g. revert g e. induction l; intros; simpl.
   1: reflexivity. rewrite IHl. reflexivity.
 Qed.
@@ -165,10 +165,10 @@ Proof.
   - rewrite remove_ve_glabel_unchanged, generation_base__reset. reflexivity.
 Qed.
 
-Lemma make_fields_reset: forall (g: HeapGraph) v n,
-    make_fields_vals (reset_graph n g) v = make_fields_vals g v.
+Lemma heapgraph_block_cells_reset: forall (g: HeapGraph) v n,
+    heapgraph_block_cells_vals (reset_graph n g) v = heapgraph_block_cells_vals g v.
 Proof.
-  intros. apply make_fields_the_same; unfold reset_graph; simpl; intros.
+  intros. apply heapgraph_block_cells_the_same; unfold reset_graph; simpl; intros.
   - apply remove_ve_dst_unchanged.
   - apply remove_ve_vlabel_unchanged.
   - rewrite remove_ve_glabel_unchanged. apply generation_base__reset.
@@ -380,11 +380,11 @@ Proof.
   - rewrite reset_heapgraph_generation_info_diff by auto. intuition.
 Qed.
 
-Lemma graph_has_v_reset: forall (g: HeapGraph) gen v,
-    graph_has_v (reset_graph gen g) v <->
-    graph_has_v g v /\ gen <> addr_gen v.
+Lemma heapgraph_has_block_reset: forall (g: HeapGraph) gen v,
+    heapgraph_has_block (reset_graph gen g) v <->
+    heapgraph_has_block g v /\ gen <> addr_gen v.
 Proof.
-  intros. split; intros; destruct v; unfold graph_has_v in *; simpl in *.
+  intros. split; intros; destruct v; unfold heapgraph_has_block in *; simpl in *.
   - rewrite graph_has_gen_reset, heapgraph_generation_has_index_reset in H. intuition.
   - rewrite graph_has_gen_reset, heapgraph_generation_has_index_reset. intuition.
 Qed.
@@ -413,7 +413,7 @@ Lemma outlier_compatible_reset: forall g outlier gen,
 Proof.
   intros. unfold outlier_compatible in *. intros. simpl.
   rewrite remove_ve_vlabel_unchanged. apply H.
-  rewrite graph_has_v_reset in H0. destruct H0. assumption.
+  rewrite heapgraph_has_block_reset in H0. destruct H0. assumption.
 Qed.
 
 Lemma super_compatible_reset: forall g t_info roots f_info outlier gen,
@@ -460,10 +460,10 @@ Proof.
 Qed.
 
 
-Lemma get_edges_reset: forall g gen v,
-    get_edges (reset_graph gen g) v = get_edges g v.
+Lemma heapgraph_block_fields_reset: forall g gen v,
+    heapgraph_block_fields (reset_graph gen g) v = heapgraph_block_fields g v.
 Proof.
-  intros. unfold get_edges, make_fields. simpl. rewrite remove_ve_vlabel_unchanged.
+  intros. unfold heapgraph_block_fields, heapgraph_block_cells. simpl. rewrite remove_ve_vlabel_unchanged.
   reflexivity.
 Qed.
 
@@ -472,7 +472,7 @@ Lemma graph_has_e_reset: forall g gen e,
     graph_has_e g e /\ gen <> egeneration e.
 Proof.
   intros. unfold graph_has_e, egeneration. destruct e as [v idx]. simpl.
-  rewrite graph_has_v_reset, get_edges_reset. intuition.
+  rewrite heapgraph_has_block_reset, heapgraph_block_fields_reset. intuition.
 Qed.
 
 Lemma gen2gen_no_edge_reset_inv: forall g gen1 gen2 gen3,
@@ -514,10 +514,10 @@ Lemma no_dangling_dst_reset: forall g gen,
     no_dangling_dst (reset_graph gen g).
 Proof.
   intros. unfold no_dangling_dst in *. red in H0. simpl. intros.
-  rewrite graph_has_v_reset in *. destruct H1. rewrite get_edges_reset in H2.
+  rewrite heapgraph_has_block_reset in *. destruct H1. rewrite heapgraph_block_fields_reset in H2.
   rewrite remove_ve_dst_unchanged. split.
   - apply (H v); assumption.
   - cut (addr_gen (dst g e) <> gen). 1: intuition. unfold gen2gen_no_edge in H0.
-    destruct e as [[vgen vidx] eidx]. pose proof H2. apply get_edges_fst in H2.
+    destruct e as [[vgen vidx] eidx]. pose proof H2. apply heapgraph_block_fields_fst in H2.
     simpl in H2. subst v. simpl in *. apply H0; intuition. split; simpl; assumption.
 Qed.

@@ -11,12 +11,12 @@ Lemma typed_true_tag: forall (to : nat) (g : HeapGraph) (index : nat),
                                     (negb (Int.lt (Int.repr (block_tag
                                                                (heapgraph_block g {| addr_gen := to ; addr_block := index |})))
                                                   (Int.repr 251))))))) ->
-    ~ no_scan g {| addr_gen := to ; addr_block := index |}.
+    ~ heapgraph_block_is_no_scan g {| addr_gen := to ; addr_block := index |}.
 Proof.
   intros. remember (Int.lt (Int.repr (block_tag (heapgraph_block g {| addr_gen := to ; addr_block := index |}))) (Int.repr 251)).
   unfold typed_true in H. destruct b; simpl in H; [|inversion H].
   symmetry in Heqb. apply lt_repr in Heqb.
-  - unfold no_scan. rep_lia.
+  - unfold heapgraph_block_is_no_scan. rep_lia.
   - red. pose proof (block_tag__range (heapgraph_block g {| addr_gen := to ; addr_block := index |})). rep_lia.
   - red. rep_lia.
 Qed.
@@ -30,12 +30,12 @@ Lemma typed_false_tag: forall (to : nat) (g : HeapGraph) (index : nat),
                                     (negb (Int.lt (Int.repr (block_tag
                                                                (heapgraph_block g {| addr_gen := to ; addr_block := index |})))
                                                   (Int.repr 251))))))) ->
-    no_scan g {| addr_gen := to ; addr_block := index |}.
+    heapgraph_block_is_no_scan g {| addr_gen := to ; addr_block := index |}.
 Proof.
   intros. remember (Int.lt (Int.repr (block_tag (heapgraph_block g {| addr_gen := to ; addr_block := index |}))) (Int.repr 251)).
   unfold typed_false in H. destruct b; simpl in H; [inversion H|].
   symmetry in Heqb. apply lt_repr_false in Heqb.
-  - unfold no_scan. rep_lia.
+  - unfold heapgraph_block_is_no_scan. rep_lia.
   - red. pose proof (block_tag__range (heapgraph_block g {| addr_gen := to ; addr_block := index |})). rep_lia.
   - red. rep_lia.
 Qed.
@@ -182,7 +182,7 @@ Proof.
       rewrite <- Z.mul_lt_mono_pos_l in H26 by (unfold WORD_SIZE; lia).
       intro; apply H26. now apply heapgraph_block_size_prev__mono_strict.
     + clear H8 H23 H24. Intros. thaw FR. freeze [1;2;3;4;5;6] FR.
-      assert (graph_has_v g' {| addr_gen := to ; addr_block := index |}) by easy.
+      assert (heapgraph_has_block g' {| addr_gen := to ; addr_block := index |}) by easy.
       (* annotation theta 7 *)
       localize [vertex_rep (heapgraph_generation_sh g' to) g' {| addr_gen := to ; addr_block := index |}].
       assert (readable_share (heapgraph_generation_sh g' to)) by
@@ -218,8 +218,8 @@ Proof.
          PROP (super_compatible (g'', t_info'', roots) f_info outlier;
                forward_condition g'' t_info'' from to;
                thread_info_relation t_info t_info'';
-               (no_scan g' {| addr_gen := to ; addr_block := index |} /\ g'' = g') \/
-               (~ no_scan g' {| addr_gen := to ; addr_block := index |} /\
+               (heapgraph_block_is_no_scan g' {| addr_gen := to ; addr_block := index |} /\ g'' = g') \/
+               (~ heapgraph_block_is_no_scan g' {| addr_gen := to ; addr_block := index |} /\
                 scan_vertex_for_loop
                   from to {| addr_gen := to ; addr_block := index |}
                   (nat_inc_list (length (heapgraph_block g' {| addr_gen := to ; addr_block := index |}).(block_fields))) g' g''))
@@ -325,13 +325,13 @@ Proof.
               change (tptr tvoid) with tvalue.
               assert (isptr (heapgraph_block_ptr g3 {| addr_gen := to ; addr_block := index |})). {
                 erewrite <- svfl_heapgraph_block_ptr; eauto. rewrite <- H18 in H21.
-                2: apply graph_has_v_in_closure; assumption. clear -H21 H14.
+                2: apply heapgraph_has_block_in_closure; assumption. clear -H21 H14.
                 unfold heapgraph_block_ptr. unfold heapgraph_generation_base. simpl.
                 rewrite if_true by assumption. rewrite isptr_offset_val. assumption. }
               assert (heapgraph_has_gen g3 to) by
                   (eapply svfl_graph_has_gen in H29; [rewrite <- H29|]; assumption).
-              assert (graph_has_v g3 {| addr_gen := to ; addr_block := index |}) by
-                  (eapply svfl_graph_has_v in H29; [apply H29| assumption..]).
+              assert (heapgraph_has_block g3 {| addr_gen := to ; addr_block := index |}) by
+                  (eapply svfl_heapgraph_has_block in H29; [apply H29| assumption..]).
               forward_call (rsh, sh, gv, fi, ti, g3, t_info3, f_info, roots,
                             outlier, from, to, 0, (@inr Z _ ({| addr_gen := to ; addr_block := index |}, i - 1))).
               ** simpl snd. apply prop_right. simpl.
@@ -376,7 +376,7 @@ Proof.
                        rewrite !Z2Nat.id; lia. } rewrite H53. assumption.
                  --- apply tir_trans with t_info3; assumption.
                  --- f_equal. symmetry. eapply fr_heapgraph_block_ptr; eauto.
-                     apply graph_has_v_in_closure; assumption.
+                     apply heapgraph_has_block_in_closure; assumption.
         -- Intros i g3 t_info3. cbv [Archi.ptr64]. forward.
            ++ entailer!. clear -H28 H33. simpl in H28.
               first [rewrite !Int.signed_repr | rewrite Int64.signed_repr]; rep_lia.
@@ -394,7 +394,7 @@ Proof.
             rewrite <- H18 in H21. rewrite if_true; assumption. }
           destruct H30 as [[? ?] | [? ?]]. 1: subst g''; assumption.
           eapply svfl_heapgraph_block_ptr in H32;
-            [rewrite <- H32 | | apply graph_has_v_in_closure]; assumption. }
+            [rewrite <- H32 | | apply heapgraph_has_block_in_closure]; assumption. }
         pose proof (block_fields__range (heapgraph_block g' {| addr_gen := to ; addr_block := index |})). forward.
         -- entailer!. split. 1: rep_lia.
            assert (two_p (WORD_SIZE * 8 - 10) <
@@ -440,7 +440,7 @@ Proof.
              cut (heapgraph_generation_has_index g'' to index). 1: red; intros; red in H33; lia.
              destruct H30 as [[? ?] | [? ?]].
              - subst g''. destruct H23. assumption.
-             - eapply svfl_graph_has_v in H33; eauto. destruct H33. assumption. }
+             - eapply svfl_heapgraph_has_block in H33; eauto. destruct H33. assumption. }
            Exists (n + 1)%nat g'' t_info''. destruct H27 as [? [? [? ?]]]. entailer!.
            clear H37 H38 H39 H40. replace (n + 1)%nat with (S n) by lia.
            rewrite nat_seq_S, Nat.add_comm. destruct H30 as [[? ?] | [? ?]].

@@ -18,7 +18,7 @@ Definition roots_outlier_compatible (roots: roots_t) (outlier: outlier_t): Prop 
   incl (filter_sum_right (filter_sum_left roots)) outlier.
 
 Definition roots_graph_compatible (roots: roots_t) (g: HeapGraph): Prop :=
-  Forall (graph_has_v g) (filter_sum_right roots).
+  Forall (heapgraph_has_block g) (filter_sum_right roots).
 
 Definition roots_compatible (g: HeapGraph) (outlier: outlier_t) (roots: roots_t): Prop :=
   roots_outlier_compatible roots outlier /\ roots_graph_compatible roots g.
@@ -26,20 +26,20 @@ Definition roots_compatible (g: HeapGraph) (outlier: outlier_t) (roots: roots_t)
 
 Definition outlier_compatible (g: HeapGraph) (outlier: outlier_t): Prop :=
   forall v,
-    graph_has_v g v ->
+    heapgraph_has_block g v ->
     incl (filter_sum_right (filter_option (heapgraph_block g v).(block_fields))) outlier.
 
 Lemma in_gcptr_outlier: forall g gcptr outlier n v,
-    graph_has_v g v ->
+    heapgraph_has_block g v ->
     outlier_compatible g outlier ->
     (0 <= n < Zlength (block_fields (heapgraph_block g v)))%Z ->
-    Znth n (make_fields g v) = inl (inr gcptr) ->
+    Znth n (heapgraph_block_cells g v) = inl (inr gcptr) ->
     In gcptr outlier.
 Proof.
   intros.
   apply H0 in H; apply H; clear H; clear H0.
-  unfold make_fields in H2.
-  apply fields_to_cells_item_was_in_list in H2; try assumption.
+  unfold heapgraph_block_cells in H2.
+  apply fields_to_cells__id in H2; try assumption.
   rewrite <- filter_sum_right_In_iff, <- filter_option_In_iff.
   rewrite <- H2; apply Znth_In; assumption.
 Qed.
@@ -224,7 +224,7 @@ Lemma lgd_rgc: forall g roots e v,
     roots_graph_compatible roots (labeledgraph_gen_dst g e v).
 Proof.
   intros. red in H |-*. rewrite Forall_forall in *. intros.
-  rewrite <- lgd_graph_has_v. apply H. assumption.
+  rewrite <- lgd_heapgraph_has_block. apply H. assumption.
 Qed.
 
 Lemma lgd_roots_compatible: forall g outlier roots e v,
@@ -254,7 +254,7 @@ Lemma lgd_outlier_compatible:
     outlier_compatible (labeledgraph_gen_dst g e v') outlier.
 Proof.
   intros. intro v. intros.
-  rewrite <- lgd_graph_has_v in H0.
+  rewrite <- lgd_heapgraph_has_block in H0.
   unfold labeledgraph_gen_dst, pregraph_gen_dst, updateEdgeFunc; simpl.
   apply (H v H0).
 Qed.
@@ -286,7 +286,7 @@ Definition roots_fi_compatible (roots: roots_t) f_info: Prop :=
 
 Lemma graph_thread_v_in_range (g: HeapGraph) (t_info: thread_info) (v: Addr)
     (Hcompat: graph_thread_info_compatible g t_info)
-    (Hv: graph_has_v g v):
+    (Hv: heapgraph_has_block g v):
     v_in_range
         (heapgraph_block_ptr g v)
         (heapgraph_generation_base g (addr_gen v))
@@ -352,7 +352,7 @@ Lemma ang_roots_graph_compatible: forall roots g gi,
     roots_graph_compatible roots (heapgraph_generations_append g gi).
 Proof.
   intros. unfold roots_graph_compatible in *. rewrite Forall_forall in *. intros.
-  apply ang_graph_has_v. apply H. assumption.
+  apply ang_heapgraph_has_block. apply H. assumption.
 Qed.
 
 Lemma ang_roots_compatible: forall roots out g gi,
@@ -365,7 +365,7 @@ Lemma ang_outlier_compatible: forall g gi out,
     outlier_compatible (heapgraph_generations_append g gi) out.
 Proof.
   intros. unfold outlier_compatible in *. intros.
-  apply ang_graph_has_v_inv in H1; auto. simpl. apply H0. assumption.
+  apply ang_heapgraph_has_block_inv in H1; auto. simpl. apply H0. assumption.
 Qed.
 
 Lemma fta_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) fi roots,

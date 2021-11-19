@@ -47,7 +47,7 @@ Qed.
 
 
 Definition pregraph_copy_v (g: HeapGraph) (old_v new_v: Addr) : PreGraph Addr Field :=
-  let old_edges := get_edges g old_v in
+  let old_edges := heapgraph_block_fields g old_v in
   let new_edges := combine (repeat new_v (length old_edges)) (map field_index old_edges) in
   let new_edge_dst_l := combine new_edges (map (dst g) old_edges) in
   let new_edge_dst_l' := map (fun x => ({| field_addr := fst (fst x); field_index := snd (fst x) |}, snd x)) new_edge_dst_l
@@ -65,7 +65,7 @@ Proof.
 Qed.
 
 Lemma pcv_dst_new (g: HeapGraph) (old new: Addr) (n: nat)
-    (Hn: In n (map field_index (get_edges g old))):
+    (Hn: In n (map field_index (heapgraph_block_fields g old))):
     dst (pregraph_copy_v g old new) {| field_addr := new; field_index := n|} = dst g {| field_addr := old; field_index := n|}.
 Proof.
   unfold pregraph_copy_v. rewrite flcvae_dst_new with (v := dst g {| field_addr := old; field_index := n|}).
@@ -88,7 +88,7 @@ Proof.
         intros x y E. destruct x as [x1 x2]. destruct y as [y1 y2]. now inversion E.
       }
       apply NoDup_combine_r.
-      unfold get_edges, make_fields.
+      unfold heapgraph_block_fields, heapgraph_block_cells.
       remember (block_fields (heapgraph_block g old)) as l eqn:El. clear El. remember O as m eqn:Em. clear Em.
       revert m. induction l as [|a l IHl] ; intro m ; simpl ; try constructor.
       destruct a; [destruct s|]; simpl ; try apply IHl. constructor.
@@ -105,9 +105,9 @@ Proof.
     }
   - apply list_in_map_inv in Hn. destruct Hn as [[x x_index] [En Hn]]. simpl in *. subst.
     assert (x = old). {
-      unfold get_edges in Hn. rewrite <- filter_sum_right_In_iff in Hn.
-      unfold make_fields in Hn. apply fields_to_cells__in in Hn. destruct Hn as [s ?].
-      inversion H. reflexivity. } subst x. remember (get_edges g old). clear Heql.
+      unfold heapgraph_block_fields in Hn. rewrite <- filter_sum_right_In_iff in Hn.
+      unfold heapgraph_block_cells in Hn. apply fields_to_cells__in in Hn. destruct Hn as [s ?].
+      inversion H. reflexivity. } subst x. remember (heapgraph_block_fields g old). clear Heql.
     induction l; simpl in *. 1: assumption. destruct Hn.
     + subst a. simpl. left; reflexivity.
     + right. apply IHl. assumption.
@@ -158,8 +158,8 @@ Definition copy_v_update_glabel (gi: Generations) (to: nat): Generations := {|
 Definition new_copied_v (g: HeapGraph) (to: nat): Addr :=
   {| addr_gen := to; addr_block := generation_block_count (heapgraph_generation g to) |}.
 
-Lemma graph_has_v_not_eq: forall g to x,
-    graph_has_v g x -> x <> new_copied_v g to.
+Lemma heapgraph_has_block_not_eq: forall g to x,
+    heapgraph_has_block g x -> x <> new_copied_v g to.
 Proof.
   intros. destruct H. unfold new_copied_v. destruct x as [gen idx]. simpl in *.
   destruct (Nat.eq_dec gen to).
@@ -213,18 +213,18 @@ Proof.
 Qed.
 
 
-Lemma lacv_graph_has_v_new: forall g v to,
-    heapgraph_has_gen g to -> graph_has_v (lgraph_add_copied_v g v to) (new_copied_v g to).
+Lemma lacv_heapgraph_has_block_new: forall g v to,
+    heapgraph_has_gen g to -> heapgraph_has_block (lgraph_add_copied_v g v to) (new_copied_v g to).
 Proof.
   intros. split; simpl.
   - red. simpl. rewrite cvmgil_length; assumption.
   - red. unfold heapgraph_generation. simpl. rewrite cvmgil_eq by assumption. simpl. lia.
 Qed.
 
-Lemma lmc_graph_has_v: forall g old new x,
-    graph_has_v g x <-> graph_has_v (lgraph_mark_copied g old new) x.
+Lemma lmc_heapgraph_has_block: forall g old new x,
+    heapgraph_has_block g x <-> heapgraph_has_block (lgraph_mark_copied g old new) x.
 Proof.
-  intros. unfold graph_has_v, heapgraph_has_gen, heapgraph_generation_has_index, heapgraph_generation. reflexivity.
+  intros. unfold heapgraph_has_block, heapgraph_has_gen, heapgraph_generation_has_index, heapgraph_generation. reflexivity.
 Qed.
 
 Lemma lcv_graph_has_gen: forall g v to x,
@@ -296,11 +296,11 @@ Proof.
 Qed.
 
 
-Lemma lacv_make_fields_not_eq: forall (g : HeapGraph) (v : Addr) (to : nat) x,
+Lemma lacv_heapgraph_block_cells_not_eq: forall (g : HeapGraph) (v : Addr) (to : nat) x,
     x <> new_copied_v g to ->
-    make_fields (lgraph_add_copied_v g v to) x = make_fields g x.
+    heapgraph_block_cells (lgraph_add_copied_v g v to) x = heapgraph_block_cells g x.
 Proof.
-  intros. unfold make_fields. simpl. unfold update_copied_new_vlabel, update_vlabel.
+  intros. unfold heapgraph_block_cells. simpl. unfold update_copied_new_vlabel, update_vlabel.
   rewrite if_false. 1: reflexivity. intuition.
 Qed.
 
@@ -319,10 +319,10 @@ Qed.
 
 
 Lemma lacv_heapgraph_block_ptr_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
-    graph_has_v g x -> heapgraph_has_gen g to ->
+    heapgraph_has_block g x -> heapgraph_has_gen g to ->
     heapgraph_block_ptr (lgraph_add_copied_v g v to) x = heapgraph_block_ptr g x.
 Proof.
-  intros. apply lacv_heapgraph_block_ptr; [apply graph_has_v_in_closure |]; assumption.
+  intros. apply lacv_heapgraph_block_ptr; [apply heapgraph_has_block_in_closure |]; assumption.
 Qed.
 
 Lemma lacv_heapgraph_block_ptr_new: forall (g : HeapGraph) (v : Addr) (to: nat),
@@ -341,28 +341,28 @@ Proof.
   intros. unfold heapgraph_block_header. rewrite lacv_vlabel_old by assumption. reflexivity.
 Qed.
 
-Lemma lacv_heapgraph_cell_val_make_fields_old:  forall (g : HeapGraph) (v : Addr) (to : nat) x,
-    graph_has_v g x -> heapgraph_has_gen g to -> no_dangling_dst g ->
+Lemma lacv_heapgraph_cell_val_heapgraph_block_cells_old:  forall (g : HeapGraph) (v : Addr) (to : nat) x,
+    heapgraph_has_block g x -> heapgraph_has_gen g to -> no_dangling_dst g ->
     map (heapgraph_cell_val (lgraph_add_copied_v g v to))
-        (make_fields (lgraph_add_copied_v g v to) x) =
-    map (heapgraph_cell_val g) (make_fields g x).
+        (heapgraph_block_cells (lgraph_add_copied_v g v to) x) =
+    map (heapgraph_cell_val g) (heapgraph_block_cells g x).
 Proof.
-  intros. unfold make_fields. pose proof (graph_has_v_not_eq _ to _ H).
+  intros. unfold heapgraph_block_cells. pose proof (heapgraph_has_block_not_eq _ to _ H).
   rewrite lacv_vlabel_old by assumption. apply map_ext_in.
   intros [[? | ?] | ?] ?; simpl; try reflexivity. unfold new_copied_v.
   rewrite pcv_dst_old.
   - apply lacv_heapgraph_block_ptr_old. 2: assumption. specialize (H1 _ H). apply H1.
-    unfold get_edges. rewrite <- filter_sum_right_In_iff. assumption.
+    unfold heapgraph_block_fields. rewrite <- filter_sum_right_In_iff. assumption.
   - apply fields_to_cells__in in H3. destruct H3 as [s ?]. subst. simpl. intro.
     unfold new_copied_v in H2. contradiction.
 Qed.
 
-Lemma lacv_make_fields_vals_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
-    graph_has_v g x -> heapgraph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
-    make_fields_vals (lgraph_add_copied_v g v to) x = make_fields_vals g x.
+Lemma lacv_heapgraph_block_cells_vals_old: forall (g : HeapGraph) (v : Addr) (to: nat) x,
+    heapgraph_has_block g x -> heapgraph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
+    heapgraph_block_cells_vals (lgraph_add_copied_v g v to) x = heapgraph_block_cells_vals g x.
 Proof.
-  intros. pose proof (lacv_heapgraph_cell_val_make_fields_old _ v _ _ H H0 H1).
-  unfold make_fields_vals. pose proof (graph_has_v_not_eq g to x H).
+  intros. pose proof (lacv_heapgraph_cell_val_heapgraph_block_cells_old _ v _ _ H H0 H1).
+  unfold heapgraph_block_cells_vals. pose proof (heapgraph_has_block_not_eq g to x H).
   rewrite lacv_vlabel_old by assumption. rewrite H3.
   destruct (block_mark (heapgraph_block g x)) eqn:? ; [f_equal | reflexivity].
   apply lacv_heapgraph_block_ptr_old; [apply H2|]; assumption.
@@ -387,46 +387,46 @@ Lemma lacv_heapgraph_block_header__new: forall g v to,
     heapgraph_block_header (lgraph_add_copied_v g v to) (new_copied_v g to) = heapgraph_block_header g v.
 Proof. intros. unfold heapgraph_block_header. rewrite lacv_vlabel_new. reflexivity. Qed.
 
-Lemma lacv_heapgraph_cell_val_make_fields_new: forall g v to,
-    graph_has_v g v -> heapgraph_has_gen g to -> no_dangling_dst g ->
+Lemma lacv_heapgraph_cell_val_heapgraph_block_cells_new: forall g v to,
+    heapgraph_has_block g v -> heapgraph_has_gen g to -> no_dangling_dst g ->
     map (heapgraph_cell_val (lgraph_add_copied_v g v to))
-        (make_fields (lgraph_add_copied_v g v to) (new_copied_v g to)) =
-    map (heapgraph_cell_val g) (make_fields g v).
+        (heapgraph_block_cells (lgraph_add_copied_v g v to) (new_copied_v g to)) =
+    map (heapgraph_cell_val g) (heapgraph_block_cells g v).
 Proof.
-  intros. unfold make_fields. rewrite lacv_vlabel_new.
+  intros. unfold heapgraph_block_cells. rewrite lacv_vlabel_new.
   remember (block_fields (heapgraph_block g v)). remember O as n.
   assert (forall m, In m (map field_index (filter_sum_right (fields_to_cells l v n))) ->
-                    In m (map field_index (get_edges g v))). {
-    unfold get_edges, make_fields. subst. intuition. }
+                    In m (map field_index (heapgraph_block_fields g v))). {
+    unfold heapgraph_block_fields, heapgraph_block_cells. subst. intuition. }
   clear Heql Heqn. revert n H2. induction l; intros; simpl. 1: reflexivity.
   destruct a; [destruct s|].
   - simpl in *. rewrite IHl; [reflexivity | assumption].
   - simpl in *. rewrite IHl; [reflexivity | assumption].
   - simpl in *. rewrite IHl.
-    + assert (In n (map field_index (get_edges g v))) by (apply H2; left; reflexivity).
+    + assert (In n (map field_index (heapgraph_block_fields g v))) by (apply H2; left; reflexivity).
       f_equal. rewrite pcv_dst_new by assumption. apply lacv_heapgraph_block_ptr_old.
       2: assumption. red in H1. apply (H1 v). 1: assumption. apply in_map_iff in H3.
       destruct H3 as [[x ?] [? ?]]. simpl in H3. subst. clear -H4. pose proof H4.
-      unfold get_edges in H4. rewrite <- filter_sum_right_In_iff in H4.
-      unfold make_fields in H4. apply fields_to_cells__in in H4. destruct H4 as [s ?].
+      unfold heapgraph_block_fields in H4. rewrite <- filter_sum_right_In_iff in H4.
+      unfold heapgraph_block_cells in H4. apply fields_to_cells__in in H4. destruct H4 as [s ?].
       inversion H0. subst. assumption.
     + intros. apply H2. right; assumption.
 Qed.
 
-Lemma lacv_make_fields_vals_new: forall g v to,
-    graph_has_v g v -> heapgraph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
-    make_fields_vals (lgraph_add_copied_v g v to) (new_copied_v g to) =
-    make_fields_vals g v.
+Lemma lacv_heapgraph_block_cells_vals_new: forall g v to,
+    heapgraph_has_block g v -> heapgraph_has_gen g to -> no_dangling_dst g -> copy_compatible g ->
+    heapgraph_block_cells_vals (lgraph_add_copied_v g v to) (new_copied_v g to) =
+    heapgraph_block_cells_vals g v.
 Proof.
-  intros. unfold make_fields_vals. rewrite lacv_vlabel_new.
-  rewrite (lacv_heapgraph_cell_val_make_fields_new _ _ _ H H0 H1).
+  intros. unfold heapgraph_block_cells_vals. rewrite lacv_vlabel_new.
+  rewrite (lacv_heapgraph_cell_val_heapgraph_block_cells_new _ _ _ H H0 H1).
   destruct (block_mark (heapgraph_block g v)) eqn:? . 2: reflexivity. f_equal.
   apply lacv_heapgraph_block_ptr_old. 2: assumption. apply H2; assumption.
 Qed.
 
-Lemma lacv_graph_has_v_old: forall g v to x,
-    heapgraph_has_gen g to -> graph_has_v g x ->
-    graph_has_v (lgraph_add_copied_v g v to) x.
+Lemma lacv_heapgraph_has_block_old: forall g v to x,
+    heapgraph_has_gen g to -> heapgraph_has_block g x ->
+    heapgraph_has_block (lgraph_add_copied_v g v to) x.
 Proof.
   intros. destruct H0. split.
   - rewrite lacv_graph_has_gen; assumption.
@@ -437,18 +437,18 @@ Proof.
 Qed.
 
 
-Lemma lcv_graph_has_v_new: forall g v to,
-    heapgraph_has_gen g to -> graph_has_v (lgraph_copy_v g v to) (new_copied_v g to).
+Lemma lcv_heapgraph_has_block_new: forall g v to,
+    heapgraph_has_gen g to -> heapgraph_has_block (lgraph_copy_v g v to) (new_copied_v g to).
 Proof.
-  intros. unfold lgraph_copy_v. rewrite <- lmc_graph_has_v.
-  apply lacv_graph_has_v_new. assumption.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_heapgraph_has_block.
+  apply lacv_heapgraph_has_block_new. assumption.
 Qed.
 
-Lemma lcv_graph_has_v_old: forall g v to x,
-    heapgraph_has_gen g to -> graph_has_v g x -> graph_has_v (lgraph_copy_v g v to) x.
+Lemma lcv_heapgraph_has_block_old: forall g v to x,
+    heapgraph_has_gen g to -> heapgraph_has_block g x -> heapgraph_has_block (lgraph_copy_v g v to) x.
 Proof.
-  intros. unfold lgraph_copy_v. rewrite <- lmc_graph_has_v.
-  apply lacv_graph_has_v_old; assumption.
+  intros. unfold lgraph_copy_v. rewrite <- lmc_heapgraph_has_block.
+  apply lacv_heapgraph_has_block_old; assumption.
 Qed.
 
 Lemma lcv_heapgraph_block_size_new: forall (g : HeapGraph) (v : Addr) (to : nat),
@@ -461,14 +461,14 @@ Proof.
 Qed.
 
 Lemma lcv_heapgraph_block_size_old: forall (g : HeapGraph) (v : Addr) (to : nat) x,
-        heapgraph_has_gen g to -> graph_has_v g x ->
+        heapgraph_has_gen g to -> heapgraph_has_block g x ->
         heapgraph_block_size (lgraph_copy_v g v to) x = heapgraph_block_size g x.
 Proof.
   intros. unfold heapgraph_block_size, lgraph_copy_v. simpl.
   unfold update_copied_old_vlabel, update_vlabel. if_tac.
   - simpl. unfold update_copied_new_vlabel, update_vlabel. unfold equiv in H1. subst.
     if_tac; reflexivity.
-  - rewrite lacv_vlabel_old. 1: reflexivity. apply graph_has_v_not_eq. assumption.
+  - rewrite lacv_vlabel_old. 1: reflexivity. apply heapgraph_has_block_not_eq. assumption.
 Qed.
 
 Lemma lcv_pvs_same: forall g v to,
@@ -513,19 +513,19 @@ Proof.
   - reflexivity.
 Qed.
 
-Lemma lmc_make_fields: forall (g : HeapGraph) (old new v: Addr),
-    make_fields (lgraph_mark_copied g old new) v = make_fields g v.
+Lemma lmc_heapgraph_block_cells: forall (g : HeapGraph) (old new v: Addr),
+    heapgraph_block_cells (lgraph_mark_copied g old new) v = heapgraph_block_cells g v.
 Proof.
-  intros. unfold make_fields. simpl. unfold update_copied_old_vlabel, update_vlabel.
+  intros. unfold heapgraph_block_cells. simpl. unfold update_copied_old_vlabel, update_vlabel.
   if_tac; [unfold equiv in H; subst v |]; reflexivity.
 Qed.
 
-Lemma lmc_heapgraph_cell_val_make_fields: forall (g : HeapGraph) (v new_v x: Addr),
+Lemma lmc_heapgraph_cell_val_heapgraph_block_cells: forall (g : HeapGraph) (v new_v x: Addr),
     map (heapgraph_cell_val (lgraph_mark_copied g v new_v))
-        (make_fields (lgraph_mark_copied g v new_v) x) =
-    map (heapgraph_cell_val g) (make_fields g x).
+        (heapgraph_block_cells (lgraph_mark_copied g v new_v) x) =
+    map (heapgraph_cell_val g) (heapgraph_block_cells g x).
 Proof.
-  intros. rewrite lmc_make_fields. apply map_ext; intros.
+  intros. rewrite lmc_heapgraph_block_cells. apply map_ext; intros.
   destruct a; [destruct s|]; simpl; [| |rewrite lmc_heapgraph_block_ptr]; reflexivity.
 Qed.
 
@@ -536,43 +536,43 @@ Proof.
   rewrite if_false. 1: reflexivity. unfold equiv. intuition.
 Qed.
 
-Lemma lmc_make_fields_vals_not_eq: forall (g : HeapGraph) (v new_v : Addr) x,
-    x <> v -> make_fields_vals (lgraph_mark_copied g v new_v) x = make_fields_vals g x.
+Lemma lmc_heapgraph_block_cells_vals_not_eq: forall (g : HeapGraph) (v new_v : Addr) x,
+    x <> v -> heapgraph_block_cells_vals (lgraph_mark_copied g v new_v) x = heapgraph_block_cells_vals g x.
 Proof.
-  intros. unfold make_fields_vals.
-  rewrite lmc_heapgraph_cell_val_make_fields, lmc_vlabel_not_eq, lmc_heapgraph_block_ptr;
+  intros. unfold heapgraph_block_cells_vals.
+  rewrite lmc_heapgraph_cell_val_heapgraph_block_cells, lmc_vlabel_not_eq, lmc_heapgraph_block_ptr;
     [reflexivity | assumption].
 Qed.
 
-Lemma lmc_make_fields_vals_eq: forall (g : HeapGraph) (v new_v : Addr),
-    make_fields_vals (lgraph_mark_copied g v new_v) v =
-    heapgraph_block_ptr g new_v :: tl (make_fields_vals g v).
+Lemma lmc_heapgraph_block_cells_vals_eq: forall (g : HeapGraph) (v new_v : Addr),
+    heapgraph_block_cells_vals (lgraph_mark_copied g v new_v) v =
+    heapgraph_block_ptr g new_v :: tl (heapgraph_block_cells_vals g v).
 Proof.
-  intros. unfold make_fields_vals at 1. simpl.
+  intros. unfold heapgraph_block_cells_vals at 1. simpl.
   unfold update_copied_old_vlabel, graph_gen.update_vlabel.
   rewrite if_true by reflexivity. simpl. rewrite lmc_heapgraph_block_ptr.
-  assert (tl (make_fields_vals g v) = tl (map (heapgraph_cell_val g) (make_fields g v))) by
-      (unfold make_fields_vals; destruct (block_mark (heapgraph_block g v)); simpl; reflexivity).
-  rewrite H. clear H. do 2 f_equal. apply lmc_heapgraph_cell_val_make_fields.
+  assert (tl (heapgraph_block_cells_vals g v) = tl (map (heapgraph_cell_val g) (heapgraph_block_cells g v))) by
+      (unfold heapgraph_block_cells_vals; destruct (block_mark (heapgraph_block g v)); simpl; reflexivity).
+  rewrite H. clear H. do 2 f_equal. apply lmc_heapgraph_cell_val_heapgraph_block_cells.
 Qed.
 
 
 Lemma lmc_copy_compatible: forall g old new,
-    graph_has_v g new -> addr_gen old <> addr_gen new -> copy_compatible g ->
+    heapgraph_has_block g new -> addr_gen old <> addr_gen new -> copy_compatible g ->
     copy_compatible (lgraph_mark_copied g old new).
 Proof.
   repeat intro. destruct (Addr_EqDec old v).
-  - compute in e. subst old. rewrite <- lmc_graph_has_v. simpl.
+  - compute in e. subst old. rewrite <- lmc_heapgraph_has_block. simpl.
     unfold update_copied_old_vlabel, update_vlabel. rewrite if_true by reflexivity.
     simpl. split; assumption.
   - assert (v <> old) by intuition. clear c.
-    rewrite lmc_vlabel_not_eq, <- lmc_graph_has_v in * by assumption.
+    rewrite lmc_vlabel_not_eq, <- lmc_heapgraph_has_block in * by assumption.
     apply H1; assumption.
 Qed.
 
-Lemma lacv_graph_has_v_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
-    heapgraph_has_gen g to -> graph_has_v (lgraph_add_copied_v g v to) x ->
-    graph_has_v g x \/ x = new_copied_v g to.
+Lemma lacv_heapgraph_has_block_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
+    heapgraph_has_gen g to -> heapgraph_has_block (lgraph_add_copied_v g v to) x ->
+    heapgraph_has_block g x \/ x = new_copied_v g to.
 Proof.
   intros. destruct (Addr_EqDec x (new_copied_v g to)).
   - unfold equiv in e; right; assumption.
@@ -598,10 +598,10 @@ Proof.
     rewrite H3 in H. inversion H.
   - assert (v0 <> (new_copied_v g to)) by intuition. clear c.
     rewrite lacv_vlabel_old in * by assumption.
-    assert (graph_has_v g v0). {
-      apply lacv_graph_has_v_inv in H2. 2: assumption. destruct H2. 1: assumption.
+    assert (heapgraph_has_block g v0). {
+      apply lacv_heapgraph_has_block_inv in H2. 2: assumption. destruct H2. 1: assumption.
       contradiction. } split.
-    + apply lacv_graph_has_v_old; [|apply H1]; assumption.
+    + apply lacv_heapgraph_has_block_old; [|apply H1]; assumption.
     + apply H1; assumption.
 Qed.
 
@@ -610,47 +610,47 @@ Lemma lcv_copy_compatible: forall g v to,
     addr_gen v <> to -> copy_compatible g -> copy_compatible (lgraph_copy_v g v to).
 Proof.
   intros. unfold lgraph_copy_v. apply lmc_copy_compatible. 2: simpl; assumption.
-  - apply lacv_graph_has_v_new. assumption.
+  - apply lacv_heapgraph_has_block_new. assumption.
   - apply lacv_copy_compatible; assumption.
 Qed.
 
 Lemma lmc_no_dangling_dst: forall g old new,
     no_dangling_dst g -> no_dangling_dst (lgraph_mark_copied g old new).
 Proof.
-  repeat intro. simpl. rewrite <- lmc_graph_has_v in *.
-  unfold get_edges in H1. rewrite lmc_make_fields in H1. apply (H v); assumption.
+  repeat intro. simpl. rewrite <- lmc_heapgraph_has_block in *.
+  unfold heapgraph_block_fields in H1. rewrite lmc_heapgraph_block_cells in H1. apply (H v); assumption.
 Qed.
 
-Lemma lacv_get_edges_new: forall g v to,
-  map field_index (get_edges (lgraph_add_copied_v g v to) (new_copied_v g to)) =
-  map field_index (get_edges g v).
+Lemma lacv_heapgraph_block_fields_new: forall g v to,
+  map field_index (heapgraph_block_fields (lgraph_add_copied_v g v to) (new_copied_v g to)) =
+  map field_index (heapgraph_block_fields g v).
 Proof.
-  intros. unfold get_edges, make_fields. rewrite lacv_vlabel_new.
+  intros. unfold heapgraph_block_fields, heapgraph_block_cells. rewrite lacv_vlabel_new.
   remember (block_fields (heapgraph_block g v)). remember O. clear Heql Heqn. revert n.
   induction l; intros; simpl. 1: reflexivity.
   destruct a; [destruct s|]; simpl; rewrite IHl; reflexivity.
 Qed.
 
 Lemma lacv_no_dangling_dst: forall (g : HeapGraph) (v : Addr) (to : nat),
-    no_dangling_dst g -> heapgraph_has_gen g to -> graph_has_v g v ->
+    no_dangling_dst g -> heapgraph_has_gen g to -> heapgraph_has_block g v ->
     no_dangling_dst (lgraph_add_copied_v g v to).
 Proof.
   intros; intro x; intros. simpl. destruct (Addr_EqDec x (new_copied_v g to)).
   - unfold equiv in e0. subst x. pose proof H3. remember (new_copied_v g to) as new.
-    apply get_edges_fst in H3. destruct e as [? s]. simpl in H3. subst.
-    rewrite get_edges_In, lacv_get_edges_new in H4. rewrite pcv_dst_new.
-    2: assumption. apply lacv_graph_has_v_old. 1: assumption.
-    apply (H v); [|rewrite get_edges_In]; assumption.
+    apply heapgraph_block_fields_fst in H3. destruct e as [? s]. simpl in H3. subst.
+    rewrite heapgraph_block_fields_In, lacv_heapgraph_block_fields_new in H4. rewrite pcv_dst_new.
+    2: assumption. apply lacv_heapgraph_has_block_old. 1: assumption.
+    apply (H v); [|rewrite heapgraph_block_fields_In]; assumption.
   - assert (x <> new_copied_v g to) by intuition. clear c. rewrite pcv_dst_old.
-    + apply lacv_graph_has_v_old. 1: assumption. apply lacv_graph_has_v_inv in H2.
+    + apply lacv_heapgraph_has_block_old. 1: assumption. apply lacv_heapgraph_has_block_inv in H2.
       2: assumption. destruct H2. 2: contradiction. apply (H x). 1: assumption.
-      unfold get_edges in *. rewrite lacv_make_fields_not_eq in H3; assumption.
-    + unfold get_edges in H3. rewrite <- filter_sum_right_In_iff in H3.
+      unfold heapgraph_block_fields in *. rewrite lacv_heapgraph_block_cells_not_eq in H3; assumption.
+    + unfold heapgraph_block_fields in H3. rewrite <- filter_sum_right_In_iff in H3.
       apply fields_to_cells__in in H3. destruct H3 as [s ?]. subst e. simpl. assumption.
 Qed.
 
 Lemma lcv_no_dangling_dst: forall g v to,
-    no_dangling_dst g -> heapgraph_has_gen g to -> graph_has_v g v ->
+    no_dangling_dst g -> heapgraph_has_gen g to -> heapgraph_has_block g v ->
     no_dangling_dst (lgraph_copy_v g v to).
 Proof.
   intros. unfold lgraph_copy_v.
@@ -661,22 +661,22 @@ Lemma lmc_outlier_compatible: forall g outlier old new,
     outlier_compatible g outlier ->
     outlier_compatible (lgraph_mark_copied g old new) outlier.
 Proof.
-  intros. intro v. intros. rewrite <- lmc_graph_has_v in H0.
+  intros. intro v. intros. rewrite <- lmc_heapgraph_has_block in H0.
   unfold lgraph_mark_copied, update_copied_old_vlabel, update_vlabel; simpl.
   if_tac; simpl; apply H; [unfold equiv in H1; subst|]; assumption.
 Qed.
 
 Lemma lacv_outlier_compatible: forall (g : HeapGraph) outlier (v : Addr) (to : nat),
-    heapgraph_has_gen g to -> graph_has_v g v -> outlier_compatible g outlier ->
+    heapgraph_has_gen g to -> heapgraph_has_block g v -> outlier_compatible g outlier ->
     outlier_compatible (lgraph_add_copied_v g v to) outlier.
 Proof.
-  intros. intros x ?. apply lacv_graph_has_v_inv in H2. 2: assumption. destruct H2.
-  - rewrite lacv_vlabel_old; [apply H1 | apply graph_has_v_not_eq]; assumption.
+  intros. intros x ?. apply lacv_heapgraph_has_block_inv in H2. 2: assumption. destruct H2.
+  - rewrite lacv_vlabel_old; [apply H1 | apply heapgraph_has_block_not_eq]; assumption.
   - subst x. rewrite lacv_vlabel_new. apply H1; assumption.
 Qed.
 
 Lemma lcv_outlier_compatible: forall g outlier v to,
-    heapgraph_has_gen g to -> graph_has_v g v -> outlier_compatible g outlier ->
+    heapgraph_has_gen g to -> heapgraph_has_block g v -> outlier_compatible g outlier ->
     outlier_compatible (lgraph_copy_v g v to) outlier.
 Proof. intros. apply lmc_outlier_compatible, lacv_outlier_compatible; assumption. Qed.
 
@@ -705,7 +705,7 @@ Proof.
 Qed.
 
 Lemma lmc_unmarked_gen_size: forall g v v',
-    graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
+    heapgraph_has_block g v -> block_mark (heapgraph_block g v) = false ->
     unmarked_gen_size g (addr_gen v) =
     unmarked_gen_size (lgraph_mark_copied g v v') (addr_gen v) +
      heapgraph_block_size g v.
@@ -740,7 +740,7 @@ Lemma lmc_estc:
   forall (g : HeapGraph) (t_info : thread_info) (v v': Addr) (to : nat)
          (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info))),
     enough_space_to_copy g t_info (addr_gen v) to ->
-    graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
+    heapgraph_has_block g v -> block_mark (heapgraph_block g v) = false ->
     forall
       Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v),
       enough_space_to_copy (lgraph_mark_copied g v v')
@@ -758,7 +758,7 @@ Lemma forward_estc_unchanged: forall
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
     (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v)),
     addr_gen v <> to -> heapgraph_has_gen g to ->
-    graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
+    heapgraph_has_block g v -> block_mark (heapgraph_block g v) = false ->
     enough_space_to_copy g t_info (addr_gen v) to ->
     enough_space_to_copy (lgraph_copy_v g v to)
          (cut_thread_info t_info (Z.of_nat to) (heapgraph_block_size g v) Hi Hh)
@@ -777,8 +777,8 @@ Proof.
       (apply cti_eq; symmetry; assumption).
   apply lmc_estc.
   - assumption.
-  - subst g'. apply lacv_graph_has_v_old; assumption.
-  - subst g'. rewrite lacv_vlabel_old; [| apply graph_has_v_not_eq]; assumption.
+  - subst g'. apply lacv_heapgraph_has_block_old; assumption.
+  - subst g'. rewrite lacv_vlabel_old; [| apply heapgraph_has_block_not_eq]; assumption.
 Qed.
 
 Lemma lcv_rgc_unchanged: forall g roots v to,
@@ -787,7 +787,7 @@ Lemma lcv_rgc_unchanged: forall g roots v to,
     roots_graph_compatible roots (lgraph_copy_v g v to).
 Proof.
   intros. red in H0 |-*. rewrite Forall_forall in *. intros.
-  apply lcv_graph_has_v_old; [|apply H0]; assumption.
+  apply lcv_heapgraph_has_block_old; [|apply H0]; assumption.
 Qed.
 
 Lemma lcv_roots_compatible_unchanged: forall g roots outlier v to,
@@ -814,10 +814,10 @@ Proof.
 Qed.
 
 Lemma lcv_heapgraph_block_ptr_old: forall g v to x,
-    heapgraph_has_gen g to -> graph_has_v g x ->
+    heapgraph_has_gen g to -> heapgraph_has_block g x ->
     heapgraph_block_ptr (lgraph_copy_v g v to) x = heapgraph_block_ptr g x.
 Proof.
-  intros. apply lcv_heapgraph_block_ptr; [|apply graph_has_v_in_closure]; assumption.
+  intros. apply lcv_heapgraph_block_ptr; [|apply heapgraph_has_block_in_closure]; assumption.
 Qed.
 
 Lemma lcv_fun_thread_arg_compatible_unchanged: forall
@@ -898,7 +898,7 @@ Lemma lcv_super_compatible_unchanged: forall
     g t_info roots f_info outlier to v
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
     (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v)),
-    heapgraph_has_gen g to -> graph_has_v g v ->
+    heapgraph_has_gen g to -> heapgraph_has_block g v ->
     super_compatible (g, t_info, roots) f_info outlier ->
     super_compatible
       (lgraph_copy_v g v to,
@@ -935,18 +935,18 @@ Proof.
 Qed.
 
 Lemma lcv_block_fields: forall g v to x,
-    heapgraph_has_gen g to -> graph_has_v g x ->
+    heapgraph_has_gen g to -> heapgraph_has_block g x ->
     block_fields (heapgraph_block g x) = block_fields (heapgraph_block (lgraph_copy_v g v to) x).
 Proof.
   intros. unfold lgraph_copy_v. rewrite <- lmc_block_fields, lacv_vlabel_old.
-  1: reflexivity. apply graph_has_v_not_eq; assumption.
+  1: reflexivity. apply heapgraph_has_block_not_eq; assumption.
 Qed.
 
 Lemma lcv_mfv_Zlen_eq: forall g v v' to,
     heapgraph_has_gen g to ->
-    graph_has_v g v ->
-    Zlength (make_fields_vals g v) =
-    Zlength (make_fields_vals (lgraph_copy_v g v' to) v).
+    heapgraph_has_block g v ->
+    Zlength (heapgraph_block_cells_vals g v) =
+    Zlength (heapgraph_block_cells_vals (lgraph_copy_v g v' to) v).
 Proof.
   intros. repeat rewrite fields_eq_length.
   rewrite <- lcv_block_fields by assumption; reflexivity.
@@ -963,11 +963,11 @@ Proof.
 Qed.
 
 Lemma lcv_block_mark: forall g v to x,
-    x <> v -> heapgraph_has_gen g to -> graph_has_v g x ->
+    x <> v -> heapgraph_has_gen g to -> heapgraph_has_block g x ->
     block_mark (heapgraph_block g x) = block_mark (heapgraph_block (lgraph_copy_v g v to) x).
 Proof.
   intros. unfold lgraph_copy_v. rewrite <- lmc_block_mark by assumption.
-  rewrite lacv_vlabel_old. 1: reflexivity. apply graph_has_v_not_eq; assumption.
+  rewrite lacv_vlabel_old. 1: reflexivity. apply heapgraph_has_block_not_eq; assumption.
 Qed.
 
 
@@ -981,12 +981,12 @@ Proof.
 Qed.
 
 
-Lemma lcv_graph_has_v_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
-    heapgraph_has_gen g to -> graph_has_v (lgraph_copy_v g v to) x ->
-    graph_has_v g x \/ x = new_copied_v g to.
+Lemma lcv_heapgraph_has_block_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
+    heapgraph_has_gen g to -> heapgraph_has_block (lgraph_copy_v g v to) x ->
+    heapgraph_has_block g x \/ x = new_copied_v g to.
 Proof.
-  intros. unfold lgraph_copy_v in H0. rewrite <- lmc_graph_has_v in H0.
-  apply (lacv_graph_has_v_inv g v); assumption.
+  intros. unfold lgraph_copy_v in H0. rewrite <- lmc_heapgraph_has_block in H0.
+  apply (lacv_heapgraph_has_block_inv g v); assumption.
 Qed.
 
 Lemma lcv_heapgraph_generation_is_unmarked: forall (to : nat) (g : HeapGraph) (v : Addr),
@@ -995,8 +995,8 @@ Lemma lcv_heapgraph_generation_is_unmarked: forall (to : nat) (g : HeapGraph) (v
                 heapgraph_generation_is_unmarked g gen -> heapgraph_generation_is_unmarked (lgraph_copy_v g v to) gen.
 Proof.
   intros. unfold heapgraph_generation_is_unmarked in *. intros.
-  assert (graph_has_v (lgraph_copy_v g v to) {| addr_gen := gen; addr_block := idx |}) by (split; assumption).
-  apply lcv_graph_has_v_inv in H5. 2: assumption. destruct H5.
+  assert (heapgraph_has_block (lgraph_copy_v g v to) {| addr_gen := gen; addr_block := idx |}) by (split; assumption).
+  apply lcv_heapgraph_has_block_inv in H5. 2: assumption. destruct H5.
   - pose proof H5. destruct H6. simpl in * |- . specialize (H2 H6 _ H7).
     rewrite <- lcv_block_mark; try assumption. destruct v. simpl in *. intro. apply H1.
     inversion H8. reflexivity.

@@ -23,7 +23,7 @@ Definition upd_bunch (index: Z) (f_info: fun_info)
 Lemma upd_bunch_graph_compatible: forall g f_info roots z,
     roots_graph_compatible roots g ->
     forall v : Addr,
-      graph_has_v g v ->
+      heapgraph_has_block g v ->
       roots_graph_compatible (upd_bunch z f_info roots (inr v)) g.
 Proof.
   intros. red in H |-* . rewrite Forall_forall in H |-* . intros.
@@ -104,7 +104,7 @@ Qed.
 Lemma upd_roots_outlier_compatible: forall f_info roots outlier z v,
     roots_outlier_compatible roots outlier ->
     (* forall v : Addr, *)
-    (*   graph_has_v g v -> *)
+    (*   heapgraph_has_block g v -> *)
     roots_outlier_compatible (upd_bunch z f_info roots (inr v)) outlier.
 Proof.
   intros. do 2 red in H |-* . intros.
@@ -116,7 +116,7 @@ Qed.
 
 Lemma upd_roots_compatible: forall g f_info roots outlier z,
     roots_compatible g outlier roots ->
-    forall v : Addr, graph_has_v g v ->
+    forall v : Addr, heapgraph_has_block g v ->
                       roots_compatible g outlier (upd_bunch z f_info roots (inr v)).
 Proof.
   intros. destruct H. split.
@@ -172,7 +172,7 @@ Lemma forward_estc: forall
     (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v))
     (Hm : 0 <= index < MAX_ARGS),
     addr_gen v <> to -> heapgraph_has_gen g to ->
-    graph_has_v g v -> block_mark (heapgraph_block g v) = false ->
+    heapgraph_has_block g v -> block_mark (heapgraph_block g v) = false ->
     enough_space_to_copy g t_info (addr_gen v) to ->
     enough_space_to_copy
       (lgraph_copy_v g v to)
@@ -192,8 +192,8 @@ Lemma lcv_roots_graph_compatible: forall g roots v to f_info z,
 Proof.
   intros. apply upd_bunch_graph_compatible.
   - apply lcv_rgc_unchanged; assumption.
-  - unfold lgraph_copy_v; rewrite <- lmc_graph_has_v;
-      apply lacv_graph_has_v_new; assumption.
+  - unfold lgraph_copy_v; rewrite <- lmc_heapgraph_has_block;
+      apply lacv_heapgraph_has_block_new; assumption.
 Qed.
 
 Lemma lcv_roots_compatible: forall g roots outlier v to f_info z,
@@ -231,7 +231,7 @@ Lemma lcv_super_compatible: forall
     (Hi : 0 <= Z.of_nat to < Zlength (heap_spaces (ti_heap t_info)))
     (Hh : has_space (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) (heapgraph_block_size g v))
     (Hm : 0 <= Znth z (live_roots_indices f_info) < MAX_ARGS),
-    heapgraph_has_gen g to -> graph_has_v g v ->
+    heapgraph_has_gen g to -> heapgraph_has_block g v ->
     super_compatible (g, t_info, roots) f_info outlier ->
     super_compatible
       (lgraph_copy_v g v to,

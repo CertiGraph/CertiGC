@@ -58,23 +58,23 @@ Qed.
 Lemma data_at_mfs_eq: forall g v i sh nv,
     field_compatible tvalue [] (offset_val (WORD_SIZE * i) nv) ->
     0 <= i < Zlength (block_fields (heapgraph_block g v)) ->
-    data_at sh (tarray tvalue i) (sublist 0 i (make_fields_vals g v)) nv *
-    field_at sh tvalue [] (Znth i (make_fields_vals g v))
+    data_at sh (tarray tvalue i) (sublist 0 i (heapgraph_block_cells_vals g v)) nv *
+    field_at sh tvalue [] (Znth i (heapgraph_block_cells_vals g v))
              (offset_val (WORD_SIZE * i) nv) =
     data_at sh (tarray tvalue (i + 1))
-            (sublist 0 (i + 1) (make_fields_vals g v)) nv.
+            (sublist 0 (i + 1) (heapgraph_block_cells_vals g v)) nv.
 Proof.
   intros. rewrite field_at_data_at. unfold field_address.
   rewrite if_true by assumption. simpl nested_field_type.
   simpl nested_field_offset. rewrite offset_offset_val.
   replace (WORD_SIZE * i + 0) with (WORD_SIZE * i)%Z by lia.
   rewrite <- (data_at_singleton_array_eq
-                sh tvalue _ [Znth i (make_fields_vals g v)]) by reflexivity.
+                sh tvalue _ [Znth i (heapgraph_block_cells_vals g v)]) by reflexivity.
   rewrite <- fields_eq_length in H0.
   rewrite (data_at_tarray_value
-             sh (i + 1) i nv (sublist 0 (i + 1) (make_fields_vals g v))
-             (make_fields_vals g v) (sublist 0 i (make_fields_vals g v))
-             [Znth i (make_fields_vals g v)]).
+             sh (i + 1) i nv (sublist 0 (i + 1) (heapgraph_block_cells_vals g v))
+             (heapgraph_block_cells_vals g v) (sublist 0 i (heapgraph_block_cells_vals g v))
+             [Znth i (heapgraph_block_cells_vals g v)]).
   - replace (i + 1 - i) with 1 by lia. reflexivity.
   - lia.
   - lia.
@@ -192,12 +192,12 @@ Proof.
       gather_SEP (graph_rep _) (heap_rest_rep _) (outlier_rep _).
       rewrite <- HeqP.
       replace_SEP 0 ((weak_derives P (memory_block fsh fn fp * TT) && emp) * P) by
-          (entailer; assumption). clear H19. Intros. assert (graph_has_v g a). {
+          (entailer; assumption). clear H19. Intros. assert (heapgraph_has_block g a). {
         destruct H5. red in H19. rewrite Forall_forall in H19. apply H19.
         rewrite <- filter_sum_right_In_iff. assumption. }
       assert (P |-- (weak_derives P (valid_pointer (Vptr b i) * TT) && emp) * P). {
         apply weak_derives_strong. subst. sep_apply (graph_rep_vertex_rep g a H19).
-        Intros shh. unfold vertex_rep, vertex_at. remember (make_fields_vals g a).
+        Intros shh. unfold vertex_rep, vertex_at. remember (heapgraph_block_cells_vals g a).
         sep_apply (data_at_valid_ptr shh (tarray tvalue (Zlength l)) l (heapgraph_block_ptr g a)).
         - apply readable_nonidentity, writable_readable_share. assumption.
         - subst l. simpl. rewrite fields_eq_length.
@@ -229,8 +229,8 @@ Proof.
            rewrite H22 in H21. clear H22.
            localize [vertex_rep (heapgraph_generation_sh g (addr_gen a)) g a].
            rewrite v. unfold vertex_rep, vertex_at. Intros.
-           unfold make_fields_vals at 2. rewrite H21.
-           assert (0 <= 0 < Zlength (make_fields_vals g a)). {
+           unfold heapgraph_block_cells_vals at 2. rewrite H21.
+           assert (0 <= 0 < Zlength (heapgraph_block_cells_vals g a)). {
              split. 1: lia. rewrite fields_eq_length.
              apply (proj1 (block_fields__range (heapgraph_block g a))). }
            assert (is_pointer_or_integer
@@ -246,7 +246,7 @@ Proof.
            gather_SEP (data_at _ _ _ _)
                       (data_at _ _ _ _).
            replace_SEP 0 (vertex_rep (heapgraph_generation_sh g (addr_gen a)) g a). {
-             unfold vertex_rep, vertex_at. unfold make_fields_vals at 3.
+             unfold vertex_rep, vertex_at. unfold heapgraph_block_cells_vals at 3.
              rewrite H21. entailer!. }
            unlocalize [graph_rep g]. 1: apply (graph_vertex_ramif_stable _ _ H19).
            thaw FR. forward.
@@ -368,7 +368,7 @@ Proof.
                      temp _depth (vint depth))
               SEP (vertex_rep shv g a;
                    data_at sht (tarray tvalue i)
-                           (sublist 0 i (make_fields_vals g a)) nv;
+                           (sublist 0 i (heapgraph_block_cells_vals g a)) nv;
                    data_at_ sht (tarray tvalue (n - i))
                             (offset_val (WORD_SIZE * i) nv); FRZL FR))%assert.
            ++ pose proof (block_fields__range2 (heapgraph_block g a)). simpl in H30.
@@ -433,7 +433,7 @@ Proof.
               replace_SEP
                 0 (vertex_at (heapgraph_generation_sh g to)
                              (heapgraph_block_ptr g (new_copied_v g to))
-                             (heapgraph_block_header g a) (make_fields_vals g a)). {
+                             (heapgraph_block_header g a) (heapgraph_block_cells_vals g a)). {
                 normalize. rewrite <- H24.
                 change (generation_sh (heapgraph_generation g to)) with (heapgraph_generation_sh g to).
                 rewrite <- fields_eq_length in Heqn.
@@ -452,11 +452,11 @@ Proof.
               rewrite <- H31. rewrite <- H32 in H30.
               assert (writable_share (heapgraph_generation_sh g' (addr_gen a))) by
                   (unfold heapgraph_generation_sh; apply generation_sh__writable).
-              assert (graph_has_v g' (new_copied_v g to)) by
-                  (subst g'; apply lacv_graph_has_v_new; assumption).
+              assert (heapgraph_has_block g' (new_copied_v g to)) by
+                  (subst g'; apply lacv_heapgraph_has_block_new; assumption).
               sep_apply (graph_rep_valid_int_or_ptr _ _ H34). Intros.
-              rewrite <- H30 in H35. assert (graph_has_v g' a) by
-                  (subst g'; apply lacv_graph_has_v_old; assumption).
+              rewrite <- H30 in H35. assert (heapgraph_has_block g' a) by
+                  (subst g'; apply lacv_heapgraph_has_block_old; assumption).
               remember (heapgraph_generation_sh g' (addr_gen a)) as sh'.
               sep_apply (graph_vertex_lmc_ramif g' a (new_copied_v g to) H36).
               rewrite <- Heqsh'. Intros. freeze [1; 2] FR1.
@@ -468,7 +468,7 @@ Proof.
                            sh' (if Archi.ptr64 then tulong else tuint)
                            (if Archi.ptr64 then (Vlong (Int64.repr 0)) else (vint 0))
                            (offset_val (- WORD_SIZE) (heapgraph_block_ptr g' a))).
-              forward_call (nv). remember (make_fields_vals g' a) as l'.
+              forward_call (nv). remember (heapgraph_block_cells_vals g' a) as l'.
               assert (0 < Zlength l'). {
                 subst l'. rewrite fields_eq_length.
                 apply (proj1 (block_fields__range (heapgraph_block g' a))). }
@@ -565,8 +565,8 @@ Proof.
                        with (tvalue). Intros.
                      assert (heapgraph_has_gen g' to) by
                          (rewrite Heqg', <- lcv_graph_has_gen; assumption).
-                     assert (graph_has_v g' (new_copied_v g to)) by
-                         (rewrite Heqg'; apply lcv_graph_has_v_new; assumption).
+                     assert (heapgraph_has_block g' (new_copied_v g to)) by
+                         (rewrite Heqg'; apply lcv_heapgraph_has_block_new; assumption).
                      forward_call (rsh, sh, gv, fi, ti, g3, t_info3, f_info, roots',
                                    outlier, from, to, depth - 1,
                                    (@inr Z _ (new_copied_v g to, i))).
@@ -575,10 +575,10 @@ Proof.
                          first [rewrite sem_add_pi_ptr_special' |
                                 rewrite sem_add_pl_ptr_special']; auto.
                          *** simpl. f_equal. erewrite fl_heapgraph_block_ptr; eauto.
-                             subst g'. apply graph_has_v_in_closure. assumption.
+                             subst g'. apply heapgraph_has_block_in_closure. assumption.
                          *** rewrite <- H30. assumption.
                      +++ split3; [| |split].
-                         *** apply (fl_graph_has_v _ _ _ _ _ _ H50 H47 _ H51).
+                         *** apply (fl_heapgraph_has_block _ _ _ _ _ _ H50 H47 _ H51).
                          *** erewrite <- fl_block_fields; eauto. subst g'.
                              unfold lgraph_copy_v. subst n.
                              rewrite <- lmc_block_fields, lacv_vlabel_new.
@@ -645,7 +645,7 @@ Proof.
     unfold vertex_rep, vertex_at. Intros.
     assert_PROP (offset_val (WORD_SIZE * n) (heapgraph_block_ptr g v) =
                  field_address (tarray tvalue
-                                       (Zlength (make_fields_vals g v)))
+                                       (Zlength (heapgraph_block_cells_vals g v)))
                                [ArraySubsc n] (heapgraph_block_ptr g v)). {
       entailer!. unfold field_address. rewrite if_true; [simpl; f_equal|].
       clear -H20 H11; rewrite <- fields_eq_length in H11.
@@ -653,7 +653,7 @@ Proof.
     }
     assert (readable_share (heapgraph_generation_sh g (addr_gen v))) by
       apply writable_readable, generation_sh__writable.
-    assert (is_pointer_or_integer (Znth n (make_fields_vals g v))). {
+    assert (is_pointer_or_integer (Znth n (heapgraph_block_cells_vals g v))). {
       pose proof (mfv_all_is_ptr_or_int g v H9 H10 H0). rewrite Forall_forall in H16.
       apply H16, Znth_In. rewrite fields_eq_length. assumption. } forward.
     gather_SEP (data_at _ _ _ _) (data_at _ _ _ _).
@@ -664,10 +664,10 @@ Proof.
       admit.
     }
     unlocalize [graph_rep g]. 1: apply graph_vertex_ramif_stable; assumption. thaw FR.
-    unfold make_fields_vals.
-    rewrite H12, Znth_map; [|rewrite make_fields_eq_length; assumption].
-    assert_PROP (valid_int_or_ptr (heapgraph_cell_val g (Znth n (make_fields g v)))). {
-      destruct (Znth n (make_fields g v)) eqn:?; [destruct s|].
+    unfold heapgraph_block_cells_vals.
+    rewrite H12, Znth_map; [|rewrite heapgraph_block_cells_eq_length; assumption].
+    assert_PROP (valid_int_or_ptr (heapgraph_cell_val g (Znth n (heapgraph_block_cells g v)))). {
+      destruct (Znth n (heapgraph_block_cells g v)) eqn:?; [destruct s|].
       - unfold heapgraph_cell_val; unfold odd_Z2val.
         replace (2 * z + 1) with (z + z + 1) by lia.
         entailer!. apply valid_int_or_ptr_ii1.
@@ -690,9 +690,9 @@ Proof.
         unfold no_dangling_dst in H10.
         apply H10 with (e:=e) in H0.
         1: sep_apply (graph_rep_valid_int_or_ptr g (dst g e) H0); entailer!.
-        unfold get_edges; rewrite <- filter_sum_right_In_iff, <- Heqc.
-        now apply Znth_In; rewrite make_fields_eq_length. }
-    forward_call (heapgraph_cell_val g (Znth n (make_fields g v))).
+        unfold heapgraph_block_fields; rewrite <- filter_sum_right_In_iff, <- Heqc.
+        now apply Znth_In; rewrite heapgraph_block_cells_eq_length. }
+    forward_call (heapgraph_cell_val g (Znth n (heapgraph_block_cells g v))).
     remember (graph_rep g * heap_rest_rep (ti_heap t_info) * outlier_rep outlier) as P.
     pose proof (graph_and_heap_rest_data_at_ _ _ _ H7 H).
     unfold generation_data_at_ in H18. remember (heapgraph_generation_base g from) as fp.
@@ -703,7 +703,7 @@ Proof.
       rewrite data_at__memory_block.
       rewrite sizeof_tarray_int_or_ptr; [Intros; cancel | unfold gen_size].
       destruct (space_capacity__tight_range (nth_space t_info from)). assumption. }
-    destruct (Znth n (make_fields g v)) eqn:? ; [destruct s|].
+    destruct (Znth n (heapgraph_block_cells g v)) eqn:? ; [destruct s|].
     (* Z + GC_Pointer + EType *)
     + (* Z *)
       unfold heapgraph_cell_val, odd_Z2val. forward_if.
@@ -760,13 +760,13 @@ Proof.
       assert (isptr (heapgraph_block_ptr g v')). { (**)
         unfold heapgraph_block_ptr; unfold offset_val.
         remember (addr_gen v') as n'.
-        assert (graph_has_v g v'). {
+        assert (heapgraph_has_block g v'). {
           unfold no_dangling_dst in H10.
           subst. clear -H0 H10 H11 e Heqc.
           apply (H10 v H0).
-          unfold get_edges;
+          unfold heapgraph_block_fields;
           rewrite <- filter_sum_right_In_iff, <- Heqc; apply Znth_In.
-          now rewrite make_fields_eq_length.
+          now rewrite heapgraph_block_cells_eq_length.
         }
         destruct H20. rewrite <- Heqn' in H20.
         pose proof (heapgraph_generation_base__isptr g n' H20).
@@ -780,15 +780,15 @@ Proof.
       replace_SEP 0
                   ((weak_derives P (memory_block fsh fn fp * TT) && emp) * P) by
           (entailer; assumption).
-      clear H19. Intros. assert (graph_has_v g v'). { (**)
+      clear H19. Intros. assert (heapgraph_has_block g v'). { (**)
         rewrite Heqv'.
         unfold no_dangling_dst in H10.
         clear -H10 H0 e Heqc H11. apply (H10 v H0).
-        unfold get_edges.
+        unfold heapgraph_block_fields.
         rewrite <- filter_sum_right_In_iff.
         rewrite <- Heqc.
         apply Znth_In.
-        rewrite make_fields_eq_length; assumption.
+        rewrite heapgraph_block_cells_eq_length; assumption.
       }
       assert (P |-- (weak_derives P (valid_pointer (Vptr b i) * TT) && emp) * P). {
         apply weak_derives_strong. subst.
@@ -796,8 +796,8 @@ Proof.
         sep_apply (graph_rep_vertex_rep g v' H19).
         Intros shh. unfold vertex_rep, vertex_at. rewrite Heqv0.
         sep_apply (data_at_valid_ptr
-                     shh (tarray tvalue (Zlength (make_fields_vals g v')))
-                     (make_fields_vals g v') (Vptr b i)).
+                     shh (tarray tvalue (Zlength (heapgraph_block_cells_vals g v')))
+                     (heapgraph_block_cells_vals g v') (Vptr b i)).
         - apply readable_nonidentity, writable_readable_share; assumption.
         - simpl. rewrite fields_eq_length.
           pose proof (proj1 (block_fields__range (heapgraph_block g v'))). rewrite Z.max_r; lia.
@@ -833,8 +833,8 @@ Proof.
           rewrite H23 in H22. clear H23.
           localize [vertex_rep (heapgraph_generation_sh g (addr_gen v')) g v'].
           rewrite v0. unfold vertex_rep, vertex_at. Intros.
-          unfold make_fields_vals at 2. rewrite H22.
-          assert (0 <= 0 < Zlength (make_fields_vals g v')). {
+          unfold heapgraph_block_cells_vals at 2. rewrite H22.
+          assert (0 <= 0 < Zlength (heapgraph_block_cells_vals g v')). {
              split. 1: lia. rewrite fields_eq_length.
              apply (proj1 (block_fields__range (heapgraph_block g v'))).
           }
@@ -853,7 +853,7 @@ Proof.
           gather_SEP (data_at _ _ _ _) (data_at _ _ _ _).
           replace_SEP 0 (vertex_rep (heapgraph_generation_sh g (addr_gen v')) g v').
           {
-            unfold vertex_rep, vertex_at. unfold make_fields_vals at 3.
+            unfold vertex_rep, vertex_at. unfold heapgraph_block_cells_vals at 3.
             rewrite H22. entailer!.
           }
           unlocalize [graph_rep g]. 1: apply (graph_vertex_ramif_stable _ _ H19).
@@ -863,8 +863,8 @@ Proof.
           forward.
           sep_apply (field_at_data_at_cancel
                        (heapgraph_generation_sh g (addr_gen v))
-                       (tarray tvalue (Zlength (make_fields_vals g v)))
-                       (upd_Znth n (make_fields_vals g v)
+                       (tarray tvalue (Zlength (heapgraph_block_cells_vals g v)))
+                       (upd_Znth n (heapgraph_block_cells_vals g v)
                        (heapgraph_block_ptr g (block_copied_vertex (heapgraph_block g v'))))
                        (heapgraph_block_ptr g v)).
           gather_SEP (data_at _ _ _ _ ) (data_at _ _ _ _).
@@ -874,18 +874,18 @@ Proof.
           1: { unfold vertex_rep, vertex_at.
                replace (heapgraph_generation_sh g' (addr_gen v)) with
                    (heapgraph_generation_sh g (addr_gen v)) by (subst g'; reflexivity).
-               replace (Zlength (make_fields_vals g' v)) with
-                   (Zlength (make_fields_vals g v)) by
+               replace (Zlength (heapgraph_block_cells_vals g' v)) with
+                   (Zlength (heapgraph_block_cells_vals g v)) by
                    (subst g'; repeat rewrite fields_eq_length;
                     apply lgd_raw_fld_length_eq).
                rewrite (lgd_mfv_change_in_one_spot g v e a n);
-                 [|rewrite make_fields_eq_length| | ]; try assumption.
+                 [|rewrite heapgraph_block_cells_eq_length| | ]; try assumption.
                entailer!. }
           subst g'; subst a.
           unlocalize [graph_rep (labeledgraph_gen_dst g e
                                                       (block_copied_vertex (heapgraph_block g v')))].
           1: apply (graph_vertex_lgd_ramif g v e (block_copied_vertex (heapgraph_block g v')) n);
-            try (rewrite make_fields_eq_length); assumption.
+            try (rewrite heapgraph_block_cells_eq_length); assumption.
           Exists (labeledgraph_gen_dst g e (block_copied_vertex (heapgraph_block g (dst g e))))
                  t_info roots.
           entailer!.
@@ -997,7 +997,7 @@ Proof.
                      temp _depth (vint depth))
               SEP (vertex_rep shv g v';
                    data_at sht (tarray tvalue i)
-                           (sublist 0 i (make_fields_vals g v')) nv;
+                           (sublist 0 i (heapgraph_block_cells_vals g v')) nv;
                    data_at_ sht (tarray tvalue (n' - i))
                             (offset_val (WORD_SIZE * i) nv); FRZL FR))%assert.
            ++ pose proof (block_fields__range2 (heapgraph_block g v')). simpl in H31.
@@ -1059,7 +1059,7 @@ Proof.
               replace_SEP
                 0 (vertex_at (heapgraph_generation_sh g to)
                              (heapgraph_block_ptr g (new_copied_v g to))
-                             (heapgraph_block_header g v') (make_fields_vals g v')). {
+                             (heapgraph_block_header g v') (heapgraph_block_cells_vals g v')). {
                 normalize. rewrite <- H25.
                 change (generation_sh (heapgraph_generation g to)) with (heapgraph_generation_sh g to).
                 rewrite <- fields_eq_length in Heqn'.
@@ -1078,11 +1078,11 @@ Proof.
               rewrite <- H32. rewrite <- H33 in H31.
               assert (writable_share (heapgraph_generation_sh g' (addr_gen v'))) by
                   (unfold heapgraph_generation_sh; apply generation_sh__writable).
-              assert (graph_has_v g' (new_copied_v g to)) by
-                  (subst g'; apply lacv_graph_has_v_new; assumption).
+              assert (heapgraph_has_block g' (new_copied_v g to)) by
+                  (subst g'; apply lacv_heapgraph_has_block_new; assumption).
               sep_apply (graph_rep_valid_int_or_ptr _ _ H35). Intros.
-              rewrite <- H31 in H36. assert (graph_has_v g' v') by
-                  (subst g'; apply lacv_graph_has_v_old; assumption).
+              rewrite <- H31 in H36. assert (heapgraph_has_block g' v') by
+                  (subst g'; apply lacv_heapgraph_has_block_old; assumption).
               remember (heapgraph_generation_sh g' (addr_gen v')) as sh'.
               sep_apply (graph_vertex_lmc_ramif g' v' (new_copied_v g to) H37).
               rewrite <- Heqsh'. Intros. freeze [1; 2] FR1.
@@ -1093,7 +1093,7 @@ Proof.
               sep_apply (field_at_data_at_cancel
                            sh' (if Archi.ptr64 then tulong else tuint) (Z2val 0)
                            (offset_val (- WORD_SIZE) (heapgraph_block_ptr g' v'))).
-              forward_call (nv). remember (make_fields_vals g' v') as l'.
+              forward_call (nv). remember (heapgraph_block_cells_vals g' v') as l'.
               assert (0 < Zlength l'). {
                 subst l'. rewrite fields_eq_length.
                 apply (proj1 (block_fields__range (heapgraph_block g' v'))). }
@@ -1133,31 +1133,31 @@ Proof.
                   (subst g'; apply lcv_heapgraph_block_ptr_new; assumption).
               assert (writable_share (heapgraph_generation_sh g' (addr_gen v'))) by
                   (unfold heapgraph_generation_sh; apply generation_sh__writable).
-              assert (graph_has_v g' (new_copied_v g to)) by
-                  (subst g'; apply lcv_graph_has_v_new; assumption).
+              assert (heapgraph_has_block g' (new_copied_v g to)) by
+                  (subst g'; apply lcv_heapgraph_has_block_new; assumption).
               forward_call (nv).
               rewrite <- H31 in *.
               rewrite lacv_heapgraph_block_ptr;
-                [|apply graph_has_v_in_closure|]; try assumption.
+                [|apply heapgraph_has_block_in_closure|]; try assumption.
               rewrite <- H32.
               rewrite <- (lcv_heapgraph_block_ptr g v' to v);
                 try rewrite <- (lcv_heapgraph_block_ptr g v' to v) in H14;
-                try apply graph_has_v_in_closure; try assumption.
+                try apply heapgraph_has_block_in_closure; try assumption.
               rewrite (lcv_mfv_Zlen_eq g v v' to H8 H0) in H14. rewrite <- Heqg' in *.
               remember (heapgraph_generation_sh g' (addr_gen v)) as shh.
-              remember (make_fields_vals g' v) as mfv.
+              remember (heapgraph_block_cells_vals g' v) as mfv.
               remember (new_copied_v g to).
               remember (labeledgraph_gen_dst g' e a) as g1.
-              assert (0 <= n < Zlength (make_fields_vals g' v)) by
+              assert (0 <= n < Zlength (heapgraph_block_cells_vals g' v)) by
                   (subst g'; rewrite fields_eq_length, <- lcv_block_fields; assumption).
-              assert (Znth n (make_fields g' v) = inr e) by
-                  (subst g'; unfold make_fields in *;
+              assert (Znth n (heapgraph_block_cells g' v) = inr e) by
+                  (subst g'; unfold heapgraph_block_cells in *;
                    rewrite <- lcv_block_fields; assumption).
-              assert (0 <= n < Zlength (make_fields g' v)) by
-                  (rewrite make_fields_eq_length;
+              assert (0 <= n < Zlength (heapgraph_block_cells g' v)) by
+                  (rewrite heapgraph_block_cells_eq_length;
                    rewrite fields_eq_length in H43; assumption).
-              assert (graph_has_v g' v) by
-                  (subst g'; apply lcv_graph_has_v_old; assumption).
+              assert (heapgraph_has_block g' v) by
+                  (subst g'; apply lcv_heapgraph_has_block_old; assumption).
               assert (v <> v') by
                   (intro; subst v; clear -v0 H13; lia).
               assert (block_mark (heapgraph_block g' v) = false) by
@@ -1171,16 +1171,16 @@ Proof.
               rewrite H31.
               sep_apply (field_at_data_at_cancel
                            shh
-                           (tarray tvalue (Zlength (make_fields_vals g' v)))
-                           (upd_Znth n (make_fields_vals g' v) (heapgraph_block_ptr g' a))
+                           (tarray tvalue (Zlength (heapgraph_block_cells_vals g' v)))
+                           (upd_Znth n (heapgraph_block_cells_vals g' v) (heapgraph_block_ptr g' a))
                            (heapgraph_block_ptr g' v)).
               gather_SEP (data_at shh _ _ _) (data_at shh _ _ _).
               replace_SEP 0 (vertex_rep (heapgraph_generation_sh g1 (addr_gen v)) g1 v).
               1: { unfold vertex_rep, vertex_at.
                    replace (heapgraph_generation_sh g1 (addr_gen v)) with shh by
                        (subst shh g1; reflexivity).
-                   replace (Zlength (make_fields_vals g1 v)) with
-                       (Zlength (make_fields_vals g' v)) by
+                   replace (Zlength (heapgraph_block_cells_vals g1 v)) with
+                       (Zlength (heapgraph_block_cells_vals g' v)) by
                        (subst g1; repeat rewrite fields_eq_length;
                         apply lgd_raw_fld_length_eq).
                    rewrite (lgd_mfv_change_in_one_spot g' v e a n);
@@ -1207,12 +1207,12 @@ Proof.
               rewrite H31 in H33.
                 assert (forward_relation from to 0 (inr e) g g1) by
                     (subst g1 g' v1 v'; constructor; assumption).
-                assert (In e (get_edges g v)). { (**)
-                  unfold get_edges.
+                assert (In e (heapgraph_block_fields g v)). { (**)
+                  unfold heapgraph_block_fields.
                   rewrite <- filter_sum_right_In_iff.
                   rewrite <- Heqc.
-                  apply (Znth_In n (make_fields g v)).
-                  rewrite make_fields_eq_length. assumption.
+                  apply (Znth_In n (heapgraph_block_cells g v)).
+                  rewrite heapgraph_block_cells_eq_length. assumption.
                 }
                 assert (forward_condition g1 t_info' from to). {
                   subst g1 g' t_info' from v'.
@@ -1271,9 +1271,9 @@ Proof.
                      assert (heapgraph_has_gen g1 to) by
                          (rewrite Heqg1, lgd_graph_has_gen; subst g';
                           rewrite <- lcv_graph_has_gen; assumption).
-                     assert (graph_has_v g1 (new_copied_v g to)) by
-                       (subst g1; rewrite <- lgd_graph_has_v;
-                       rewrite Heqg'; apply lcv_graph_has_v_new; assumption).
+                     assert (heapgraph_has_block g1 (new_copied_v g to)) by
+                       (subst g1; rewrite <- lgd_heapgraph_has_block;
+                       rewrite Heqg'; apply lcv_heapgraph_has_block_new; assumption).
                      forward_call (rsh, sh, gv, fi, ti, g3, t_info3, f_info, roots',
                                    outlier, from, to, depth - 1,
                                    (@inr Z _ (new_copied_v g to, i))).
@@ -1284,11 +1284,11 @@ Proof.
                          *** simpl. f_equal.
                              rewrite <- (lgd_heapgraph_block_ptr_eq g' e v1), <- Heqg1.
                              subst v1. apply (fl_heapgraph_block_ptr _ _ _ _ _ _ H64 H61).
-                             apply graph_has_v_in_closure; assumption.
+                             apply heapgraph_has_block_in_closure; assumption.
                          *** rewrite <- H31. assumption.
                      +++ split3; [| |split].
                          *** destruct H53 as [_ [_ [? _]]].
-                             apply (fl_graph_has_v _ _ _ _ _ _ H64 H61 _ H65).
+                             apply (fl_heapgraph_has_block _ _ _ _ _ _ H64 H61 _ H65).
                          *** erewrite <- fl_block_fields; eauto. subst g1.
                              unfold lgraph_copy_v. subst n'.
                              rewrite <- lgd_raw_fld_length_eq.

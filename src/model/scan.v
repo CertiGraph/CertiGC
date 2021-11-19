@@ -38,11 +38,11 @@ Inductive scan_vertex_while_loop (from to: nat):
   list nat -> HeapGraph -> HeapGraph -> Prop :=
 | svwl_nil: forall g, scan_vertex_while_loop from to nil g g
 | svwl_no_scan: forall g1 g2 i il,
-    heapgraph_generation_has_index g1 to i -> no_scan g1 {| addr_gen := to; addr_block := i |} ->
+    heapgraph_generation_has_index g1 to i -> heapgraph_block_is_no_scan g1 {| addr_gen := to; addr_block := i |} ->
     scan_vertex_while_loop from to il g1 g2 ->
     scan_vertex_while_loop from to (i :: il) g1 g2
 | svwl_scan: forall g1 g2 g3 i il,
-    heapgraph_generation_has_index g1 to i -> ~ no_scan g1 {| addr_gen := to; addr_block := i|} ->
+    heapgraph_generation_has_index g1 to i -> ~ heapgraph_block_is_no_scan g1 {| addr_gen := to; addr_block := i|} ->
     scan_vertex_for_loop
       from to {| addr_gen := to; addr_block := i|}
       (nat_inc_list (length (heapgraph_block g1 {| addr_gen := to; addr_block := i|}).(block_fields))) g1 g2 ->
@@ -97,38 +97,38 @@ Proof.
   eapply fr_heapgraph_block_ptr; eauto.
 Qed.
 
-Lemma svfl_graph_has_v: forall from to v l g g',
+Lemma svfl_heapgraph_has_block: forall from to v l g g',
     heapgraph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
-    forall x, graph_has_v g x -> graph_has_v g' x.
+    forall x, heapgraph_has_block g x -> heapgraph_has_block g' x.
 Proof.
   do 4 intro. revert from to v. induction l; intros; simpl; inversion H0; subst.
   1: assumption. assert (heapgraph_has_gen g2 to) by
       (eapply fr_graph_has_gen in H4; [rewrite <- H4 |]; assumption).
-  assert (graph_has_v g2 x) by (eapply fr_graph_has_v in H4; eauto).
+  assert (heapgraph_has_block g2 x) by (eapply fr_heapgraph_has_block in H4; eauto).
   eapply (IHl from to _ g2) in H7; eauto.
 Qed.
 
 Lemma svfl_block_fields: forall from to v l g g',
     heapgraph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
-    forall x, graph_has_v g x -> block_fields (heapgraph_block g x) = block_fields (heapgraph_block g' x).
+    forall x, heapgraph_has_block g x -> block_fields (heapgraph_block g x) = block_fields (heapgraph_block g' x).
 Proof.
   do 4 intro. revert from to v. induction l; intros; simpl; inversion H0; subst.
   1: reflexivity. assert (heapgraph_has_gen g2 to) by
       (eapply fr_graph_has_gen in H4; [rewrite <- H4 |]; assumption).
-  assert (graph_has_v g2 x) by (eapply fr_graph_has_v in H4; eauto).
+  assert (heapgraph_has_block g2 x) by (eapply fr_heapgraph_has_block in H4; eauto).
   eapply (IHl from to _ g2) in H7; eauto. rewrite <- H7.
   eapply fr_block_fields; eauto.
 Qed.
 
 Lemma svfl_block_mark: forall from to v l g g',
     heapgraph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
-    forall x, graph_has_v g x -> addr_gen x <> from ->
+    forall x, heapgraph_has_block g x -> addr_gen x <> from ->
               block_mark (heapgraph_block g x) = block_mark (heapgraph_block g' x).
 Proof.
   do 4 intro. revert from to v. induction l; intros; simpl; inversion H0; subst.
   1: reflexivity. assert (heapgraph_has_gen g2 to) by
       (eapply fr_graph_has_gen in H5; [rewrite <- H5 |]; assumption).
-  assert (graph_has_v g2 x) by (eapply fr_graph_has_v in H5; eauto).
+  assert (heapgraph_has_block g2 x) by (eapply fr_heapgraph_has_block in H5; eauto).
   eapply (IHl from to _ g2) in H8; eauto. rewrite <- H8.
   eapply fr_block_mark; eauto.
 Qed.
@@ -148,7 +148,7 @@ Qed.
 
 Lemma svwl_add_tail_no_scan: forall from to l g1 g2 i,
     scan_vertex_while_loop from to l g1 g2 -> heapgraph_generation_has_index g2 to i ->
-    no_scan g2 {| addr_gen := to; addr_block := i |} -> scan_vertex_while_loop from to (l +:: i) g1 g2.
+    heapgraph_block_is_no_scan g2 {| addr_gen := to; addr_block := i |} -> scan_vertex_while_loop from to (l +:: i) g1 g2.
 Proof.
   do 3 intro. revert from to. induction l; intros; inversion H; subst.
   - simpl. apply svwl_no_scan; assumption.
@@ -158,7 +158,7 @@ Qed.
 
 Lemma svwl_add_tail_scan: forall from to l g1 g2 g3 i,
     scan_vertex_while_loop from to l g1 g2 -> heapgraph_generation_has_index g2 to i ->
-    ~ no_scan g2 {| addr_gen := to; addr_block := i |} ->
+    ~ heapgraph_block_is_no_scan g2 {| addr_gen := to; addr_block := i |} ->
     scan_vertex_for_loop
       from to {| addr_gen := to; addr_block := i |}
       (nat_inc_list (length (block_fields (heapgraph_block g2 {| addr_gen := to; addr_block := i |}))))
@@ -186,10 +186,10 @@ Qed.
 
 
 Lemma svfl_dst_unchanged: forall from to v l g1 g2,
-    graph_has_v g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
+    heapgraph_has_block g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
     (forall i,  In i l -> i < length (block_fields (heapgraph_block g1 v)))%nat ->
     heapgraph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
-    forall e, graph_has_v g1 (field_addr e) -> (forall i, In i l -> e <> {| field_addr := v; field_index := i |}) ->
+    forall e, heapgraph_has_block g1 (field_addr e) -> (forall i, In i l -> e <> {| field_addr := v; field_index := i |}) ->
               dst g1 e = dst g2 e.
 Proof.
   intros ? ? ? ?. induction l; intros; inversion H4; subst. 1: reflexivity.
@@ -199,18 +199,18 @@ Proof.
       left; reflexivity.
     + apply H6. left; reflexivity.
   - apply IHl; auto.
-    + eapply fr_graph_has_v; eauto.
+    + eapply fr_heapgraph_has_block; eauto.
     + erewrite <- fr_block_mark; eauto.
     + intros. erewrite <- fr_block_fields; eauto. apply H2. right; assumption.
     + erewrite <- fr_graph_has_gen; eauto.
-    + eapply fr_graph_has_v; eauto.
+    + eapply fr_heapgraph_has_block; eauto.
     + intros. apply H6. right; assumption.
 Qed.
 
 Lemma svwl_dst_unchanged: forall from to l g1 g2,
     heapgraph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
     from <> to -> heapgraph_generation_is_unmarked g1 to ->
-    forall e, graph_has_v g1 (field_addr e) ->
+    forall e, heapgraph_has_block g1 (field_addr e) ->
               (addr_gen (field_addr e) = to -> ~ In (addr_block (field_addr e)) l) ->
               dst g1 e = dst g2 e.
 Proof.
@@ -227,7 +227,7 @@ Proof.
     + apply IHscan_vertex_while_loop.
       * erewrite <- svfl_graph_has_gen; eauto.
       * eapply svfl_heapgraph_generation_is_unmarked; eauto.
-      * eapply svfl_graph_has_v; eauto.
+      * eapply svfl_heapgraph_has_block; eauto.
       * intros. specialize (H4 H8). intro. apply H4. right; assumption.
 Qed.
 
@@ -241,31 +241,31 @@ Proof.
   eapply fr_O_gen_v_num_to; eauto.
 Qed.
 
-Lemma svfl_graph_has_v_inv: forall from to v l g1 g2,
+Lemma svfl_heapgraph_has_block_inv: forall from to v l g1 g2,
     heapgraph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
     forall v2,
-      graph_has_v g2 v2 ->
-      graph_has_v g1 v2 \/
+      heapgraph_has_block g2 v2 ->
+      heapgraph_has_block g1 v2 \/
       (addr_gen v2 = to /\ heapgraph_generation_block_count g1 to <= addr_block v2 < heapgraph_generation_block_count g2 to)%nat.
 Proof.
   intros ? ? ? ?. induction l; intros; inversion H0; subst. 1: left; assumption.
   assert (heapgraph_has_gen g3 to) by (rewrite <- fr_graph_has_gen; eauto).
   specialize (IHl _ _ H2 H7 _ H1). destruct IHl.
-  - eapply (fr_O_graph_has_v_inv from to _ g1 g3) in H4; eauto. destruct H4.
+  - eapply (fr_O_heapgraph_has_block_inv from to _ g1 g3) in H4; eauto. destruct H4.
     1: left; assumption. right. clear -H1 H4. unfold new_copied_v in H4. subst.
     destruct H1. unfold heapgraph_generation_block_count. simpl in *. red in H0. lia.
   - right. destruct H3. split. 1: assumption. destruct H5. split; auto.
     eapply fr_O_gen_v_num_to in H4; [lia | assumption].
 Qed.
 
-Lemma svwl_graph_has_v: forall from to l g1 g2,
+Lemma svwl_heapgraph_has_block: forall from to l g1 g2,
     heapgraph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
-    forall v, graph_has_v g1 v -> graph_has_v g2 v.
+    forall v, heapgraph_has_block g1 v -> heapgraph_has_block g2 v.
 Proof.
   intros ? ? ?. induction l; intros; inversion H0; subst. 1: assumption.
   1: eapply IHl; eauto. assert (heapgraph_has_gen g3 to) by
       (rewrite <- svfl_graph_has_gen; eauto). eapply IHl; eauto.
-  eapply (svfl_graph_has_v _ _ _ _ g1 g3); eauto.
+  eapply (svfl_heapgraph_has_block _ _ _ _ g1 g3); eauto.
 Qed.
 
 Lemma svwl_gen_v_num_to: forall from to l g1 g2,
@@ -278,18 +278,18 @@ Proof.
   - apply IHl; auto. rewrite <- svfl_graph_has_gen; eauto.
 Qed.
 
-Lemma svwl_graph_has_v_inv: forall from to l g1 g2,
+Lemma svwl_heapgraph_has_block_inv: forall from to l g1 g2,
     heapgraph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
     forall v,
-      graph_has_v g2 v ->
-      graph_has_v g1 v \/
+      heapgraph_has_block g2 v ->
+      heapgraph_has_block g1 v \/
       (addr_gen v = to /\ heapgraph_generation_block_count g1 to <= addr_block v < heapgraph_generation_block_count g2 to)%nat.
 Proof.
   intros ? ? ?. induction l; intros; inversion H0; subst. 1: left; assumption.
   1: eapply IHl; eauto. assert (heapgraph_has_gen g3 to) by
       (rewrite <- svfl_graph_has_gen; eauto).
   specialize (IHl _ _ H2 H9 _ H1). destruct IHl.
-  - eapply svfl_graph_has_v_inv in H6; eauto. destruct H6; [left|right]. 1: assumption.
+  - eapply svfl_heapgraph_has_block_inv in H6; eauto. destruct H6; [left|right]. 1: assumption.
     destruct H6 as [? [? ?]]. split; [|split]; [assumption..|].
     apply svwl_gen_v_num_to in H9; [lia | assumption].
   - right. destruct H3 as [? [? ?]]. split; [|split]; try assumption.
@@ -298,13 +298,13 @@ Qed.
 
 Lemma svwl_block_fields: forall from to l g g',
     heapgraph_has_gen g to -> scan_vertex_while_loop from to l g g' ->
-    forall v, graph_has_v g v -> block_fields (heapgraph_block g v) = block_fields (heapgraph_block g' v).
+    forall v, heapgraph_has_block g v -> block_fields (heapgraph_block g v) = block_fields (heapgraph_block g' v).
 Proof.
   do 3 intro. induction l; intros; inversion H0; subst. 1: reflexivity.
   1: eapply IHl; eauto. erewrite <- (IHl g2 g'); eauto.
   - eapply svfl_block_fields; eauto.
   - rewrite <- svfl_graph_has_gen; eauto.
-  - eapply svfl_graph_has_v; eauto.
+  - eapply svfl_heapgraph_has_block; eauto.
 Qed.
 
 Lemma svwl_gen2gen_no_edge: forall from to l g1 g2,
@@ -314,29 +314,29 @@ Lemma svwl_gen2gen_no_edge: forall from to l g1 g2,
                       gen2gen_no_edge g2 gen1 gen2.
 Proof.
   intros. unfold gen2gen_no_edge in *. intros. destruct H5. simpl in H5.
-  eapply svwl_graph_has_v_inv in H5; eauto. simpl in H5. destruct H5 as [? | [? ?]].
+  eapply svwl_heapgraph_has_block_inv in H5; eauto. simpl in H5. destruct H5 as [? | [? ?]].
   2: contradiction. erewrite <- svwl_dst_unchanged; eauto.
   apply H4. split; simpl in *. 1: assumption.
-  cut (get_edges g1 {| addr_gen := gen1 ; addr_block := vidx |} = get_edges g2 {| addr_gen := gen1 ; addr_block := vidx |}).
+  cut (heapgraph_block_fields g1 {| addr_gen := gen1 ; addr_block := vidx |} = heapgraph_block_fields g2 {| addr_gen := gen1 ; addr_block := vidx |}).
   + intros; rewrite H7; assumption.
-  + unfold get_edges. unfold make_fields. erewrite svwl_block_fields; eauto.
+  + unfold heapgraph_block_fields. unfold heapgraph_block_cells. erewrite svwl_block_fields; eauto.
 Qed.
 
 
 Lemma svfl_dst_changed: forall from to v l g1 g2,
-    graph_has_v g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
+    heapgraph_has_block g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
     copy_compatible g1 -> no_dangling_dst g1 -> from <> to ->
     (forall i,  In i l -> i < length (block_fields (heapgraph_block g1 v)))%nat -> NoDup l ->
     heapgraph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
-    forall e i, In i l -> Znth (Z.of_nat i) (make_fields g2 v) = inr e ->
+    forall e i, In i l -> Znth (Z.of_nat i) (heapgraph_block_cells g2 v) = inr e ->
                 addr_gen (dst g2 e) <> from.
 Proof.
   intros ? ? ? ?. induction l; intros; inversion H8; subst. 1: inversion H9.
   assert (e = {| field_addr := v ; field_index := i |}). {
-    apply make_fields_Znth_edge in H10. 1: rewrite Nat2Z.id in H10; assumption.
+    apply heapgraph_block_cells_Znth_edge in H10. 1: rewrite Nat2Z.id in H10; assumption.
     split. 1: lia. rewrite Zlength_correct. apply inj_lt.
     erewrite <- svfl_block_fields; eauto. }
-  assert (graph_has_v g3 v) by (eapply fr_graph_has_v; eauto).
+  assert (heapgraph_has_block g3 v) by (eapply fr_heapgraph_has_block; eauto).
   assert (block_mark (heapgraph_block g3 v) = false) by (erewrite <- fr_block_mark; eauto).
   assert (heapgraph_has_gen g3 to) by (erewrite <- fr_graph_has_gen; eauto).
   assert (forall j : nat, In j l -> j < Datatypes.length (block_fields (heapgraph_block g3 v)))%nat. {
@@ -351,7 +351,7 @@ Proof.
     + eapply (fr_O_dst_changed_field from to); eauto.
       * simpl. intuition. rewrite Zlength_correct. apply inj_lt. apply H5.
         left; reflexivity.
-      * unfold make_fields in H8 |-*. erewrite svfl_block_fields; eauto.
+      * unfold heapgraph_block_cells in H8 |-*. erewrite svfl_block_fields; eauto.
   - eapply (IHl g3); eauto.
     + eapply (fr_copy_compatible _ _ _ _ g1); eauto.
     + eapply (fr_O_no_dangling_dst _ _ _ g1); eauto.
@@ -362,18 +362,18 @@ Proof.
 Qed.
 
 Lemma svfl_no_edge2from: forall from to v g1 g2,
-    graph_has_v g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
+    heapgraph_has_block g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
     copy_compatible g1 -> no_dangling_dst g1 -> from <> to -> heapgraph_has_gen g1 to ->
     scan_vertex_for_loop
       from to v (nat_inc_list (length (block_fields (heapgraph_block g1 v)))) g1 g2 ->
-    forall e, In e (get_edges g2 v) -> addr_gen (dst g2 e) <> from.
+    forall e, In e (heapgraph_block_fields g2 v) -> addr_gen (dst g2 e) <> from.
 Proof.
-  intros. unfold get_edges in H7. rewrite <- filter_sum_right_In_iff in H7.
+  intros. unfold heapgraph_block_fields in H7. rewrite <- filter_sum_right_In_iff in H7.
   apply In_Znth in H7. destruct H7 as [i [? ?]].
   rewrite <- (Z2Nat.id i) in H8 by lia. eapply svfl_dst_changed; eauto.
   - intros. rewrite nat_inc_list_In_iff in H9. assumption.
   - apply nat_inc_list_NoDup.
-  - rewrite nat_inc_list_In_iff. rewrite make_fields_eq_length in H7.
+  - rewrite nat_inc_list_In_iff. rewrite heapgraph_block_cells_eq_length in H7.
     erewrite svfl_block_fields; eauto. rewrite <- ZtoNat_Zlength.
     apply Z2Nat.inj_lt; lia.
 Qed.
@@ -443,7 +443,7 @@ Proof.
 Qed.
 
 Lemma svfl_no_dangling_dst: forall from to v l g1 g2,
-    graph_has_v g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
+    heapgraph_has_block g1 v -> block_mark (heapgraph_block g1 v) = false -> addr_gen v <> from ->
     copy_compatible g1 -> heapgraph_has_gen g1 to -> from <> to ->
     scan_vertex_for_loop from to v l g1 g2 ->
     (forall i,  In i l -> i < length (block_fields (heapgraph_block g1 v)))%nat ->
@@ -452,7 +452,7 @@ Proof.
   do 4 intro. induction l; intros; inversion H5; subst. 1: assumption.
   cut (no_dangling_dst g3).
   - intros. apply (IHl g3); auto.
-    + eapply fr_graph_has_v; eauto.
+    + eapply fr_heapgraph_has_block; eauto.
     + erewrite <- fr_block_mark; eauto.
     + eapply (fr_copy_compatible O from to); eauto.
     + erewrite <- fr_graph_has_gen; eauto.
@@ -467,15 +467,15 @@ Lemma svwl_no_edge2from: forall from to l g1 g2,
     heapgraph_has_gen g1 to -> scan_vertex_while_loop from to l g1 g2 ->
     heapgraph_generation_is_unmarked g1 to -> copy_compatible g1 -> no_dangling_dst g1 ->
     from <> to -> NoDup l ->
-    forall e i, In i l -> In e (get_edges g2 {| addr_gen := to; addr_block := i |}) ->
+    forall e i, In i l -> In e (heapgraph_block_fields g2 {| addr_gen := to; addr_block := i |}) ->
                 addr_gen (dst g2 e) <> from.
 Proof.
   do 3 intro. induction l; intros; inversion H0; subst. 1: inversion H6.
   - simpl in H6. destruct H6. 2: apply NoDup_cons_1 in H5; eapply IHl; eauto. subst a.
-    assert (In e (get_edges g1 {| addr_gen := to; addr_block := i |})). {
-      unfold get_edges, make_fields in H7 |-*.
+    assert (In e (heapgraph_block_fields g1 {| addr_gen := to; addr_block := i |})). {
+      unfold heapgraph_block_fields, heapgraph_block_cells in H7 |-*.
       erewrite svwl_block_fields; eauto. split; simpl; assumption. }
-    rewrite no_scan_no_edge in H6. 2: assumption. inversion H6.
+    rewrite heapgraph_block_is_no_scan__no_fields in H6. 2: assumption. inversion H6.
   - simpl in H6.
     assert (heapgraph_has_gen g3 to) by (erewrite <- svfl_graph_has_gen; eauto).
     assert (heapgraph_generation_is_unmarked g3 to) by (eapply (svfl_heapgraph_generation_is_unmarked _ _ _ _ g1); eauto).
@@ -483,13 +483,13 @@ Proof.
     + subst a. cut (addr_gen (dst g3 e) <> from).
       * intros. cut (dst g3 e = dst g2 e). 1: intros HS; rewrite <- HS; assumption.
         eapply svwl_dst_unchanged; eauto.
-        -- erewrite get_edges_fst; eauto. eapply (svfl_graph_has_v _ _ _ _ g1); eauto.
+        -- erewrite heapgraph_block_fields_fst; eauto. eapply (svfl_heapgraph_has_block _ _ _ _ g1); eauto.
            split; simpl; assumption.
-        -- intros. erewrite get_edges_fst; eauto. simpl.
+        -- intros. erewrite heapgraph_block_fields_fst; eauto. simpl.
            apply NoDup_cons_2 in H5. assumption.
-      * assert (graph_has_v g1 {| addr_gen := to; addr_block := i |}) by (split; simpl; assumption).
-        eapply svfl_no_edge2from; eauto. unfold get_edges, make_fields in H7 |-*.
-        erewrite svwl_block_fields; eauto. eapply (svfl_graph_has_v _ _ _ _ g1); eauto.
+      * assert (heapgraph_has_block g1 {| addr_gen := to; addr_block := i |}) by (split; simpl; assumption).
+        eapply svfl_no_edge2from; eauto. unfold heapgraph_block_fields, heapgraph_block_cells in H7 |-*.
+        erewrite svwl_block_fields; eauto. eapply (svfl_heapgraph_has_block _ _ _ _ g1); eauto.
     + eapply (IHl g3); eauto.
       * eapply (svfl_copy_compatible _ _ _ _ g1); eauto.
       * eapply (svfl_no_dangling_dst from to); eauto.
@@ -528,19 +528,19 @@ Proof.
   - subst. unfold gen2gen_no_edge in *. intros.
     destruct H10. simpl fst in *. destruct H7 as [m [? ?]].
     assert (heapgraph_has_gen g1 to) by (erewrite <- frr_graph_has_gen; eauto).
-    assert (graph_has_v g {| addr_gen := to ; addr_block := vidx |} \/ heapgraph_generation_block_count g to <= vidx < heapgraph_generation_block_count g2 to)%nat. {
-      eapply (svwl_graph_has_v_inv from to _ g1 g2) in H10; eauto. simpl in H10.
+    assert (heapgraph_has_block g {| addr_gen := to ; addr_block := vidx |} \/ heapgraph_generation_block_count g to <= vidx < heapgraph_generation_block_count g2 to)%nat. {
+      eapply (svwl_heapgraph_has_block_inv from to _ g1 g2) in H10; eauto. simpl in H10.
       destruct H10.
-      - eapply (frr_graph_has_v_inv from _ _ _ g) in H10; eauto.
+      - eapply (frr_heapgraph_has_block_inv from _ _ _ g) in H10; eauto.
         simpl in H10. destruct H10. 1: left; assumption.
         right. destruct H10 as [_ [? ?]]. split; auto.
         apply svwl_gen_v_num_to in H7; [lia | assumption].
       - right. destruct H10 as [_ [? ?]]. split; auto.
         apply frr_gen_v_num_to in H6; [lia | assumption]. } destruct H14.
-    + assert (graph_has_v g1 {| addr_gen := to ; addr_block := vidx |}) by
-          (eapply (frr_graph_has_v from to _ _ g); eauto).
-      assert (get_edges g {| addr_gen := to ; addr_block := vidx |} = get_edges g2 {| addr_gen := to ; addr_block := vidx |}). {
-        transitivity (get_edges g1 {| addr_gen := to ; addr_block := vidx |}); unfold get_edges, make_fields.
+    + assert (heapgraph_has_block g1 {| addr_gen := to ; addr_block := vidx |}) by
+          (eapply (frr_heapgraph_has_block from to _ _ g); eauto).
+      assert (heapgraph_block_fields g {| addr_gen := to ; addr_block := vidx |} = heapgraph_block_fields g2 {| addr_gen := to ; addr_block := vidx |}). {
+        transitivity (heapgraph_block_fields g1 {| addr_gen := to ; addr_block := vidx |}); unfold heapgraph_block_fields, heapgraph_block_cells.
         - erewrite frr_block_fields; eauto.
         - erewrite svwl_block_fields; eauto. } simpl in H11. rewrite <- H16 in H11.
       assert (graph_has_e g {| field_addr := {| addr_gen := to ; addr_block := vidx |} ; field_index := eidx |}) by (split; simpl; assumption).

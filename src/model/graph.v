@@ -759,38 +759,55 @@ Proof.
 Qed.
 
 
-Definition heapgraph_has_block (g: HeapGraph) (v: Addr):
-    Prop
- := heapgraph_has_gen g (addr_gen v) /\ heapgraph_generation_has_index g (addr_gen v) (addr_block v)
-.
+Record heapgraph_has_block (g: HeapGraph) (v: Addr): Prop
+ := {
+    heapgraph_has_block__has_gen: heapgraph_has_gen g (addr_gen v);
+    heapgraph_has_block__has_index: heapgraph_generation_has_index g (addr_gen v) (addr_block v);
+}.
+Arguments heapgraph_has_block__has_gen [_] [_].
+Arguments heapgraph_has_block__has_index [_] [_].
 
-Lemma ang_heapgraph_has_block: forall g gi v,
-    heapgraph_has_block g v -> heapgraph_has_block (heapgraph_generations_append g gi) v.
+Lemma heapgraph_generations_append__heapgraph_has_block (g : HeapGraph) (gi : Generation) (v : Addr)
+    (Hv: heapgraph_has_block g v):
+    heapgraph_has_block (heapgraph_generations_append g gi) v.
 Proof.
-  intros. destruct v as [gen idx]. destruct H; split; simpl in *.
-  - unfold heapgraph_has_gen in *. simpl. rewrite app_length. simpl. lia.
-  - unfold heapgraph_generation_has_index in *. rewrite heapgraph_generation__heapgraph_generations_append__old; assumption.
+    destruct v as [gen idx]. destruct Hv; split; simpl in *.
+    - unfold heapgraph_has_gen in *. simpl. rewrite app_length. simpl. lia.
+    - unfold heapgraph_generation_has_index in *. rewrite heapgraph_generation__heapgraph_generations_append__old; assumption.
 Qed.
 
-Lemma ang_heapgraph_has_block_inv: forall g gi v,
-    generation_block_count gi = O -> heapgraph_has_block (heapgraph_generations_append g gi) v ->
+Lemma heapgraph_generations_append__heapgraph_has_block_inv (g : HeapGraph) (gi : Generation) (v : Addr)
+    (Hgi: generation_block_count gi = O)
+    (Hv: heapgraph_has_block (heapgraph_generations_append g gi) v):
     heapgraph_has_block g v.
 Proof.
-  intros. destruct v as [gen idx]. destruct H0; split; simpl in *.
-  - apply heapgraph_has_gen__heapgraph_generations_append in H0. destruct H0; auto. red in H1. exfalso. subst.
-    rewrite heapgraph_generation__heapgraph_generations_append__new, H in H1. lia.
-  - apply heapgraph_has_gen__heapgraph_generations_append in H0. red in H1. destruct H0.
-    + rewrite heapgraph_generation__heapgraph_generations_append__old in H1; assumption.
-    + exfalso. subst. rewrite heapgraph_generation__heapgraph_generations_append__new, H in H1. lia.
+    pose proof (heapgraph_has_block__has_gen Hv) as Hgen.
+    pose proof (heapgraph_has_block__has_index Hv) as Hindex.
+    red in Hindex.
+    apply heapgraph_has_gen__heapgraph_generations_append in Hgen.
+    refine {|
+      heapgraph_has_block__has_gen := _;
+      heapgraph_has_block__has_index := _;
+    |}.
+    + destruct Hgen as [Hgen|Hgen] ; try easy.
+      rewrite Hgen, heapgraph_generation__heapgraph_generations_append__new in Hindex.
+      lia.
+    + destruct Hgen as [Hgen|Hgen].
+      - now rewrite heapgraph_generation__heapgraph_generations_append__old in Hindex.
+      - rewrite Hgen, heapgraph_generation__heapgraph_generations_append__new in Hindex.
+        lia.
 Qed.
 
-Lemma ang_heapgraph_block_ptr_old: forall (g : HeapGraph) (gi : Generation) (v : Addr),
-    heapgraph_has_block g v ->
+Lemma heapgraph_generations_append__heapgraph_block_ptr (g : HeapGraph) (gi : Generation) (v : Addr)
+    (Hv: heapgraph_has_block g v):
     heapgraph_block_ptr (heapgraph_generations_append g gi) v = heapgraph_block_ptr g v.
 Proof.
-  intros. unfold heapgraph_block_ptr. f_equal. unfold heapgraph_generation_base. destruct H.
-  rewrite if_true by (rewrite heapgraph_has_gen__heapgraph_generations_append; left; assumption).
-  rewrite if_true by assumption. rewrite heapgraph_generation__heapgraph_generations_append__old by assumption. reflexivity.
+    unfold heapgraph_block_ptr. f_equal.
+    unfold heapgraph_generation_base.
+    destruct Hv.
+    rewrite if_true by (rewrite heapgraph_has_gen__heapgraph_generations_append ; now left).
+    rewrite if_true by easy.
+    now rewrite heapgraph_generation__heapgraph_generations_append__old.
 Qed.
 
 
@@ -843,15 +860,21 @@ Definition graph_gen_clear (g: HeapGraph) (gen: nat):
 Definition firstn_gen_clear (g: HeapGraph) (n: nat): Prop :=
   forall i, (i < n)%nat -> graph_gen_clear g i.
 
-Lemma fgc_nbe_no_edge2gen: forall g n,
-    firstn_gen_clear g n -> no_backward_edge g -> no_edge2gen g n.
+Lemma fgc_nbe_no_edge2gen (g : HeapGraph) (n : nat)
+    (Hn: firstn_gen_clear g n)
+    (Hg: no_backward_edge g):
+    no_edge2gen g n.
 Proof.
-  intros. red in H, H0 |-* . intros. red. intros. destruct H2. simpl in *.
-  destruct (lt_eq_lt_dec another n) as [[?|?]|?]. 2: contradiction.
-  - specialize (H _ l). red in H. destruct H2. simpl in *.
-    red in H4. rewrite H in H4. lia.
-  - assert (another > n)%nat by lia. specialize (H0 _ _ H4). apply H0.
-    split; simpl; assumption.
+    intros m Hm.
+    destruct (lt_eq_lt_dec m n) as [[Hmn|Hmn]|Hmn] ; try easy.
+    + intros vidx eidx f Hf En. subst f.
+      pose proof (heapgraph_has_block__has_index (proj1 Hf)) as F.
+      specialize (Hn _ Hmn).
+      red in Hn, F. simpl in F.
+      rewrite Hn in F.
+      lia.
+    + apply Hg.
+      lia.
 Qed.
 
 Lemma firstn_gen_clear_add: forall g gi i,
@@ -974,12 +997,21 @@ Definition copy_compatible (g: HeapGraph): Prop :=
             heapgraph_has_block g (heapgraph_block g v).(block_copied_vertex) /\
             addr_gen v <> addr_gen (heapgraph_block g v).(block_copied_vertex).
 
-Lemma lgd_copy_compatible: forall g v' e,
-    copy_compatible g ->
+Lemma lgd_copy_compatible (g: HeapGraph) (v': Addr) (e: Field)
+    (Hg: copy_compatible g):
     copy_compatible (labeledgraph_gen_dst g e v').
 Proof.
-  intros. unfold copy_compatible in *. intuition.
-Qed.
+    unfold copy_compatible in *.
+    intros v Jv E.
+    intuition.
+    + refine {|
+        heapgraph_has_block__has_gen := _;
+        heapgraph_has_block__has_index := _;
+      |} ; intuition.
+      - admit.
+      - admit.
+    + admit.
+Admitted.
 
 
 Definition heapgraph_generation_is_unmarked (g: HeapGraph) (gen: nat):
@@ -994,12 +1026,20 @@ Definition heapgraph_generation_is_unmarked (g: HeapGraph) (gen: nat):
 Definition graph_unmarked (g: HeapGraph): Prop := forall v,
     heapgraph_has_block g v -> block_mark (heapgraph_block g v) = false.
 
-Lemma graph_heapgraph_generation_is_unmarked_iff: forall g,
+Lemma graph_heapgraph_generation_is_unmarked_iff (g: HeapGraph):
     graph_unmarked g <-> forall gen, heapgraph_generation_is_unmarked g gen.
 Proof.
-  intros. unfold graph_unmarked, heapgraph_generation_is_unmarked. split; intros.
-  - apply H. unfold heapgraph_has_block. simpl. split; assumption.
-  - destruct v as [gen idx]. destruct H0. simpl in *. apply H; assumption.
+    unfold graph_unmarked, heapgraph_generation_is_unmarked.
+    split; intros.
+    + apply H.
+      now refine {|
+        heapgraph_has_block__has_gen := _ ;
+        heapgraph_has_block__has_index := _;
+      |}.
+    + pose proof (heapgraph_has_block__has_gen H0) as Hgen.
+      pose proof (heapgraph_has_block__has_index H0) as Hindex.
+      destruct v as [gen idx].
+      now apply H.
 Qed.
 
 Lemma graph_unmarked_copy_compatible: forall g,
@@ -1060,7 +1100,8 @@ Proof.
                    (nat_inc_list (generation_block_count (heapgraph_generation g (addr_gen v))))).
   assert (In (addr_block v) l). {
     subst l. rewrite filter_In. split.
-    - rewrite nat_inc_list_In_iff. apply (proj2 H).
+    - rewrite nat_inc_list_In_iff.
+      now apply heapgraph_has_block__has_index.
     - destruct v; simpl. rewrite negb_true_iff. apply H0. }
   apply In_Permutation_cons in H1. destruct H1 as [l1 ?]. symmetry in H1.
   change (addr_block v :: l1) with ([addr_block v] ++ l1) in H1.
@@ -1084,11 +1125,11 @@ Proof.
           map (heapgraph_cell_val (heapgraph_generations_append g gi))
               (heapgraph_block_cells (heapgraph_generations_append g gi) v)). {
     unfold heapgraph_block_cells. simpl. apply map_ext_in. intros.
-    destruct a; [destruct s|]; simpl; auto. rewrite ang_heapgraph_block_ptr_old; auto.
+    destruct a; [destruct s|]; simpl; auto. rewrite heapgraph_generations_append__heapgraph_block_ptr; auto.
     red in H1. apply (H1 v); auto. unfold heapgraph_block_fields.
     rewrite <- filter_sum_right_In_iff. assumption. } rewrite <- H2.
   destruct (block_mark (heapgraph_block g v)) eqn:?; auto. f_equal.
-  rewrite ang_heapgraph_block_ptr_old; auto. destruct (H0 _ H Heqb). assumption.
+  rewrite heapgraph_generations_append__heapgraph_block_ptr; auto. destruct (H0 _ H Heqb). assumption.
 Qed.
 
 Lemma ang_graph_gen_size_old: forall g gi gen,
@@ -1117,7 +1158,7 @@ Lemma graph_unmarked_add: forall g gi,
     generation_block_count gi = O -> graph_unmarked g ->
     graph_unmarked (heapgraph_generations_append g gi).
 Proof.
-  intros. unfold graph_unmarked in *. intros. apply ang_heapgraph_has_block_inv in H1; auto.
+  intros. unfold graph_unmarked in *. intros. apply heapgraph_generations_append__heapgraph_has_block_inv in H1; auto.
   simpl. apply H0. assumption.
 Qed.
 
@@ -1131,7 +1172,7 @@ Lemma no_backward_edge_add: forall g gi,
 Proof.
   intros. unfold no_backward_edge, gen2gen_no_edge in *. intros. simpl.
   destruct H2. simpl in *. rewrite <- ang_heapgraph_block_fields in H3.
-  apply ang_heapgraph_has_block_inv in H2; auto. apply H0; auto. split; simpl; auto.
+  apply heapgraph_generations_append__heapgraph_has_block_inv in H2; auto. apply H0; auto. split; simpl; auto.
 Qed.
 
 Lemma no_dangling_dst_add: forall g gi,
@@ -1139,14 +1180,16 @@ Lemma no_dangling_dst_add: forall g gi,
     no_dangling_dst (heapgraph_generations_append g gi).
 Proof.
   intros. unfold no_dangling_dst in *. intros. simpl.
-  apply ang_heapgraph_has_block_inv in H1; auto. rewrite <- ang_heapgraph_block_fields in H2.
-  apply ang_heapgraph_has_block, (H0 v); auto.
+  apply heapgraph_generations_append__heapgraph_has_block_inv in H1; auto. rewrite <- ang_heapgraph_block_fields in H2.
+  apply heapgraph_generations_append__heapgraph_has_block, (H0 v); auto.
 Qed.
 
 
-Lemma lgd_heapgraph_has_block: forall g e v v',
+Lemma lgd_heapgraph_has_block (g: HeapGraph) (e: Field) (v v': Addr):
     heapgraph_has_block g v <-> heapgraph_has_block (labeledgraph_gen_dst g e v') v.
-Proof. reflexivity. Qed.
+Proof.
+    split ; intro H ; destruct H ; now constructor.
+Qed.
 
 Lemma lgd_graph_has_gen: forall g e v x,
     heapgraph_has_gen (labeledgraph_gen_dst g e v) x <-> heapgraph_has_gen g x.
@@ -1189,11 +1232,14 @@ Definition closure_has_index (g: HeapGraph) (gen index: nat) :=
 Definition closure_has_v (g: HeapGraph) (v: Addr): Prop :=
   heapgraph_has_gen g (addr_gen v) /\ closure_has_index g (addr_gen v) (addr_block v).
 
-Lemma heapgraph_has_block_in_closure: forall g v, heapgraph_has_block g v -> closure_has_v g v.
+Lemma heapgraph_has_block_in_closure (g : HeapGraph) (v : Addr)
+    (Hv: heapgraph_has_block g v):
+    closure_has_v g v.
 Proof.
-  intros g v. destruct v as [gen index].
-  unfold heapgraph_has_block, closure_has_v, closure_has_index, heapgraph_generation_has_index.
-  simpl. intros. intuition.
+    destruct v as [gen index].
+    destruct Hv.
+    unfold closure_has_v, closure_has_index.
+    intuition.
 Qed.
 
 
@@ -1285,7 +1331,9 @@ Lemma lgd_no_dangling_dst: forall g e v',
 Proof.
   intros. unfold no_dangling_dst in *.
   intros. rewrite <- lgd_heapgraph_has_block.
-  simpl. unfold updateEdgeFunc; if_tac; [assumption | apply (H0 v)]; assumption.
+  simpl.
+  unfold updateEdgeFunc ; if_tac ; [assumption | apply (H0 v)] ; try assumption.
+  destruct H1 ; simpl in * ; now constructor.
 Qed.
 
 Lemma lgd_no_dangling_dst_copied_vert: forall g e v,

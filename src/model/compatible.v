@@ -352,7 +352,7 @@ Lemma ang_roots_graph_compatible: forall roots g gi,
     roots_graph_compatible roots (heapgraph_generations_append g gi).
 Proof.
   intros. unfold roots_graph_compatible in *. rewrite Forall_forall in *. intros.
-  apply ang_heapgraph_has_block. apply H. assumption.
+  apply heapgraph_generations_append__heapgraph_has_block. apply H. assumption.
 Qed.
 
 Lemma ang_roots_compatible: forall roots out g gi,
@@ -365,7 +365,7 @@ Lemma ang_outlier_compatible: forall g gi out,
     outlier_compatible (heapgraph_generations_append g gi) out.
 Proof.
   intros. unfold outlier_compatible in *. intros.
-  apply ang_heapgraph_has_block_inv in H1; auto. simpl. apply H0. assumption.
+  apply heapgraph_generations_append__heapgraph_has_block_inv in H1; auto. simpl. apply H0. assumption.
 Qed.
 
 Lemma fta_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) fi roots,
@@ -375,7 +375,7 @@ Lemma fta_compatible_add: forall g ti gi sp i (Hs: 0 <= i < MAX_SPACES) fi roots
 Proof.
   intros. unfold fun_thread_arg_compatible in *. simpl. rewrite <- H.
   apply map_ext_in. intros. destruct a; [destruct s|]; simpl; try reflexivity.
-  apply ang_heapgraph_block_ptr_old. red in H0. rewrite Forall_forall in H0. apply H0.
+  apply heapgraph_generations_append__heapgraph_block_ptr. red in H0. rewrite Forall_forall in H0. apply H0.
   rewrite <- filter_sum_right_In_iff. assumption.
 Qed.
 

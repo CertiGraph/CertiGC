@@ -158,13 +158,19 @@ Definition copy_v_update_glabel (gi: Generations) (to: nat): Generations := {|
 Definition new_copied_v (g: HeapGraph) (to: nat): Addr :=
   {| addr_gen := to; addr_block := generation_block_count (heapgraph_generation g to) |}.
 
-Lemma heapgraph_has_block_not_eq: forall g to x,
-    heapgraph_has_block g x -> x <> new_copied_v g to.
+Lemma heapgraph_has_block__ne__new_copied_v (g: HeapGraph) (to: nat) (x: Addr)
+    (Hx: heapgraph_has_block g x):
+    x <> new_copied_v g to.
 Proof.
-  intros. destruct H. unfold new_copied_v. destruct x as [gen idx]. simpl in *.
-  destruct (Nat.eq_dec gen to).
-  - subst gen. intro S; inversion S. red in H0. lia.
-  - intro S; inversion S. apply n; assumption.
+    unfold new_copied_v.
+    destruct (Nat.eq_dec (addr_gen x) to) as [Eto|Hto].
+    + subst to. intro F. rewrite F in Hx.
+      pose proof (heapgraph_has_block__has_index Hx) as F'.
+      red in F'. simpl in F'.
+      lia.
+    + intro F.
+      rewrite F in Hto.
+      now apply Hto.
 Qed.
 
 
@@ -221,10 +227,10 @@ Proof.
   - red. unfold heapgraph_generation. simpl. rewrite cvmgil_eq by assumption. simpl. lia.
 Qed.
 
-Lemma lmc_heapgraph_has_block: forall g old new x,
+Lemma lmc_heapgraph_has_block (g: HeapGraph) (old new x: Addr):
     heapgraph_has_block g x <-> heapgraph_has_block (lgraph_mark_copied g old new) x.
 Proof.
-  intros. unfold heapgraph_has_block, heapgraph_has_gen, heapgraph_generation_has_index, heapgraph_generation. reflexivity.
+    split ; intro H ; destruct H ; now constructor.
 Qed.
 
 Lemma lcv_graph_has_gen: forall g v to x,
@@ -347,7 +353,7 @@ Lemma lacv_heapgraph_cell_val_heapgraph_block_cells_old:  forall (g : HeapGraph)
         (heapgraph_block_cells (lgraph_add_copied_v g v to) x) =
     map (heapgraph_cell_val g) (heapgraph_block_cells g x).
 Proof.
-  intros. unfold heapgraph_block_cells. pose proof (heapgraph_has_block_not_eq _ to _ H).
+  intros. unfold heapgraph_block_cells. pose proof (heapgraph_has_block__ne__new_copied_v _ to _ H).
   rewrite lacv_vlabel_old by assumption. apply map_ext_in.
   intros [[? | ?] | ?] ?; simpl; try reflexivity. unfold new_copied_v.
   rewrite pcv_dst_old.
@@ -362,7 +368,7 @@ Lemma lacv_heapgraph_block_cells_vals_old: forall (g : HeapGraph) (v : Addr) (to
     heapgraph_block_cells_vals (lgraph_add_copied_v g v to) x = heapgraph_block_cells_vals g x.
 Proof.
   intros. pose proof (lacv_heapgraph_cell_val_heapgraph_block_cells_old _ v _ _ H H0 H1).
-  unfold heapgraph_block_cells_vals. pose proof (heapgraph_has_block_not_eq g to x H).
+  unfold heapgraph_block_cells_vals. pose proof (heapgraph_has_block__ne__new_copied_v g to x H).
   rewrite lacv_vlabel_old by assumption. rewrite H3.
   destruct (block_mark (heapgraph_block g x)) eqn:? ; [f_equal | reflexivity].
   apply lacv_heapgraph_block_ptr_old; [apply H2|]; assumption.
@@ -424,16 +430,25 @@ Proof.
   apply lacv_heapgraph_block_ptr_old. 2: assumption. apply H2; assumption.
 Qed.
 
-Lemma lacv_heapgraph_has_block_old: forall g v to x,
-    heapgraph_has_gen g to -> heapgraph_has_block g x ->
+Lemma lgraph_add_copied_v__heapgraph_has_block (g: HeapGraph) (v: Addr) (to: nat) (x: Addr)
+    (Hto: heapgraph_has_gen g to)
+    (Hx: heapgraph_has_block g x):
     heapgraph_has_block (lgraph_add_copied_v g v to) x.
 Proof.
-  intros. destruct H0. split.
-  - rewrite lacv_graph_has_gen; assumption.
-  - red. destruct (Nat.eq_dec (addr_gen x) to).
-    + rewrite e in *. unfold heapgraph_generation. simpl. rewrite cvmgil_eq by assumption.
-      simpl. red in H1. unfold heapgraph_generation in H1. lia.
-    + rewrite lacv_heapgraph_generation; assumption.
+    refine {|
+      heapgraph_has_block__has_gen := _;
+      heapgraph_has_block__has_index := _;
+    |}.
+    + rewrite lacv_graph_has_gen. apply Hx. easy.
+    + red.
+      pose proof (heapgraph_has_block__has_index Hx) as Hgen.
+      destruct (Nat.eq_dec (addr_gen x) to) as [Eto|Hx_to].
+      - subst to.
+        red in Hgen ; unfold heapgraph_generation in Hgen.
+        unfold heapgraph_generation ; simpl.
+        rewrite cvmgil_eq by assumption ; simpl.
+        lia.
+      - now rewrite lacv_heapgraph_generation.
 Qed.
 
 
@@ -448,7 +463,7 @@ Lemma lcv_heapgraph_has_block_old: forall g v to x,
     heapgraph_has_gen g to -> heapgraph_has_block g x -> heapgraph_has_block (lgraph_copy_v g v to) x.
 Proof.
   intros. unfold lgraph_copy_v. rewrite <- lmc_heapgraph_has_block.
-  apply lacv_heapgraph_has_block_old; assumption.
+  apply lgraph_add_copied_v__heapgraph_has_block; assumption.
 Qed.
 
 Lemma lcv_heapgraph_block_size_new: forall (g : HeapGraph) (v : Addr) (to : nat),
@@ -468,7 +483,7 @@ Proof.
   unfold update_copied_old_vlabel, update_vlabel. if_tac.
   - simpl. unfold update_copied_new_vlabel, update_vlabel. unfold equiv in H1. subst.
     if_tac; reflexivity.
-  - rewrite lacv_vlabel_old. 1: reflexivity. apply heapgraph_has_block_not_eq. assumption.
+  - rewrite lacv_vlabel_old. 1: reflexivity. apply heapgraph_has_block__ne__new_copied_v. assumption.
 Qed.
 
 Lemma lcv_pvs_same: forall g v to,
@@ -570,23 +585,38 @@ Proof.
     apply H1; assumption.
 Qed.
 
-Lemma lacv_heapgraph_has_block_inv: forall (g : HeapGraph) (v : Addr) (to : nat) (x : Addr),
-    heapgraph_has_gen g to -> heapgraph_has_block (lgraph_add_copied_v g v to) x ->
+Lemma lacv_heapgraph_has_block_inv (g: HeapGraph) (v: Addr) (to: nat) (x: Addr)
+    (Hto: heapgraph_has_gen g to)
+    (Hx: heapgraph_has_block (lgraph_add_copied_v g v to) x):
     heapgraph_has_block g x \/ x = new_copied_v g to.
 Proof.
-  intros. destruct (Addr_EqDec x (new_copied_v g to)).
-  - unfold equiv in e; right; assumption.
-  - left. destruct H0. split.
-    + rewrite lacv_graph_has_gen in H0; assumption.
-    + assert (x <> (new_copied_v g to)) by intuition. clear c H0.
-      unfold heapgraph_generation_has_index in *. unfold heapgraph_generation, lgraph_add_copied_v in H1.
-      simpl in H1. destruct x as [gen index]. simpl in *. unfold new_copied_v in H2.
-      destruct (Nat.eq_dec gen to).
-      * subst gen. rewrite cvmgil_eq in H1 by assumption. simpl in H1.
-        change (nth to (generations (heapgraph_generations g)) null_generation) with (heapgraph_generation g to) in H1.
-        remember (generation_block_count (heapgraph_generation g to)).
-        assert (index <> n) by (intro; apply H2; f_equal; assumption). lia.
-      * rewrite cvmgil_not_eq in H1; assumption.
+    destruct (Addr_EqDec x (new_copied_v g to)).
+    + unfold equiv in e. now right.
+    + left.
+      refine {|
+        heapgraph_has_block__has_gen := _;
+        heapgraph_has_block__has_index := _;
+      |}.
+      - pose proof (heapgraph_has_block__has_gen Hx) as Hgen.
+        now rewrite <- (lacv_graph_has_gen _ x to).
+      - pose proof (heapgraph_has_block__has_index Hx) as Hindex.
+        assert (x <> (new_copied_v g to)) as Hx__to by intuition.
+        unfold heapgraph_generation_has_index in *.
+        unfold heapgraph_generation, lgraph_add_copied_v in Hindex ; simpl in Hindex.
+        destruct x as [x_gen x_index] ; unfold new_copied_v in Hx__to ; simpl in *.
+        destruct (Nat.eq_dec x_gen to) as [E|Hx_gen__to].
+        * subst x_gen.
+          rewrite cvmgil_eq in Hindex by assumption ; simpl in Hindex.
+          change (nth to (generations (heapgraph_generations g)) null_generation) with (heapgraph_generation g to) in Hindex.
+          remember (generation_block_count (heapgraph_generation g to)) as n eqn:En.
+          assert (x_index <> n) as Hn.
+          {
+            intro f.
+            apply Hx__to.
+            congruence.
+          }
+          lia.
+        * now rewrite cvmgil_not_eq in Hindex.
 Qed.
 
 Lemma lacv_copy_compatible: forall (g : HeapGraph) (v : Addr) (to : nat),
@@ -601,7 +631,7 @@ Proof.
     assert (heapgraph_has_block g v0). {
       apply lacv_heapgraph_has_block_inv in H2. 2: assumption. destruct H2. 1: assumption.
       contradiction. } split.
-    + apply lacv_heapgraph_has_block_old; [|apply H1]; assumption.
+    + apply lgraph_add_copied_v__heapgraph_has_block; [|apply H1]; assumption.
     + apply H1; assumption.
 Qed.
 
@@ -639,10 +669,10 @@ Proof.
   - unfold equiv in e0. subst x. pose proof H3. remember (new_copied_v g to) as new.
     apply heapgraph_block_fields_fst in H3. destruct e as [? s]. simpl in H3. subst.
     rewrite heapgraph_block_fields_In, lacv_heapgraph_block_fields_new in H4. rewrite pcv_dst_new.
-    2: assumption. apply lacv_heapgraph_has_block_old. 1: assumption.
+    2: assumption. apply lgraph_add_copied_v__heapgraph_has_block. 1: assumption.
     apply (H v); [|rewrite heapgraph_block_fields_In]; assumption.
   - assert (x <> new_copied_v g to) by intuition. clear c. rewrite pcv_dst_old.
-    + apply lacv_heapgraph_has_block_old. 1: assumption. apply lacv_heapgraph_has_block_inv in H2.
+    + apply lgraph_add_copied_v__heapgraph_has_block. 1: assumption. apply lacv_heapgraph_has_block_inv in H2.
       2: assumption. destruct H2. 2: contradiction. apply (H x). 1: assumption.
       unfold heapgraph_block_fields in *. rewrite lacv_heapgraph_block_cells_not_eq in H3; assumption.
     + unfold heapgraph_block_fields in H3. rewrite <- filter_sum_right_In_iff in H3.
@@ -671,7 +701,7 @@ Lemma lacv_outlier_compatible: forall (g : HeapGraph) outlier (v : Addr) (to : n
     outlier_compatible (lgraph_add_copied_v g v to) outlier.
 Proof.
   intros. intros x ?. apply lacv_heapgraph_has_block_inv in H2. 2: assumption. destruct H2.
-  - rewrite lacv_vlabel_old; [apply H1 | apply heapgraph_has_block_not_eq]; assumption.
+  - rewrite lacv_vlabel_old; [apply H1 | apply heapgraph_has_block__ne__new_copied_v]; assumption.
   - subst x. rewrite lacv_vlabel_new. apply H1; assumption.
 Qed.
 
@@ -777,8 +807,8 @@ Proof.
       (apply cti_eq; symmetry; assumption).
   apply lmc_estc.
   - assumption.
-  - subst g'. apply lacv_heapgraph_has_block_old; assumption.
-  - subst g'. rewrite lacv_vlabel_old; [| apply heapgraph_has_block_not_eq]; assumption.
+  - subst g'. apply lgraph_add_copied_v__heapgraph_has_block; assumption.
+  - subst g'. rewrite lacv_vlabel_old; [| apply heapgraph_has_block__ne__new_copied_v]; assumption.
 Qed.
 
 Lemma lcv_rgc_unchanged: forall g roots v to,
@@ -939,7 +969,7 @@ Lemma lcv_block_fields: forall g v to x,
     block_fields (heapgraph_block g x) = block_fields (heapgraph_block (lgraph_copy_v g v to) x).
 Proof.
   intros. unfold lgraph_copy_v. rewrite <- lmc_block_fields, lacv_vlabel_old.
-  1: reflexivity. apply heapgraph_has_block_not_eq; assumption.
+  1: reflexivity. apply heapgraph_has_block__ne__new_copied_v; assumption.
 Qed.
 
 Lemma lcv_mfv_Zlen_eq: forall g v v' to,
@@ -967,7 +997,7 @@ Lemma lcv_block_mark: forall g v to x,
     block_mark (heapgraph_block g x) = block_mark (heapgraph_block (lgraph_copy_v g v to) x).
 Proof.
   intros. unfold lgraph_copy_v. rewrite <- lmc_block_mark by assumption.
-  rewrite lacv_vlabel_old. 1: reflexivity. apply heapgraph_has_block_not_eq; assumption.
+  rewrite lacv_vlabel_old. 1: reflexivity. apply heapgraph_has_block__ne__new_copied_v; assumption.
 Qed.
 
 
@@ -989,19 +1019,34 @@ Proof.
   apply (lacv_heapgraph_has_block_inv g v); assumption.
 Qed.
 
-Lemma lcv_heapgraph_generation_is_unmarked: forall (to : nat) (g : HeapGraph) (v : Addr),
-    heapgraph_has_gen g to -> block_mark (heapgraph_block g v) = false ->
-    forall gen, addr_gen v <> gen ->
-                heapgraph_generation_is_unmarked g gen -> heapgraph_generation_is_unmarked (lgraph_copy_v g v to) gen.
+Lemma lcv_heapgraph_generation_is_unmarked (to: nat) (g: HeapGraph) (v: Addr)
+    (Hto: heapgraph_has_gen g to)
+    (Hv: block_mark (heapgraph_block g v) = false)
+    (gen: nat)
+    (Hv__gen: addr_gen v <> gen)
+    (Hgen: heapgraph_generation_is_unmarked g gen):
+    heapgraph_generation_is_unmarked (lgraph_copy_v g v to) gen.
 Proof.
-  intros. unfold heapgraph_generation_is_unmarked in *. intros.
-  assert (heapgraph_has_block (lgraph_copy_v g v to) {| addr_gen := gen; addr_block := idx |}) by (split; assumption).
-  apply lcv_heapgraph_has_block_inv in H5. 2: assumption. destruct H5.
-  - pose proof H5. destruct H6. simpl in * |- . specialize (H2 H6 _ H7).
-    rewrite <- lcv_block_mark; try assumption. destruct v. simpl in *. intro. apply H1.
-    inversion H8. reflexivity.
-  - rewrite H5. rewrite lcv_vlabel_new; try assumption. unfold new_copied_v in H5.
-    inversion H5. subst. assumption.
+    intros Hgen' index Hgen__index.
+    assert (heapgraph_has_block (lgraph_copy_v g v to) {| addr_gen := gen; addr_block := index |}) as Hindex.
+    {
+      now refine {|
+        heapgraph_has_block__has_gen := _;
+        heapgraph_has_block__has_index := _;
+      |}.
+    }
+    apply lcv_heapgraph_has_block_inv in Hindex ; try easy.
+    destruct Hindex as [Hindex|Hindex].
+    + pose proof (Hgen (heapgraph_has_block__has_gen Hindex) _ (heapgraph_has_block__has_index Hindex)) as Hgen''.
+      rewrite <- lcv_block_mark ; try easy.
+      intro F.
+      apply Hv__gen.
+      now subst v.
+    + rewrite Hindex.
+      rewrite lcv_vlabel_new ; try easy.
+      unfold new_copied_v in Hindex.
+      assert (gen = to) by now inversion Hindex.
+      now subst to.
 Qed.
 
 Lemma lcv_gen_v_num_to: forall g v to,

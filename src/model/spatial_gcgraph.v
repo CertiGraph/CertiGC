@@ -1725,7 +1725,7 @@ Lemma vertex_rep_add: forall (g : HeapGraph) (gi : Generation) v sh,
     heapgraph_has_block g v -> copy_compatible g -> no_dangling_dst g ->
     vertex_rep sh g v = vertex_rep sh (heapgraph_generations_append g gi) v.
 Proof.
-  intros. unfold vertex_rep. rewrite ang_heapgraph_block_ptr_old; auto.
+  intros. unfold vertex_rep. rewrite heapgraph_generations_append__heapgraph_block_ptr; auto.
   rewrite <- heapgraph_block_header__heapgraph_generations_append, <- ang_heapgraph_block_cells_vals_old; auto.
 Qed.
 

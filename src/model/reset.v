@@ -380,13 +380,26 @@ Proof.
   - rewrite reset_heapgraph_generation_info_diff by auto. intuition.
 Qed.
 
-Lemma heapgraph_has_block_reset: forall (g: HeapGraph) gen v,
+Lemma reset_graph__heapgraph_has_block (g: HeapGraph) (gen : nat) (v : Addr):
     heapgraph_has_block (reset_graph gen g) v <->
     heapgraph_has_block g v /\ gen <> addr_gen v.
 Proof.
-  intros. split; intros; destruct v; unfold heapgraph_has_block in *; simpl in *.
-  - rewrite graph_has_gen_reset, heapgraph_generation_has_index_reset in H. intuition.
-  - rewrite graph_has_gen_reset, heapgraph_generation_has_index_reset. intuition.
+    split; intros; destruct v; simpl in *.
+    + destruct H as [Hg1 Hg2]. simpl in *.
+      rewrite graph_has_gen_reset in Hg1.
+      rewrite heapgraph_generation_has_index_reset in Hg2.
+      intuition.
+      refine {|
+        heapgraph_has_block__has_gen := _;
+        heapgraph_has_block__has_index := _;
+      |} ; intuition.
+    + destruct H as [Hg Hgen] ; destruct Hg ; simpl in *.
+      refine {|
+        heapgraph_has_block__has_gen := _;
+        heapgraph_has_block__has_index := _;
+      |} ; simpl.
+      - now rewrite graph_has_gen_reset.
+      - now rewrite heapgraph_generation_has_index_reset.
 Qed.
 
 Lemma rgc_reset: forall g gen roots,
@@ -413,7 +426,7 @@ Lemma outlier_compatible_reset: forall g outlier gen,
 Proof.
   intros. unfold outlier_compatible in *. intros. simpl.
   rewrite remove_ve_vlabel_unchanged. apply H.
-  rewrite heapgraph_has_block_reset in H0. destruct H0. assumption.
+  rewrite reset_graph__heapgraph_has_block in H0. destruct H0. assumption.
 Qed.
 
 Lemma super_compatible_reset: forall g t_info roots f_info outlier gen,
@@ -472,7 +485,7 @@ Lemma graph_has_e_reset: forall g gen e,
     graph_has_e g e /\ gen <> egeneration e.
 Proof.
   intros. unfold graph_has_e, egeneration. destruct e as [v idx]. simpl.
-  rewrite heapgraph_has_block_reset, heapgraph_block_fields_reset. intuition.
+  rewrite reset_graph__heapgraph_has_block, heapgraph_block_fields_reset. intuition.
 Qed.
 
 Lemma gen2gen_no_edge_reset_inv: forall g gen1 gen2 gen3,
@@ -514,7 +527,7 @@ Lemma no_dangling_dst_reset: forall g gen,
     no_dangling_dst (reset_graph gen g).
 Proof.
   intros. unfold no_dangling_dst in *. red in H0. simpl. intros.
-  rewrite heapgraph_has_block_reset in *. destruct H1. rewrite heapgraph_block_fields_reset in H2.
+  rewrite reset_graph__heapgraph_has_block in *. destruct H1. rewrite heapgraph_block_fields_reset in H2.
   rewrite remove_ve_dst_unchanged. split.
   - apply (H v); assumption.
   - cut (addr_gen (dst g e) <> gen). 1: intuition. unfold gen2gen_no_edge in H0.

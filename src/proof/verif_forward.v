@@ -456,7 +456,7 @@ Proof.
                   (subst g'; apply lacv_heapgraph_has_block_new; assumption).
               sep_apply (graph_rep_valid_int_or_ptr _ _ H34). Intros.
               rewrite <- H30 in H35. assert (heapgraph_has_block g' a) by
-                  (subst g'; apply lacv_heapgraph_has_block_old; assumption).
+                  (subst g'; apply lgraph_add_copied_v__heapgraph_has_block; assumption).
               remember (heapgraph_generation_sh g' (addr_gen a)) as sh'.
               sep_apply (graph_vertex_lmc_ramif g' a (new_copied_v g to) H36).
               rewrite <- Heqsh'. Intros. freeze [1; 2] FR1.
@@ -1082,7 +1082,7 @@ Proof.
                   (subst g'; apply lacv_heapgraph_has_block_new; assumption).
               sep_apply (graph_rep_valid_int_or_ptr _ _ H35). Intros.
               rewrite <- H31 in H36. assert (heapgraph_has_block g' v') by
-                  (subst g'; apply lacv_heapgraph_has_block_old; assumption).
+                  (subst g'; apply lgraph_add_copied_v__heapgraph_has_block; assumption).
               remember (heapgraph_generation_sh g' (addr_gen v')) as sh'.
               sep_apply (graph_vertex_lmc_ramif g' v' (new_copied_v g to) H37).
               rewrite <- Heqsh'. Intros. freeze [1; 2] FR1.

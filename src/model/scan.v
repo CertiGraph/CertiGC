@@ -241,21 +241,33 @@ Proof.
   eapply fr_O_gen_v_num_to; eauto.
 Qed.
 
-Lemma svfl_heapgraph_has_block_inv: forall from to v l g1 g2,
-    heapgraph_has_gen g1 to -> scan_vertex_for_loop from to v l g1 g2 ->
-    forall v2,
-      heapgraph_has_block g2 v2 ->
-      heapgraph_has_block g1 v2 \/
-      (addr_gen v2 = to /\ heapgraph_generation_block_count g1 to <= addr_block v2 < heapgraph_generation_block_count g2 to)%nat.
+Lemma svfl_heapgraph_has_block_inv (from to: nat) (v: Addr) (l: list nat) (g1 g2: HeapGraph)
+    (Hto: heapgraph_has_gen g1 to)
+    (Hg1g2: scan_vertex_for_loop from to v l g1 g2)
+    (v2: Addr)
+    (Hg2v2: heapgraph_has_block g2 v2):
+    heapgraph_has_block g1 v2 \/ (
+      addr_gen v2 = to /\
+      heapgraph_generation_block_count g1 to <= addr_block v2 < heapgraph_generation_block_count g2 to
+    )%nat.
 Proof.
-  intros ? ? ? ?. induction l; intros; inversion H0; subst. 1: left; assumption.
-  assert (heapgraph_has_gen g3 to) by (rewrite <- fr_graph_has_gen; eauto).
-  specialize (IHl _ _ H2 H7 _ H1). destruct IHl.
-  - eapply (fr_O_heapgraph_has_block_inv from to _ g1 g3) in H4; eauto. destruct H4.
-    1: left; assumption. right. clear -H1 H4. unfold new_copied_v in H4. subst.
-    destruct H1. unfold heapgraph_generation_block_count. simpl in *. red in H0. lia.
-  - right. destruct H3. split. 1: assumption. destruct H5. split; auto.
-    eapply fr_O_gen_v_num_to in H4; [lia | assumption].
+    revert g1 g2 Hto Hg1g2 v2 Hg2v2.
+    induction l as [|n l IHl] ; intros ; inversion Hg1g2 ; subst ; try now left.
+    assert (heapgraph_has_gen g3 to) as Hg3 by (rewrite <- fr_graph_has_gen; eauto).
+    specialize (IHl _ _ Hg3 H4 _ Hg2v2).
+    destruct IHl as [Hg3v2|[Eto Hv2]].
+    + eapply (fr_O_heapgraph_has_block_inv from to _ g1 g3) in H1 ; eauto.
+      destruct H1 as [Hg1v2|Ev2] ; try now left.
+      right.
+      unfold heapgraph_generation_block_count.
+      unfold new_copied_v in Ev2 ; subst v2 ; simpl in *.
+      pose proof (heapgraph_has_block__has_index Hg2v2) as F.
+      red in F. simpl in F.
+      lia.
+    + right.
+      subst to.
+      apply fr_O_gen_v_num_to in H1 ; try easy.
+      lia.
 Qed.
 
 Lemma svwl_heapgraph_has_block: forall from to l g1 g2,
@@ -549,7 +561,9 @@ Proof.
       erewrite (svwl_dst_unchanged) in H8; eauto; simpl.
       * eapply (frr_heapgraph_generation_is_unmarked _ _ _ _ g); eauto.
       * repeat intro. rewrite nat_seq_In_iff in H19. destruct H19 as [? _].
-        destruct H14. simpl in H20. red in H20. lia.
+        pose proof (heapgraph_has_block__has_index H14) as HH.
+        red in HH. simpl in HH.
+        lia.
     + eapply svwl_no_edge2from; eauto.
       * eapply (frr_heapgraph_generation_is_unmarked _ _ _ _ g); eauto.
       * eapply (frr_copy_compatible from to _ _ g); eauto.

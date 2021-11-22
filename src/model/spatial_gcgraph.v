@@ -598,9 +598,15 @@ Lemma graph_rep_vertex_rep: forall g v,
     heapgraph_has_block g v -> graph_rep g |-- EX sh: share, !!(writable_share sh) &&
                                                        vertex_rep sh g v * TT.
 Proof.
-  intros. destruct H. sep_apply (graph_rep_generation_rep g (addr_gen v) H).
-  red in H0. sep_apply (generation_rep_vertex_rep g (addr_gen v) _ H0).
-  Exists (heapgraph_generation_sh g (addr_gen v)). destruct v. simpl. entailer!.
+  intros.
+  sep_apply (graph_rep_generation_rep g (addr_gen v) (heapgraph_has_block__has_gen H)).
+  pose proof (heapgraph_has_block__has_index H) as Hindex.
+  red in Hindex.
+  sep_apply (generation_rep_vertex_rep g (addr_gen v) _ Hindex).
+  Exists (heapgraph_generation_sh g (addr_gen v)).
+  destruct v.
+  simpl.
+  entailer!.
   apply generation_sh__writable.
 Qed.
 
@@ -942,16 +948,18 @@ Proof.
   - rewrite prop_impl, <- imp_andp_adjoint; Intros.
     destruct (Nat.eq_dec (addr_gen v) gen). 1: apply prop_right; assumption.
     sep_apply (graph_heap_rest_iter_sepcon _ _ H).
-    pose proof (graph_thread_v_in_range _ _ _ H H1). destruct H1.
+    pose proof (graph_thread_v_in_range _ _ _ H H1).
+    pose proof (heapgraph_has_block__has_gen H1) as Hgen.
     assert (NoDup [addr_gen v; gen]) by
         (constructor; [|constructor; [|constructor]]; intro HS;
          simpl in HS; destruct HS; auto).
     assert (incl [addr_gen v; gen] (nat_inc_list (length (generations (heapgraph_generations g))))) by
         (apply incl_cons; [|apply incl_cons];
          [rewrite nat_inc_list_In_iff; assumption..| apply incl_nil]).
-    sep_apply (iter_sepcon_incl_true (generation_data_at_ g t_info) H5 H6); simpl.
+    sep_apply (iter_sepcon_incl_true (generation_data_at_ g t_info) H4 H5); simpl.
     rewrite sepcon_emp. unfold generation_data_at_.
-    remember (heapgraph_generation_sh g (addr_gen v)) as sh1. remember (heapgraph_generation_sh g gen) as sh2.
+    remember (heapgraph_generation_sh g (addr_gen v)) as sh1.
+    remember (heapgraph_generation_sh g gen) as sh2.
     sep_apply (v_in_range_data_at_ _ _ _ sh1 H3). Intros m1.
     sep_apply (v_in_range_data_at_ _ _ _ sh2 H2). Intros m2.
     remember (heapgraph_block_ptr g v) as p.
@@ -988,8 +996,10 @@ Lemma graph_vertex_ramif_stable: forall g v,
     graph_rep g |-- vertex_rep (heapgraph_generation_sh g (addr_gen v)) g v *
     (vertex_rep (heapgraph_generation_sh g (addr_gen v)) g v -* graph_rep g).
 Proof.
-  intros. destruct H. sep_apply (graph_gen_ramif_stable _ _ H).
-  sep_apply (gen_vertex_ramif_stable _ _ _ H0). destruct v as [gen index].
+  intros.
+  sep_apply (graph_gen_ramif_stable _ _ (heapgraph_has_block__has_gen H)).
+  sep_apply (gen_vertex_ramif_stable _ _ _ (heapgraph_has_block__has_index H)).
+  destruct v as [gen index].
   simpl. cancel. apply wand_frame_ver.
 Qed.
 
@@ -1258,9 +1268,12 @@ Lemma graph_vertex_lmc_ramif: forall g v new_v,
                 (lgraph_mark_copied g v new_v) v -*
                 graph_rep (lgraph_mark_copied g v new_v)).
 Proof.
-  intros. destruct H. sep_apply (graph_gen_lmc_ramif g v new_v H).
-  destruct v as [gen index]. simpl in *.
-  sep_apply (gen_vertex_lmc_ramif g gen index new_v H0). cancel. apply wand_frame_ver.
+  intros.
+  sep_apply (graph_gen_lmc_ramif g v new_v (heapgraph_has_block__has_gen H)).
+  destruct v as [gen index].
+  simpl in *.
+  sep_apply (gen_vertex_lmc_ramif g gen index new_v (heapgraph_has_block__has_index H)).
+  cancel. apply wand_frame_ver.
 Qed.
 
 Lemma lgd_vertex_rep_eq_in_diff_vert: forall sh g v' v v1 e n,

@@ -961,12 +961,13 @@ Proof.
 Qed.
 
 
-Definition heapgraph_block_cells_vals (g: HeapGraph) (v: Addr): list val :=
-  let vb := heapgraph_block g v in
-  let original_fields_val := map (heapgraph_cell_val g) (heapgraph_block_cells g v) in
-  if vb.(block_mark)
-  then heapgraph_block_ptr g vb.(block_copied_vertex) :: tl original_fields_val
-  else original_fields_val.
+Definition heapgraph_block_cells_vals (g: HeapGraph) (v: Addr):
+    list val
+ := let vb := heapgraph_block g v
+ in let original_fields_val := map (heapgraph_cell_val g) (heapgraph_block_cells g v)
+ in if vb.(block_mark)
+    then heapgraph_block_ptr g vb.(block_copied_vertex) :: tl original_fields_val
+    else original_fields_val.
 
 Lemma fields_eq_length: forall g v,
     Zlength (heapgraph_block_cells_vals g v) = Zlength (block_fields (heapgraph_block g v)).

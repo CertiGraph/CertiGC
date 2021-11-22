@@ -117,9 +117,12 @@ Proof.
       intros. destruct H5. unfold heapgraph_block_ptr. red in H15.
       rewrite Forall_forall in H15.
       rewrite (filter_sum_right_In_iff v roots) in H14. apply H15 in H14.
-      destruct H14. apply heapgraph_generation_base__isptr in H14.
-      remember (heapgraph_generation_base g (addr_gen v)) as vv. destruct vv; try contradiction.
-      simpl. exact I. }
+      pose proof (heapgraph_has_block__has_gen H14) as Hgen.
+      apply heapgraph_generation_base__isptr in Hgen.
+      remember (heapgraph_generation_base g (addr_gen v)) as vv.
+      destruct vv; try contradiction.
+      simpl. exact I.
+    }
     assert (is_pointer_or_integer (root2val g root)). {
       destruct root as [[? | ?] | ?]; simpl; auto.
       - destruct g0. simpl. exact I.
@@ -768,9 +771,11 @@ Proof.
           rewrite <- filter_sum_right_In_iff, <- Heqc; apply Znth_In.
           now rewrite heapgraph_block_cells_eq_length.
         }
-        destruct H20. rewrite <- Heqn' in H20.
-        pose proof (heapgraph_generation_base__isptr g n' H20).
-        destruct (heapgraph_generation_base g n'); try contradiction; auto.       }
+        pose proof (heapgraph_has_block__has_gen H20) as Hgen.
+        rewrite <- Heqn' in Hgen.
+        pose proof (heapgraph_generation_base__isptr g n' Hgen).
+        destruct (heapgraph_generation_base g n'); try contradiction; auto.
+      }
       destruct (heapgraph_block_ptr g v') eqn:?; try contradiction.
       forward_if. 2: exfalso; apply Int.one_not_zero in H21; assumption.
       clear H21 H21'. forward_call (Vptr b i).
@@ -892,10 +897,15 @@ Proof.
           2: unfold thread_info_rep; thaw FR; entailer!.
           pose proof (lgd_no_dangling_dst_copied_vert g e (dst g e) H9 H19 H22 H10).
           split; [|split; [|split; [|split]]]; try reflexivity.
-          ++ now constructor.
+          ++ constructor ; try easy.
+             intuition.
+             { admit. }
+             { admit. }
           ++ simpl forward_p2forward_t.
              rewrite H12, Heqc. simpl. now constructor.
-          ++ now constructor.
+          ++ constructor ; try easy.
+             intuition.
+             admit.
           ++ easy.
         -- (* not yet forwarded *)
            forward. thaw FR.  freeze [0; 1; 2; 3; 4; 5] FR.
@@ -1216,6 +1226,10 @@ Proof.
                 }
                 assert (forward_condition g1 t_info' from to). {
                   subst g1 g' t_info' from v'.
+                  assert (heapgraph_has_block (lgraph_copy_v g (dst g e) to) (dst g e)) as HH.
+                  {
+                    destruct H37 ; now constructor.
+                  }
                   apply lgd_forward_condition; try assumption.
                   apply lcv_forward_condition_unchanged; try assumption.
                   red. intuition. }

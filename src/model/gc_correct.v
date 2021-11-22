@@ -73,7 +73,9 @@ Proof.
   unfold remove_heapgraph_generation_ve. rewrite fold_left_lrvae_vvalid. rewrite H. intuition; destruct H2.
   - destruct v as [vgen vidx]. simpl in *. subst vgen.
     change {| addr_gen := gen; addr_block := vidx |} with ((fun idx : nat => {| addr_gen := gen; addr_block := idx |}) vidx). apply in_map.
-    rewrite nat_inc_list_In_iff. destruct H1. now red in H1.   - apply list_in_map_inv in H0. destruct H0 as [? [? _]]; now subst v.  
+    rewrite nat_inc_list_In_iff.
+    exact (heapgraph_has_block__has_index H1).
+  - apply list_in_map_inv in H0. destruct H0 as [? [? _]]; now subst v.  
 Qed.
 
 Lemma remove_ve_src_unchanged: forall g gen e,
@@ -422,7 +424,7 @@ Lemma heapgraph_has_block_dec: forall (g: HeapGraph) (v: Addr),
     {heapgraph_has_block g v} + {~ heapgraph_has_block g v}.
 Proof.
   intros. destruct v as [vgen vidx]. destruct (heapgraph_has_gen_dec g vgen).
-  - destruct (heapgraph_generation_has_index_dec g vgen vidx). 1: left; red; simpl; split; auto.
+  - destruct (heapgraph_generation_has_index_dec g vgen vidx) ; try (left ; now constructor).
     right; intro; apply n; destruct H; auto.
   - right; intro; apply n; destruct H; auto. 
 Defined.
@@ -950,10 +952,13 @@ Lemma fr_O_vertex_valid: forall g g' from to p,
 Proof.
   intros. inversion H1; subst; try assumption.
   - now apply lcv_vertex_valid.
-  - replace (vertex_valid new_g) with
-        (vertex_valid (lgraph_copy_v g (dst g e) to)) by (subst new_g; reflexivity).
+  - assert (vertex_valid new_g <-> vertex_valid (lgraph_copy_v g (dst g e) to)) as E.
+    {
+      admit.
+    }
+    rewrite E.
     now apply lcv_vertex_valid.
-Qed.
+Admitted.
 
 Lemma lcv_heapgraph_block_fields_old: forall (g: HeapGraph) v v' to,
     heapgraph_has_block g v' -> heapgraph_has_gen g to ->
@@ -1037,10 +1042,13 @@ Lemma fr_O_edge_valid: forall g1 g2 from to p,
 Proof.
   intros. inversion H1; subst; try assumption.
   - now apply lcv_edge_valid.
-  - replace (edge_valid new_g) with
-        (edge_valid (lgraph_copy_v g1 (dst g1 e) to)) by (subst new_g; reflexivity).
+  - assert (edge_valid new_g <-> edge_valid (lgraph_copy_v g1 (dst g1 e) to)) as E.
+    {
+      admit.
+    }
+    rewrite E.
     now apply lcv_edge_valid.
-Qed.
+Admitted.
 
 Lemma flcvae_src_old: forall g new (l: list (Field * Addr)) e,
     ~ In e (map fst l) -> src (fold_left (copy_v_add_edge new) l g) e = src g e.
@@ -1184,8 +1192,11 @@ Proof.
   split3; [| | easy].
   - red. split. 1: constructor. intros; split; intros. 2: inversion H1.
     destruct H1 as [? [? ?]]. destruct H as [? _]. red in H. rewrite H in H2.
-    red in H0. destruct H2. rewrite H3 in *. destruct v as [? idx]. simpl in *.
-    subst. specialize (H0 H2 _ H4). rewrite H1 in H0. inversion H0.
+    red in H0.
+    subst from.
+    specialize (H0 (heapgraph_has_block__has_gen H2) _ (heapgraph_has_block__has_index H2)).
+    destruct v as [v_gen v_idx] ; simpl in *.
+    congruence.
   - red. split. 1: constructor. split; [split|]; intros; intuition.
 Qed.
 
@@ -1755,9 +1766,12 @@ Proof.
                                ((dst g1 e, new_copied_v g1 to) :: l1)). 2: assumption.
         intros. assert (Hfn: field_addr e <> new_copied_v g1 to). {
           apply heapgraph_block_cells_Znth_edge in Heqc; auto. subst e. simpl.
-          destruct v as [gen idx]. red in H4. simpl in H4. destruct H4. red in H13.
-          intro. unfold new_copied_v in H15. inversion H15. subst gen idx.
-          lia. } eapply (lgd_semi_iso _ _ _ _ _ v n e) in H12; eauto.
+          intro F. unfold new_copied_v in F.
+          pose proof (heapgraph_has_block__has_index H4) as Hindex.
+          subst. red in Hindex. simpl in Hindex.
+          lia.
+        }
+        eapply (lgd_semi_iso _ _ _ _ _ v n e) in H12; eauto.
         -- subst new_g. simpl dst in H12. rewrite pcv_dst_old in H12; auto.
            simpl in H12.  rewrite ucov_block_copied_vertex in H12. easy.
         -- now apply lcv_sound.
@@ -1778,8 +1792,9 @@ Proof.
         -- now rewrite H13 in Hr.
         -- red in Hg. rewrite Forall_forall in Hg.
            rewrite filter_sum_right_In_iff in H12. apply Hg in H12.
-           rewrite <- H13 in H12. unfold new_copied_v in H12. destruct H12.
-           simpl in H15. red in H15. lia.
+           rewrite <- H13 in H12. unfold new_copied_v in H12.
+           pose proof (heapgraph_has_block__has_index H12) as Hindex.
+           red in Hindex. simpl in Hindex. lia.
 Qed.
 
 Definition gather_indices (il: list Z) (live_indices: list Z) :=
@@ -2004,8 +2019,11 @@ Proof.
       * eapply svfl_copy_compatible; eauto.
       * eapply svfl_heapgraph_generation_is_unmarked; eauto.
     + intros. now rewrite nat_inc_list_In_iff in H14.
-    + destruct H0. red in H0. rewrite H0. intro. destruct H18. simpl in H19.
-      apply (H8 a); [left |]; auto.
+    + destruct H0. red in H0. rewrite H0. intro.
+      pose proof (heapgraph_has_block__has_index H18) as Hindex.
+      simpl in Hindex.
+      apply (H8 a) ; try easy.
+      now left.
     + destruct H1. red in H1. rewrite H1. split; now simpl.
 Qed.
 
@@ -2560,8 +2578,9 @@ Proof.
                           block_mark (heapgraph_block g1 (field_addr e)) = false). {
       intros. red in Hu. destruct e as [v ?]. simpl in *.
       destruct H1 as [_ [? _]]. red in H1. rewrite H1 in H14. destruct H14.
-      simpl in H14. destruct v as [gen idx]. simpl in *. subst gen. destruct H14.
-      simpl in *. now specialize (Hu H14 _ H15). }
+      simpl in H14. destruct v as [gen idx]. simpl in *. subst gen.
+      now specialize (Hu (heapgraph_has_block__has_gen H14) _ (heapgraph_has_block__has_index H14)).
+    }
     destruct (Znth n (heapgraph_block_cells g1 x)) eqn:?;
     [destruct s |]; simpl in H5; inversion H5; subst; clear H5; try easy.
     + rename f into e. red in H7 |-* ; intros. subst new_g. destruct_eq_dec e0 e.

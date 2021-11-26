@@ -42,7 +42,7 @@ Inductive garbage_collect_loop (f_info : fun_info)
 Definition garbage_collect_relation (f_info: fun_info)
            (roots1 roots2: roots_t) (g1 g2: HeapGraph): Prop :=
   exists n, garbage_collect_loop f_info (nat_inc_list (S n)) roots1 g1 roots2 g2 /\
-            safe_to_copy_gen g2 n (S n).
+            heapgraph_generation_can_copy g2 n (S n).
 
 Definition garbage_collect_condition (g: HeapGraph) (t_info : thread_info)
            (roots : roots_t) (f_info : fun_info) : Prop :=
@@ -67,7 +67,7 @@ Qed.
 
 
 Lemma gc_cond_implies_do_gen_cons: forall g t_info roots f_info i,
-    safe_to_copy_to_except g i ->
+    heapgraph_can_copy_except g i ->
     heapgraph_has_gen g (S i) ->
     graph_thread_info_compatible g t_info ->
     garbage_collect_condition g t_info roots f_info ->
@@ -76,7 +76,7 @@ Proof.
   intros. destruct H2 as [? [? [? [? ?]]]].
   assert (heapgraph_has_gen g i) by (unfold heapgraph_has_gen in H0 |-*; lia).
   split; [|split; [|split; [|split; [|split; [|split; [|split]]]]]]; auto.
-  - unfold safe_to_copy_to_except, safe_to_copy_gen in H. red.
+  - unfold heapgraph_can_copy_except, heapgraph_generation_can_copy in H. red.
     unfold rest_gen_size. specialize (H (S i)). simpl in H.
     destruct (gt_gs_compatible _ _ H1 _ H0) as [_ [_ ?]].
     destruct (gt_gs_compatible _ _ H1 _ H7) as [_ [_ ?]].
@@ -115,11 +115,11 @@ Proof.
 Qed.
 
 Lemma do_gen_stcte: forall g1 roots1 g2 roots2 f_info i,
-    safe_to_copy_to_except g1 i -> heapgraph_has_gen g1 (S i) ->
+    heapgraph_can_copy_except g1 i -> heapgraph_has_gen g1 (S i) ->
     do_generation_relation i (S i) f_info roots1 roots2 g1 g2 ->
-    safe_to_copy_to_except g2 (S i).
+    heapgraph_can_copy_except g2 (S i).
 Proof.
-  intros. unfold safe_to_copy_to_except in *. intros.
+  intros. unfold heapgraph_can_copy_except in *. intros.
   destruct H1 as [g3 [g4 [? [? ?]]]]. destruct (Nat.eq_dec n i).
   - subst. red. unfold heapgraph_generation_size, heapgraph_generation. simpl.
     rewrite reset_heapgraph_generation_info_same. simpl. unfold heapgraph_block_size_prev.

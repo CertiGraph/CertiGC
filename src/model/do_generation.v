@@ -102,8 +102,10 @@ Lemma do_gen_no_backward_edge: forall g1 g2 roots1 roots2 f_info i,
     firstn_gen_clear g1 i -> no_backward_edge g1 -> no_backward_edge g2.
 Proof.
   intros. unfold no_backward_edge in *. intros. destruct (Nat.eq_dec gen1 (S i)).
-  - red. intros. destruct H6. simpl in *. eapply do_gen_firstn_gen_clear in H3; eauto.
-    subst. specialize (H0 _ H6 _ H7).
+  - red. intros.
+    eapply do_gen_firstn_gen_clear in H3; eauto.
+    subst.
+    specialize (H0 _ (heapgraph_has_field__has_block H6) _ (heapgraph_has_field__in H6)).
     pose proof (heapgraph_has_block__has_index H0) as Hindex.
     red in Hindex. intro Egen2. rewrite Egen2 in Hindex.
     red in H3. assert (gen2 < S i)%nat as Hgen2 by lia. specialize (H3 _ Hgen2). red in H3.

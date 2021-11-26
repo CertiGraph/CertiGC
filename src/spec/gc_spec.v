@@ -438,7 +438,7 @@ Definition garbage_collect_spec :=
     PROP (readable_share rsh; writable_share sh;
           super_compatible (g, t_info, roots) f_info outlier;
           garbage_collect_condition g t_info roots f_info;
-          safe_to_copy g)
+          heapgraph_can_copy g)
     PARAMS (fi; ti)
     GLOBALS (gv)
     SEP (all_string_constants rsh gv; MSS_constant gv;
@@ -452,7 +452,7 @@ Definition garbage_collect_spec :=
     PROP (super_compatible (g', t_info', roots') f_info outlier;
           garbage_collect_relation f_info roots roots' g g';
           garbage_collect_condition g' t_info' roots' f_info;
-          safe_to_copy g')
+          heapgraph_can_copy g')
     LOCAL ()
     SEP (mem_mgr gv; MSS_constant gv;
          all_string_constants rsh gv;

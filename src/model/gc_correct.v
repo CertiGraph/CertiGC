@@ -39,7 +39,7 @@ Local Coercion pg_lg: LabeledGraph >-> PreGraph.
 
 Definition vertex_valid (g: HeapGraph): Prop := forall v, vvalid g v <-> heapgraph_has_block g v.
 
-Definition edge_valid (g: HeapGraph): Prop := forall e, evalid g e <-> graph_has_e g e.
+Definition edge_valid (g: HeapGraph): Prop := forall e, evalid g e <-> heapgraph_has_field g e.
 
 Definition src_edge (g: PreGraph Addr Field): Prop := forall e, src g e = field_addr e.
 
@@ -126,7 +126,7 @@ Qed.
 
 Lemma edge_valid_reset: forall g gen, edge_valid g -> edge_valid (reset_graph gen g).
 Proof.
-  intros. unfold edge_valid in *. intros. rewrite graph_has_e_reset. simpl.
+  intros. unfold edge_valid in *. intros. rewrite reset_graph__heapgraph_has_field. simpl.
   unfold remove_heapgraph_generation_ve. rewrite fold_left_lrvae_evalid, H. intuition.
   - unfold egeneration in H0. simpl in H0. apply (H2 (field_addr e)).
     2: now destruct H1.
@@ -461,77 +461,123 @@ Proof.
   destruct H1 as [? [? ?]]. unfold vertex_valid, edge_valid, src_edge in *.
   simpl in H14, H15, H16.
   assert (Hs: forall e, evalid g1 e -> vmap (src g1 e) = src g2 (emap e)). {
-    intros. rewrite H19 in H21. destruct H21. rewrite H20 in *. rewrite <- H1 in H21.
+    intros. rewrite H19 in H21.
+    rewrite H20 in *.
+    pose proof (heapgraph_has_field__has_block H21) as Hblock.
+    rewrite <- H1 in Hblock.
     subst vmap emap. destruct (InEither_dec (field_addr e) vpl).
-    - specialize (H13 _ H21 i). destruct H13 as [k [v [? [? ?]]]].
-      rewrite H23, H24 in *. subst k. pose proof (gepl_key _ _ _ _ H22 H13).
-      destruct (DoubleNoDup_list_bi_map _ _ _ Hn H23) as [? _]. rewrite H25.
+    - specialize (H13 _ Hblock i).
+      destruct H13 as [k [v [? [? ?]]]].
+      rewrite H22, H23 in *. subst k.
+      pose proof (gepl_key _ _ _ _ (heapgraph_has_field__in H21) H13) as He.
+      destruct (DoubleNoDup_list_bi_map _ _ _ Hn He) as [H'e _].
+      rewrite H'e.
       now rewrite H18.
-    - rewrite !list_bi_map_not_In; auto. intro; apply n; apply gepl_InEither in H23.
-      auto. }
+    - rewrite !list_bi_map_not_In; auto.
+      intro; apply n ; apply gepl_InEither in H22.
+      auto.
+  }
   assert (Hd: forall e,
              evalid (reachable_sub_labeledgraph g1 (filter_sum_right roots1)) e ->
              vmap (dst g1 e) = dst g2 (emap e)). {
     intros. simpl in H21. destruct H21 as [? [? ?]]. pose proof H21.
-    rewrite H19 in H21. destruct H21. rewrite H20 in *. rewrite <- H1 in H21.
+    rewrite H19 in H21.
+    rewrite H20 in *.
+    pose proof (heapgraph_has_field__has_block H21) as Hg1e.
+    rewrite <- H1 in Hg1e.
     assert (~ In (dst g1 e) to_l). {
-      intro. rewrite H10 in H26. destruct H26.
+      intro. rewrite H10 in H25. destruct H25.
       apply reachable_through_set_foot_valid in H23. contradiction. }
     subst vmap emap. destruct (InEither_dec (field_addr e) vpl).
-    - specialize (H13 _ H21 i). destruct H13 as [k [v [? [? ?]]]]. subst k.
-      pose proof (gepl_key _ _ _ _ H25 H13).
-      destruct (DoubleNoDup_list_bi_map _ _ _ Hn H27) as [? _]. rewrite H29.
-      destruct (H6 _ _ H13) as [? ?]. rewrite heapgraph_block_fields_inv in H25.
-      destruct H25 as [idx [? ?]]. rewrite H25 in *. simpl in *.
-      specialize (H31 _ H32). destruct H31; auto. rewrite <- H25 in *.
-      destruct (InEither_dec (dst g1 e) vpl).
-      2: rewrite list_bi_map_not_In; auto. red in i0. rewrite Heqp in i0.
-      rewrite in_app_iff in i0. destruct i0. 2: contradiction.
-      rewrite <- H8 in H33. destruct H33 as [_ ?]. exfalso.
-      assert (graph_has_e g2 {| field_addr := v ; field_index := idx |}). {
+    - specialize (H13 _ Hg1e i).
+      destruct H13 as [k [v [? [? ?]]]]. subst k.
+      pose proof (gepl_key _ _ _ _ (heapgraph_has_field__in H21) H13) as He.
+      destruct (DoubleNoDup_list_bi_map _ _ _ Hn He) as [H'e _].
+      rewrite H'e.
+      destruct (H6 _ _ H13) as [? ?].
+      pose proof (heapgraph_has_field__in H21) as Hin.
+      rewrite heapgraph_block_fields_inv in Hin.
+      destruct Hin as [idx [Ee Hin]].
+      rewrite Ee in *.
+      simpl in *.
+      specialize (H28 _ Hin).
+      destruct H28; auto.
+      rewrite H28.
+      rewrite list_bi_map_not_In ; auto.
+      rewrite <- Ee in *.
+      destruct (InEither_dec (dst g1 e) vpl) as [Hvpl|Hvpl] ; try easy.
+      red in Hvpl.
+      rewrite Heqp, in_app_iff in Hvpl.
+      destruct Hvpl as [Hvpl|Hvpl] ; try easy.
+      rename Hvpl into H33.
+      rewrite <- H8 in H33.
+      destruct H33 as [_ ?].
+      exfalso.
+      assert (heapgraph_has_field g2 {| field_addr := v ; field_index := idx |}). {
         split; simpl.
         - rewrite <- H12 in H13. apply in_combine_r in H13.
           rewrite H10 in H13. destruct H13. rewrite <- H0. assumption.
-        - apply In_snd_heapgraph_block_fields. apply vlabel_heapgraph_block_fields_snd in H30.
-          rewrite <- H30. assumption. }
+        - apply In_snd_heapgraph_block_fields. apply vlabel_heapgraph_block_fields_snd in H26.
+          rewrite <- H26. assumption.
+      }
       destruct v as [vgen vidx].
       assert (vgen = to). {
         rewrite <- H12 in H13. apply in_combine_r in H13. apply N in H13.
-        simpl in H13. assumption. }
-      subst vgen. assert (to <> from) by lia.
-      specialize (H3 _ H35 vidx (field_index e)).
-      simpl in H3. rewrite H25 in *. simpl in *. apply H3; auto.
-      change (prod nat nat) with Addr. rewrite H31; auto.
+        simpl in H13. assumption.
+      }
+      subst vgen.
+      assert (to <> from) as Hto__from by lia.
+      specialize (H3 _ Hto__from vidx (field_index e)).
+      simpl in *.
+      rewrite Ee in H3.
+      apply H3 ; try easy.
+      simpl.
+      congruence.
     - assert (~ InEither (dst g1 e) vpl). {
-        intro. unfold InEither in H27. rewrite Heqp, in_app_iff in H27.
-        destruct H27; auto. rewrite <- H8 in H27. destruct H27 as [_ ?].
+        intro. unfold InEither in H26. rewrite Heqp, in_app_iff in H26.
+        destruct H26; auto. rewrite <- H8 in H26. destruct H26 as [_ ?].
         assert (addr_gen (field_addr e) <> from). {
           intro. apply n. unfold InEither. rewrite Heqp, in_app_iff. left.
-          rewrite <- H8. now split. }
-        assert (graph_has_e g1 e) by (split; [rewrite <- H1|]; auto).
-        destruct e as [[vgen vidx] eidx] eqn:? . simpl in H28.
-        specialize (H2 _ H28 vidx eidx). simpl in H2. specialize (H2 H29).
-        contradiction. }
+          rewrite <- H8. now split.
+        }
+        destruct e as [[vgen vidx] eidx] eqn:? .
+        simpl in H27.
+        specialize (H2 _ H27 vidx eidx).
+        simpl in H2.
+        now specialize (H2 H21).
+      }
       rewrite !list_bi_map_not_In; auto.
-      2: intro; apply n; apply gepl_InEither in H28; auto.
-      destruct H as [_ [_ [_ ?]]]. apply H; auto.
-      apply reachable_through_set_foot_valid in H23. auto. }
+      2: intro F; apply n; apply gepl_InEither in F; auto.
+      destruct H as [_ [_ [_ ?]]].
+      apply H; auto.
+      apply reachable_through_set_foot_valid in H23.
+      auto.
+  }
   assert (He: forall e,
              evalid (reachable_sub_labeledgraph g1 (filter_sum_right roots1)) e ->
              evalid (remove_heapgraph_generation_ve g2 from) (emap e)). {
     intros. rewrite Heqemap. simpl in H21. destruct H21 as [? [? ?]]. pose proof H21.
-    rewrite H15, graph_has_e_reset. rewrite H19 in H21. destruct H21.
+    rewrite H15, reset_graph__heapgraph_has_field. rewrite H19 in H21. destruct H21 as [H21 H25].
     rewrite <- H1 in H21. destruct (InEither_dec (field_addr e) vpl).
     - specialize (H13 _ H21 i) as [k [v [? [? ?]]]]. subst k.
       pose proof (gepl_key _ _ _ _ H25 H13).
       destruct (DoubleNoDup_list_bi_map _ _ _ Hn H26) as [? _]. rewrite H28.
-      unfold graph_has_e, egeneration. simpl. rewrite <- H0. pose proof H13.
-      rewrite <- H12 in H13. apply in_combine_r in H13. pose proof H13.
-      rewrite H10 in H13. destruct H13 as [? _]. apply N in H30. rewrite H30.
-      split; [split|]; [auto | | lia]. rewrite heapgraph_block_fields_inv in H25.
-      destruct H25 as [idx [? ?]]. rewrite H25. simpl. apply H6 in H29.
-      destruct H29 as [? _]. apply vlabel_heapgraph_block_fields_snd in H29.
-      rewrite heapgraph_block_fields_In, <- H29. assumption.
+      unfold egeneration.
+      split ; try refine {|
+        heapgraph_has_field__has_block := _;
+        heapgraph_has_field__in := _;
+      |} ; simpl.
+      + rewrite <- H0.
+        pose proof H13 ; rewrite <- H12 in H13 ; apply in_combine_r in H13.
+        pose proof H13 ; now rewrite H10 in H13.
+      + rewrite heapgraph_block_fields_inv in H25.
+        destruct H25 as [idx [? ?]]. rewrite H25 ; simpl.
+        apply H6 in H13. destruct H13 as [? _].
+        apply vlabel_heapgraph_block_fields_snd in H13.
+        now rewrite heapgraph_block_fields_In, <- H13.
+      + pose proof H13 ; rewrite <- H12 in H13 ; apply in_combine_r in H13.
+        apply N in H13.
+        congruence.
     - rewrite list_bi_map_not_In, <- H17.
       2: intro; apply n; apply gepl_InEither in H26; auto. split.
       1: destruct H as [_ [? _]]; apply H; auto. unfold egeneration. intro.
@@ -621,7 +667,8 @@ Proof.
       destruct (vvalid_lcm _ v H1); auto. exfalso. apply n. red.
       rewrite Heqp, in_app_iff. right. rewrite H10. split; assumption. }
   assert (He': forall e, evalid (remove_heapgraph_generation_ve g2 from) e -> evalid g1 (emap e)). {
-    intros. rewrite H15, graph_has_e_reset in H21. destruct H21 as [[? ?] ?].
+    intros. rewrite H15, reset_graph__heapgraph_has_field in H21.
+    destruct H21 as [[H21 H22] H23].
     rewrite Heqemap. destruct (InEither_dec (field_addr e) vpl).
     - unfold egeneration in H23. specialize (Nv _ H23 i).
       destruct Nv as [k [v [? [? ?]]]]; subst v. destruct (H6 _ _ H24) as [? _].
@@ -645,7 +692,8 @@ Proof.
       + intro; apply n; apply gepl_InEither in H25; simpl in H25; assumption. }
   assert (Hs': forall e, evalid (remove_heapgraph_generation_ve g2 from) e ->
                          vmap (src g2 e) = src g1 (emap e)). {
-    intros. rewrite H15, graph_has_e_reset in H21. destruct H21 as [[? ?] ?].
+    intros. rewrite H15, reset_graph__heapgraph_has_field in H21.
+    destruct H21 as [[H21 H22] H23].
     rewrite H18. subst vmap emap. unfold egeneration in H23.
     destruct (InEither_dec (field_addr e) vpl).
     - specialize (Nv _ H23 i). destruct Nv as [k [v [? [? ?]]]]. rewrite <- H25 in *.
@@ -659,8 +707,9 @@ Proof.
                        (reset_graph from g2) (filter_sum_right roots2)) e ->
              vmap (dst g2 e) = dst g1 (emap e)). {
     intros. destruct H21 as [? [? ?]]. simpl in H23. pose proof H21. rename H24 into E.
-    rewrite remove_ve_dst_unchanged in H23. rewrite H15, graph_has_e_reset in H21.
-    apply reachable_through_set_foot_valid in H23. destruct H21 as [[? ?] ?].
+    rewrite remove_ve_dst_unchanged in H23. rewrite H15, reset_graph__heapgraph_has_field in H21.
+    apply reachable_through_set_foot_valid in H23.
+    destruct H21 as [[H21 H24] H25].
     rewrite H14, reset_graph__heapgraph_has_block in H23. destruct H23.
     assert (~ In (dst g2 e) from_l) by
         (intro; rewrite <- H8 in H27; destruct H27 as [_ ?]; auto).
@@ -684,7 +733,9 @@ Proof.
     - assert (~ InEither e (gen_edge_pair_list g1 vpl)) by
           (intro; apply gepl_InEither in H28; auto). apply He' in E.
       rewrite list_bi_map_not_In in E; auto. pose proof E.
-      rewrite H19 in H29. destruct H29. specialize (H4 _ H29 _ H30).
+      rewrite H19 in H29.
+      destruct H29 as [H29 H30].
+      specialize (H4 _ H29 _ H30).
       rewrite <- H1 in H4. destruct H as [_ [_ [_ ?]]]. specialize (H _ E H4).
       rewrite <- H. rewrite !list_bi_map_not_In; auto. rewrite H. intro. red in H31.
       rewrite Heqp, in_app_iff in H31. destruct H31; auto. rewrite <- H in H31.
@@ -812,8 +863,12 @@ Proof.
   intros. red in H0. destruct (heapgraph_has_gen_dec g1 gen).
   - now subst.
   - destruct H0 as [gen_i [? ?]]. subst g2. unfold edge_valid in *. intros. simpl.
-    rewrite H. now split; intros; destruct H1; split;
-    [apply heapgraph_generations_append__heapgraph_has_block | | apply heapgraph_generations_append__heapgraph_has_block_inv in H1|].
+    rewrite H.
+    split ; intro He ; constructor ; try now destruct He.
+    + apply heapgraph_generations_append__heapgraph_has_block.
+      now destruct He.
+    + pose proof (heapgraph_has_field__has_block He) as H'e.
+      now apply heapgraph_generations_append__heapgraph_has_block_inv in H'e.
 Qed.
 
 Lemma ngr_src_edge: forall (g1 g2: HeapGraph) gen,
@@ -1021,7 +1076,35 @@ Qed.
 Lemma lcv_edge_valid: forall g v to,
     edge_valid g -> heapgraph_has_gen g to -> edge_valid (lgraph_copy_v g v to).
 Proof.
-  intros. unfold edge_valid in *. intros. unfold graph_has_e in *. simpl.
+  intros. unfold edge_valid in *. intros. simpl.
+  split ; intro He.
+  - rewrite pcv_evalid_iff in He.
+    destruct He as [He|He].
+    + apply H in He.
+      constructor.
+      * apply lcv_heapgraph_has_block_iff ; try easy.
+        left ; now destruct He.
+      * rewrite lcv_heapgraph_block_fields_old ; now destruct He.
+    + assert (field_addr e = new_copied_v g to) as Hto.
+      {
+        apply list_in_map_inv in He.
+        destruct He as [x [H1 H2]].
+        now subst.
+      }
+      constructor.
+      * rewrite lcv_heapgraph_has_block_iff ; try easy.
+        now right.
+      * rewrite
+          heapgraph_block_fields_map_map,
+          lcv_lacv_heapgraph_block_fields,
+          Hto,
+          lacv_heapgraph_block_fields_new,
+          map_map.
+        easy.
+  - rewrite pcv_evalid_iff, H.
+    admit.
+(*
+  unfold heapgraph_has_field in *. simpl.
   rewrite pcv_evalid_iff, lcv_heapgraph_has_block_iff, H; auto. split; intros.
   - destruct H1 as [[? ?] | ?].
     + split; [now left|]. rewrite lcv_heapgraph_block_fields_old; auto.
@@ -1035,6 +1118,8 @@ Proof.
       rewrite heapgraph_block_fields_map_map, lcv_lacv_heapgraph_block_fields, lacv_heapgraph_block_fields_new, map_map in H2.
       assumption.
 Qed.
+*)
+Admitted.
 
 Lemma fr_O_edge_valid: forall g1 g2 from to p,
     edge_valid g1 -> heapgraph_has_gen g1 to ->
@@ -1423,7 +1508,7 @@ Proof.
   - rewrite pcv_vvalid_iff. now left.
   - rewrite pcv_evalid_iff. now left.
   - rewrite pcv_src_old; auto. intro. now rewrite H2, H5 in H4.
-  - rewrite pcv_dst_old; auto. rewrite H1 in H3. destruct H3. rewrite <- H in H3.
+  - rewrite pcv_dst_old; auto. rewrite H1 in H3. destruct H3 as [H3 H5]. rewrite <- H in H3.
     intro. now rewrite H6 in H3.
 Qed.
 
@@ -1570,7 +1655,7 @@ Proof.
     split; [|split;[|split]]; intros; simpl;
       [now apply H8 | now apply H23 | now apply H24 | unfold updateEdgeFunc].
     rewrite if_false; auto. intro. red in H28. subst e0.
-    apply heapgraph_block_cells_Znth_edge in H5; auto. subst e. rewrite H19 in H26. destruct H26.
+    apply heapgraph_block_cells_Znth_edge in H5; auto. subst e. rewrite H19 in H26. destruct H26 as [H5 H26].
     simpl in H5. now rewrite <- H0 in H5.
   - intros. simpl. pose proof H12. rename H24 into Hi. specialize (H12 _ _ H23).
     destruct H12 as [? [? ?]]. split3; try easy. intros.
@@ -2115,7 +2200,7 @@ Proof.
     + apply pcv_vvalid_iff. now right.
     + rewrite pcv_vvalid_iff. now left.
     + rewrite step_spec in *. destruct H6 as [e [? [? ?]]]. rewrite H2 in H6.
-      destruct H6. rewrite heapgraph_block_fields_inv in H9. destruct H9 as [idx [? ?]].
+      destruct H6 as [H6 H9]. rewrite heapgraph_block_fields_inv in H9. destruct H9 as [idx [? ?]].
       destruct e as [gen i]. simpl in *. rewrite H3 in H7. simpl in *. subst gen.
       inversion H9. subst i. clear H9. exists {| field_addr := new_v ; field_index := idx |}. split3.
       * rewrite pcv_evalid_iff. right. rewrite heapgraph_block_fields_map_map.
@@ -2126,7 +2211,7 @@ Proof.
   - assert (step g old_v z). {
       rewrite step_spec in *. destruct H6 as [e [? [? ?]]].
       rewrite pcv_evalid_iff in H6. destruct H6.
-      - exfalso. rewrite H2 in H6. destruct H6. destruct e as [gen idx]. simpl in *.
+      - exfalso. rewrite H2 in H6. destruct H6 as [H6 H9]. destruct e as [gen idx]. simpl in *.
         rewrite <- H0 in H6. destruct_eq_dec gen new_v. 1: now subst.
         rewrite pcv_src_old in H7. 2: now simpl. rewrite H3 in H7. now simpl in H7.
       - rewrite heapgraph_block_fields_map_map, map_map in H6. simpl in H6.
@@ -2153,7 +2238,7 @@ Proof.
       - clear H8. assert (field_addr a <> new_v) by (intro; rewrite H8 in H1; now subst s).
         rewrite pcv_dst_old in H9, H3; auto. unfold strong_evalid. rewrite H6, <- H1.
         rewrite pcv_vvalid_iff in H9. destruct H9. 1: intuition. exfalso.
-        red in H5. rewrite H5 in H2. destruct H2. red in Hn. apply Hn in H10; auto.
+        red in H5. rewrite H5 in H2. destruct H2 as [H2 H10]. red in Hn. apply Hn in H10; auto.
         red in H4. now rewrite <- H4, H9 in H10.
       - rewrite in_map_iff in H2. destruct H2 as [x [? _]]. destruct a as [a_gen a_block]. inversion H2.
         subst a_gen. simpl in H1. now subst s. } split; split; auto.
@@ -2161,7 +2246,7 @@ Proof.
     apply exists_last in H5. destruct H5 as [l' [a ?]]. rewrite e0 in *.
     rewrite pfoot_last in *. rewrite pcv_dst_old in H2; auto. assert (evalid g a) by
         (eapply valid_path_evalid; eauto; rewrite in_app_iff; now right; left).
-    destruct Hg as [? [? ?]]. red in H6, H7. rewrite H7 in H5. destruct H5.
+    destruct Hg as [? [? ?]]. red in H6, H7. rewrite H7 in H5. destruct H5 as [H5 H9].
     rewrite <- H6 in H5. intro. now rewrite H10 in H5.
   - apply is_partial_graph_reachable with (g1 := g); auto.
     apply pcv_is_partial_graph; auto.
@@ -2287,14 +2372,14 @@ Proof.
         now apply heapgraph_has_block__ne__new_copied_v with (to := to) in H3. }
       assert (new_copied_v g1 to = block_copied_vertex (heapgraph_block g3 (dst g3 e))). {
         rewrite <- H10. subst g3. simpl. rewrite ucov_block_copied_vertex. easy. }
-      assert (graph_has_e g1 e). { split; rewrite H9.
+      assert (heapgraph_has_field g1 e). { split; rewrite H9.
         1: easy. unfold heapgraph_block_fields. rewrite <- filter_sum_right_In_iff, <- Heqc.
         apply Znth_In. now rewrite heapgraph_block_cells_eq_length. }
       assert (evalid g1 e). {
         destruct H1 as [? [? ?]]. red in H1, H14, H15. now rewrite H14. }
       rewrite H12, H10. apply lgd_block_copied_vertex_prop; try (now rewrite <- H10).
       * subst g3. apply lcv_no_dangling_dst; auto. red in H2. apply H2 with v; auto.
-        destruct H13. now rewrite H9 in H15.
+        destruct H13 as [H13 H15]. now rewrite H9 in H15.
       * subst g3. rewrite <- lcv_graph_has_gen; auto.
       * now rewrite H9, <- H10.
       * rewrite <- H10. subst g3. apply lcv_block_mark_old.
@@ -2327,7 +2412,7 @@ Proof.
     destruct H2 as [? [[? [? ?]] ?]]. destruct H as [? [? ?]]. red in H, H9, H10.
     assert (heapgraph_has_block g r) by (rewrite <- H; now rewrite <- H2 in H6).
     specialize (H0 _ H11 H1). destruct H0 as [? [? [_ [? ?]]]]. rewrite H10 in H2.
-    destruct e as [r' idx]. simpl in H2. subst r'. rewrite H9 in H5. destruct H5.
+    destruct e as [r' idx]. simpl in H2. subst r'. rewrite H9 in H5. destruct H5 as [H2 H5].
     simpl in H5. rewrite heapgraph_block_fields_In in H5. specialize (H14 _ H5).
     remember (block_copied_vertex (heapgraph_block g r)) as cr.
     assert (vvalid g (dst g {| field_addr := cr ; field_index := idx |}) ->
@@ -2392,7 +2477,8 @@ Proof.
       destruct H5 as [_ [? _]]. rewrite valid_path_cons_iff in H5.
       destruct H5 as [? [[? [? ?]] ?]]. destruct H as [? [? ?]]. red in H, H16, H17.
       rewrite H17 in H5. destruct e as [cr' idx]. simpl in H5. subst cr'.
-      rewrite H16 in H12. destruct H12. simpl fst in *. rewrite heapgraph_block_fields_In in H12.
+      rewrite H16 in H12. destruct H12 as [H5 H12]. simpl fst in *.
+      rewrite heapgraph_block_fields_In in H12.
       rewrite <- H9 in H12. specialize (H10 _ H12).
       assert (vvalid g (dst g {| field_addr := r ; field_index := idx |}) ->
               g |= (r, [{| field_addr := r ; field_index := idx |}]) is r ~o~> (dst g {| field_addr := r ; field_index := idx |})
@@ -2525,7 +2611,7 @@ Proof.
   intros from to p g1 g2 roots f_info H H0 H1 H2 H3 H4 H5 H6 Hu Hc H7.
   assert (He: forall e, evalid g1 e -> field_addr e <> new_copied_v g1 to). {
     intros. destruct H1 as [_ [? _]]. red in H1. rewrite H1 in H8.
-    destruct H8. eapply heapgraph_has_block__ne__new_copied_v in H8; eauto. }
+    destruct H8 as [H8 H9]. eapply heapgraph_has_block__ne__new_copied_v in H8; eauto. }
   pose proof H1. destruct H8 as [Hv _]. red in Hv. destruct p; simpl in H4, H5.
   - destruct (Znth z roots) eqn:? ;
       [destruct s|]; simpl in *; rewrite Heqr; inversion H5; subst; clear H5; try easy.
@@ -2568,7 +2654,7 @@ Proof.
     rewrite H9 in H5. simpl in H5.
     assert (forall e, Znth n (heapgraph_block_cells g1 x) = inr e -> field_addr e = x) by
         (intros; apply heapgraph_block_cells_Znth_edge in H11; auto; now subst e).
-    assert (forall e, Znth n (heapgraph_block_cells g1 x) = inr e -> graph_has_e g1 e). {
+    assert (forall e, Znth n (heapgraph_block_cells g1 x) = inr e -> heapgraph_has_field g1 e). {
       destruct H1 as [? [? ?]]. red in H1, H12, H13. intros. split; rewrite H11; auto.
       unfold heapgraph_block_fields. rewrite <- filter_sum_right_In_iff, <- H14.
       apply Znth_In. now rewrite heapgraph_block_cells_eq_length. }
@@ -2577,7 +2663,7 @@ Proof.
     assert (Ht: forall e, evalid g1 e -> addr_gen (field_addr e) = to ->
                           block_mark (heapgraph_block g1 (field_addr e)) = false). {
       intros. red in Hu. destruct e as [v ?]. simpl in *.
-      destruct H1 as [_ [? _]]. red in H1. rewrite H1 in H14. destruct H14.
+      destruct H1 as [_ [? _]]. red in H1. rewrite H1 in H14. destruct H14 as [H14 H16].
       simpl in H14. destruct v as [gen idx]. simpl in *. subst gen.
       now specialize (Hu (heapgraph_has_block__has_gen H14) _ (heapgraph_has_block__has_index H14)).
     }
@@ -2585,7 +2671,7 @@ Proof.
     [destruct s |]; simpl in H5; inversion H5; subst; clear H5; try easy.
     + rename f into e. red in H7 |-* ; intros. subst new_g. destruct_eq_dec e0 e.
       * exfalso. subst e0. simpl in H15. rewrite updateEdgeFunc_eq in H15.
-        assert (graph_has_e g1 e) by (now apply H12). red in H2. destruct H16.
+        assert (heapgraph_has_field g1 e) by (now apply H12). red in H2. destruct H16 as [H16 H18].
         specialize (H2 _ H16 _ H18). specialize (H6 _ H2 H17).
         destruct H6 as [_ [? _]]. now rewrite <- H15, H6 in H.
       * rewrite reachable_from_roots. simpl in *.
@@ -2754,7 +2840,7 @@ Proof.
     rewrite H8 in H6. simpl in H6.
     assert (forall e, Znth n (heapgraph_block_cells g1 x) = inr e -> field_addr e = x) by
         (intros; apply heapgraph_block_cells_Znth_edge in H10; auto; now subst e).
-    assert (forall e, Znth n (heapgraph_block_cells g1 x) = inr e -> graph_has_e g1 e). {
+    assert (forall e, Znth n (heapgraph_block_cells g1 x) = inr e -> heapgraph_has_field g1 e). {
       destruct H1 as [? [? ?]]. red in H1, H11, H12. intros. split; rewrite H10; auto.
       unfold heapgraph_block_fields. rewrite <- filter_sum_right_In_iff, <- H13.
       apply Znth_In. now rewrite heapgraph_block_cells_eq_length. }
@@ -2810,7 +2896,7 @@ Proof.
            rewrite pcv_reachable_old in H18; auto.
         -- rewrite <- H20. subst g3. apply lcv_block_copied_vertex_prop; auto.
         -- subst g3. apply lcv_no_dangling_dst; auto. red in Hd.
-           assert (graph_has_e g1 e) by (now apply H11). destruct H22.
+           assert (heapgraph_has_field g1 e) by (now apply H11). destruct H22.
            apply Hd with (field_addr e); auto.
         -- subst g3. simpl. rewrite pcv_evalid_iff. left. now apply H12.
         -- rewrite <- H20. subst g3. apply lcv_block_mark_old.
@@ -2828,7 +2914,7 @@ Proof.
            apply reachable_trans with (field_addr e); auto. destruct H1 as [? [? ?]].
            red in H1, H24, H25. exists (field_addr e, [e]). split; split; simpl; auto.
            2: red; rewrite Forall_forall; intros; auto. rewrite H25. split; auto.
-           red. do 2 (split; auto). rewrite H25. rewrite H24 in H19. destruct H19.
+           red. do 2 (split; auto). rewrite H25. rewrite H24 in H19. destruct H19 as [H19 H26].
            rewrite <- H1 in H19. easy.
         -- rewrite ucov_not_eq in H17; auto. rewrite lacv_vlabel_old in H17; auto.
 Qed.
@@ -3242,7 +3328,8 @@ Proof.
   intros. red in H0. destruct (heapgraph_has_gen_dec g1 gen).
   - subst; auto.
   - destruct H0 as [gen_i [? ?]]. subst g2. unfold no_edge2gen, gen2gen_no_edge in *.
-    intros. simpl in *. destruct H2. simpl in *. apply heapgraph_generations_append__heapgraph_has_block_inv in H2; auto.
+    intros. simpl in *. destruct H2 as [H2 H3].
+    simpl in *. apply heapgraph_generations_append__heapgraph_has_block_inv in H2; auto.
     rewrite <- ang_heapgraph_block_fields in H3. apply H; auto. split; auto.
 Qed.
 

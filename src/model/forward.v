@@ -981,19 +981,33 @@ Proof.
   - eapply fr_heapgraph_has_block; eauto.
 Qed.
 
-Lemma frr_gen2gen_no_edge: forall from to f_info roots1 g1 roots2 g2,
-    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall gen1 gen2, gen1 <> to -> gen2gen_no_edge g1 gen1 gen2 ->
-                      gen2gen_no_edge g2 gen1 gen2.
+Lemma frr_gen2gen_no_edge (from to: nat) (f_info: fun_info) (roots1: list root_t) (g1: HeapGraph) (roots2: roots_t) (g2: HeapGraph)
+    (Hto: heapgraph_has_gen g1 to)
+    (Hg1g2: forward_roots_relation from to f_info roots1 g1 roots2 g2)
+    (gen1 gen2: nat)
+    (Hgen1: gen1 <> to)
+    (Hgen1gen2: gen2gen_no_edge g1 gen1 gen2):
+    gen2gen_no_edge g2 gen1 gen2.
 Proof.
-  intros. unfold gen2gen_no_edge in *. intros.
-  cut (graph_has_e g1 {| field_addr := {| addr_gen := gen1; addr_block := vidx |} ; field_index := eidx |}).
-  - intros. erewrite <- frr_dst_unchanged; eauto. destruct H4. assumption.
-  - destruct H3. eapply frr_heapgraph_has_block_inv in H3; eauto. destruct H3 as [? | [? ?]].
-    2: simpl in H3; contradiction. split. 1: simpl; assumption. simpl in *.
-    cut (heapgraph_block_fields g1 {| addr_gen := gen1 ; addr_block := vidx |} = heapgraph_block_fields g2 {| addr_gen := gen1 ; addr_block := vidx |}).
-    + intros; rewrite H5; assumption.
-    + unfold heapgraph_block_fields. unfold heapgraph_block_cells. erewrite frr_block_fields; eauto.
+    unfold gen2gen_no_edge in *.
+    intros vidx eidx Hg2.
+    cut (heapgraph_has_field g1 {| field_addr := {| addr_gen := gen1; addr_block := vidx |} ; field_index := eidx |}).
+    + intros. erewrite <- frr_dst_unchanged; eauto.
+      apply (heapgraph_has_field__has_block H).
+    + pose proof (heapgraph_has_field__has_block Hg2) as Hblock.
+      eapply frr_heapgraph_has_block_inv in Hblock ; eauto.
+      destruct Hblock as [Hblock | [Eto Hblock]] ; try easy.
+      refine {|
+        heapgraph_has_field__has_block := _;
+        heapgraph_has_field__in := _;
+      |} ; try easy.
+      simpl in *.
+      cut (heapgraph_block_fields g1 {| addr_gen := gen1 ; addr_block := vidx |} = heapgraph_block_fields g2 {| addr_gen := gen1 ; addr_block := vidx |}).
+      - pose proof (heapgraph_has_field__in Hg2) as Hfield.
+        intro Eg1g2.
+        now rewrite Eg1g2.
+      - unfold heapgraph_block_fields, heapgraph_block_cells.
+        erewrite frr_block_fields; eauto.
 Qed.
 
 Lemma fr_O_dst_unchanged_field (from to: nat) (v: Addr) (n: nat) (g g': HeapGraph)
@@ -1116,16 +1130,16 @@ Qed.
 Lemma fr_O_stcg: forall from to p g1 g2,
     heapgraph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
     forall gen1 gen2, heapgraph_has_gen g1 gen2 -> gen2 <> to ->
-                      safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
+                      heapgraph_generation_can_copy g1 gen1 gen2 -> heapgraph_generation_can_copy g2 gen1 gen2.
 Proof.
-  intros. unfold safe_to_copy_gen in *.
+  intros. unfold heapgraph_generation_can_copy in *.
   erewrite <- (fr_O_graph_gen_size_unchanged from to); eauto.
 Qed.
 
 Lemma frr_stcg: forall from to f_info roots1 g1 roots2 g2,
     heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
     forall gen1 gen2, heapgraph_has_gen g1 gen2 -> gen2 <> to ->
-                      safe_to_copy_gen g1 gen1 gen2 -> safe_to_copy_gen g2 gen1 gen2.
+                      heapgraph_generation_can_copy g1 gen1 gen2 -> heapgraph_generation_can_copy g2 gen1 gen2.
 Proof.
   intros. induction H0. 1: assumption. apply IHforward_roots_loop.
   - erewrite <- (fr_graph_has_gen O from to); eauto.

@@ -104,7 +104,7 @@ Proof.
     (EX i: Z, EX g': HeapGraph, EX roots': roots_t, EX t_info': thread_info,
      PROP (super_compatible (g', t_info', roots') f_info outlier;
            garbage_collect_condition g' t_info' roots' f_info;
-           safe_to_copy_to_except g' (Z.to_nat i);
+           heapgraph_can_copy_except g' (Z.to_nat i);
            firstn_gen_clear g' (Z.to_nat i);
            garbage_collect_loop f_info (nat_inc_list (Z.to_nat i)) roots g roots' g';
            heapgraph_has_gen g' (Z.to_nat i))
@@ -120,7 +120,7 @@ Proof.
   - Exists g roots t_info. destruct H2 as [? [? [? ?]]].
     pose proof (heapgraph_has_gen__O g). entailer!. split; [|split; [|split]].
     + red. auto.
-    + apply stc_stcte_O_iff; assumption.
+    + apply heapgraph_can_copy_except__O; assumption.
     + red. intros. simpl in H12. lia.
     + unfold nat_inc_list. simpl. constructor.
   - cbv beta. Intros g' roots' t_info'. unfold thread_info_rep. Intros.
@@ -133,7 +133,7 @@ Proof.
       (EX g1: HeapGraph, EX t_info1: thread_info,
        PROP (super_compatible (g1, t_info1, roots') f_info outlier;
              garbage_collect_condition g1 t_info1 roots' f_info;
-             safe_to_copy_to_except g1 (Z.to_nat i);
+             heapgraph_can_copy_except g1 (Z.to_nat i);
              firstn_gen_clear g1 (Z.to_nat i);
              new_gen_relation (Z.to_nat (i + 1)) g' g1;
              heapgraph_has_gen g1 (Z.to_nat (i + 1)))
@@ -281,7 +281,7 @@ Proof.
           unfold heapgraph_has_gen in *.
           replace (Z.to_nat (i + 1)) with (Z.to_nat i + 1)%nat in *. 1: lia.
           change (S O) with (Z.to_nat 1). rewrite <- Z2Nat.inj_add by lia. auto. }
-        assert (safe_to_copy_to_except g1 (Z.to_nat i)) by
+        assert (heapgraph_can_copy_except g1 (Z.to_nat i)) by
             (subst g1; apply stcte_add; auto; subst gi; simpl; reflexivity).
         assert (garbage_collect_condition g1 t_info1 roots' f_info) by
             (subst g1 t_info1; apply gcc_add; assumption).
@@ -334,7 +334,7 @@ Proof.
           (eapply (do_gen_gcc g1 t_info1 roots'); eauto).
       assert (firstn_gen_clear g2 (Z.to_nat (i + 1))) by
           (rewrite H23; eapply do_gen_firstn_gen_clear; eauto).
-      assert (safe_to_copy_to_except g2 (Z.to_nat (i + 1))) by
+      assert (heapgraph_can_copy_except g2 (Z.to_nat (i + 1))) by
           (rewrite H23; eapply do_gen_stcte; eauto).
       gather_SEP
         (data_at sh thread_info_type _ _)
@@ -363,7 +363,7 @@ Proof.
         | H : Int.lt _ _ = false |- _ => apply lt_repr_false in H
         end.
         2: apply space_remaining__repable_signed. 2: apply space_capacity__repable_signed.
-        assert (safe_to_copy_gen g2 (Z.to_nat i) (S (Z.to_nat i))). {
+        assert (heapgraph_generation_can_copy g2 (Z.to_nat i) (S (Z.to_nat i))). {
           red. destruct H27 as [? _]. destruct H36 as [_ [_ [_ [_ ?]]]].
           do 2 (erewrite <- ti_size_gen; eauto). rewrite <- H23 in *.
           unfold gen_size, heapgraph_generation_size. destruct (gt_gs_compatible _ _ H27 _ H30)
@@ -373,7 +373,7 @@ Proof.
         forward_call (rsh, sh, gv, fi, ti, g2, t_info2, f_info, roots2). forward.
         Exists g2 t_info2 roots2. entailer!. split.
         -- exists (Z.to_nat i). rewrite <- H23 at 1. split; assumption.
-        -- rewrite H23 in H38. eapply safe_to_copy_complete; eauto.
+        -- rewrite H23 in H38. eapply heapgraph_can_copy__complete; eauto.
       * forward. Intros. Exists g2 roots2 t_info2. rewrite <- H23 in *. entailer!.
   - Intros g2 roots2 t_info2. unfold all_string_constants. Intros.
     forward_call ((gv ___stringlit_12),

@@ -811,48 +811,75 @@ Proof.
 Qed.
 
 
-Definition safe_to_copy_gen g from to: Prop :=
-  generation_size from <= generation_size to - heapgraph_generation_size g to.
+Definition heapgraph_generation_can_copy g from to:
+    Prop
+ := generation_size from <= generation_size to - heapgraph_generation_size g to
+.
 
-Definition safe_to_copy (g: HeapGraph): Prop :=
-  forall n, heapgraph_has_gen g (S n) -> safe_to_copy_gen g n (S n).
+Definition heapgraph_can_copy (g: HeapGraph):
+    Prop
+ := forall n, heapgraph_has_gen g (S n) -> heapgraph_generation_can_copy g n (S n)
+.
 
-Definition safe_to_copy_to_except (g: HeapGraph) (gen: nat): Prop :=
-  forall n, n <> O -> n <> gen -> heapgraph_has_gen g n -> safe_to_copy_gen g (pred n) n .
+Definition heapgraph_can_copy_except (g: HeapGraph) (gen: nat):
+    Prop
+ := forall n, n <> O -> n <> gen -> heapgraph_has_gen g n -> heapgraph_generation_can_copy g (pred n) n
+.
 
-Lemma stc_stcte_O_iff: forall g, safe_to_copy g <-> safe_to_copy_to_except g O.
+Lemma heapgraph_can_copy_except__O (g: HeapGraph):
+    heapgraph_can_copy g <-> heapgraph_can_copy_except g O.
 Proof.
-  intros. unfold safe_to_copy, safe_to_copy_to_except. split; intros.
-  - destruct n. 1: contradiction. simpl. apply H; assumption.
-  - specialize (H (S n)). simpl in H. apply H; auto.
+    unfold heapgraph_can_copy, heapgraph_can_copy_except.
+    split.
+    + intros H n Hn _ Hgn.
+      destruct n as [|n] ; try easy.
+      now apply H.
+    + intros H n Hn.
+      specialize (H (S n)).
+      now apply H.
 Qed.
 
-Lemma safe_to_copy_complete: forall g i,
-    safe_to_copy_to_except g (S i) -> safe_to_copy_gen g i (S i) -> safe_to_copy g.
+Lemma heapgraph_can_copy__complete (g: HeapGraph) (i: nat)
+    (Hg: heapgraph_can_copy_except g (S i))
+    (Hi: heapgraph_generation_can_copy g i (S i)):
+    heapgraph_can_copy g.
 Proof.
-  intros. unfold safe_to_copy_to_except in H. unfold safe_to_copy. intros.
-  destruct (Nat.eq_dec n i).
-  - subst. assumption.
-  - specialize (H (S n)). simpl in H. apply H; auto.
+    unfold heapgraph_can_copy_except in Hg.
+    unfold heapgraph_can_copy in *.
+    intros n Hn.
+    destruct (Nat.eq_dec n i) as [E|Hn__i].
+    + now subst.
+    + specialize (Hg (S n)).
+      apply Hg ; now try congruence.
 Qed.
 
 
-Definition graph_has_e (g: HeapGraph) (e: Field): Prop :=
-  let v := field_addr e in heapgraph_has_block g v /\ In e (heapgraph_block_fields g v).
+Record heapgraph_has_field (g: HeapGraph) (e: Field):
+    Prop
+ := {
+    heapgraph_has_field__has_block: heapgraph_has_block g (field_addr e);
+    heapgraph_has_field__in: In e (heapgraph_block_fields g (field_addr e));
+}.
+Arguments heapgraph_has_field__has_block [_] [_].
+Arguments heapgraph_has_field__in [_] [_].
 
-Definition gen2gen_no_edge (g: HeapGraph) (gen1 gen2: nat): Prop :=
-  forall vidx eidx, let e := {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |} in
-                    graph_has_e g e -> addr_gen (dst g e) <> gen2.
+Definition gen2gen_no_edge (g: HeapGraph) (gen1 gen2: nat):
+    Prop
+ := forall vidx eidx,
+    let e := {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |}
+ in heapgraph_has_field g e -> addr_gen (dst g e) <> gen2.
 
-Definition no_edge2gen (g: HeapGraph) (gen: nat): Prop :=
-  forall another, another <> gen -> gen2gen_no_edge g another gen.
+Definition no_edge2gen (g: HeapGraph) (gen: nat):
+    Prop
+ := forall another, another <> gen -> gen2gen_no_edge g another gen.
 
-Definition no_backward_edge (g: HeapGraph): Prop :=
-  forall gen1 gen2, (gen1 > gen2)%nat -> gen2gen_no_edge g gen1 gen2
+Definition no_backward_edge (g: HeapGraph):
+    Prop
+ := forall gen1 gen2, (gen1 > gen2)%nat -> gen2gen_no_edge g gen1 gen2
 .
 
 Definition graph_gen_clear (g: HeapGraph) (gen: nat):
-  Prop
+    Prop
  := generation_block_count (heapgraph_generation g gen) = O
 .
 
@@ -868,7 +895,7 @@ Proof.
     intros m Hm.
     destruct (lt_eq_lt_dec m n) as [[Hmn|Hmn]|Hmn] ; try easy.
     + intros vidx eidx f Hf En. subst f.
-      pose proof (heapgraph_has_block__has_index (proj1 Hf)) as F.
+      pose proof (heapgraph_has_block__has_index (heapgraph_has_field__has_block Hf)) as F.
       specialize (Hn _ Hmn).
       red in Hn, F. simpl in F.
       rewrite Hn in F.
@@ -1142,14 +1169,14 @@ Proof.
 Qed.
 
 Lemma stcte_add: forall g gi i,
-    generation_block_count gi = O -> safe_to_copy_to_except g i ->
-    safe_to_copy_to_except (heapgraph_generations_append g gi) i.
+    generation_block_count gi = O -> heapgraph_can_copy_except g i ->
+    heapgraph_can_copy_except (heapgraph_generations_append g gi) i.
 Proof.
-  intros. unfold safe_to_copy_to_except in *. intros. rewrite heapgraph_has_gen__heapgraph_generations_append in H3.
+  intros. unfold heapgraph_can_copy_except in *. intros. rewrite heapgraph_has_gen__heapgraph_generations_append in H3.
   destruct H3.
-  - specialize (H0 _ H1 H2 H3). unfold safe_to_copy_gen in *.
+  - specialize (H0 _ H1 H2 H3). unfold heapgraph_generation_can_copy in *.
     rewrite <- ang_graph_gen_size_old; assumption.
-  - unfold safe_to_copy_gen. simpl. unfold heapgraph_generation_size.
+  - unfold heapgraph_generation_can_copy. simpl. unfold heapgraph_generation_size.
     rewrite H3 at 4. rewrite heapgraph_generation__heapgraph_generations_append__new, H. unfold heapgraph_block_size_prev.
     simpl. destruct n. 1: contradiction. simpl. rewrite Z.sub_0_r.
     apply generation_size_le_S.
@@ -1172,8 +1199,12 @@ Lemma no_backward_edge_add: forall g gi,
     no_backward_edge (heapgraph_generations_append g gi).
 Proof.
   intros. unfold no_backward_edge, gen2gen_no_edge in *. intros. simpl.
-  destruct H2. simpl in *. rewrite <- ang_heapgraph_block_fields in H3.
-  apply heapgraph_generations_append__heapgraph_has_block_inv in H2; auto. apply H0; auto. split; simpl; auto.
+  pose proof (heapgraph_has_field__in H2) as Hfield.
+  rewrite <- ang_heapgraph_block_fields in Hfield.
+  pose proof (heapgraph_has_field__has_block H2) as Hblock.
+  apply heapgraph_generations_append__heapgraph_has_block_inv in Hblock; auto.
+  apply H0; auto.
+  split; simpl; auto.
 Qed.
 
 Lemma no_dangling_dst_add: forall g gi,

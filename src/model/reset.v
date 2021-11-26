@@ -480,12 +480,25 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma graph_has_e_reset: forall g gen e,
-    graph_has_e (reset_graph gen g) e <->
-    graph_has_e g e /\ gen <> egeneration e.
+Lemma reset_graph__heapgraph_has_field (g: HeapGraph) (gen: nat) (e: Field):
+    heapgraph_has_field (reset_graph gen g) e <-> heapgraph_has_field g e /\ gen <> egeneration e.
 Proof.
-  intros. unfold graph_has_e, egeneration. destruct e as [v idx]. simpl.
-  rewrite reset_graph__heapgraph_has_block, heapgraph_block_fields_reset. intuition.
+    unfold egeneration.
+    destruct e as [v idx].
+    simpl.
+    split ; intro H.
+    + destruct H as [Hblock Hin].
+      simpl in *.
+      rewrite reset_graph__heapgraph_has_block in Hblock.
+      rewrite heapgraph_block_fields_reset in Hin.
+      split ; now try constructor.
+    + destruct H as [[Hblock Hin] Hgen].
+      refine {|
+        heapgraph_has_field__has_block := _;
+        heapgraph_has_field__in := _;
+      |}.
+      - now rewrite reset_graph__heapgraph_has_block.
+      - now rewrite heapgraph_block_fields_reset.
 Qed.
 
 Lemma gen2gen_no_edge_reset_inv: forall g gen1 gen2 gen3,
@@ -494,7 +507,7 @@ Lemma gen2gen_no_edge_reset_inv: forall g gen1 gen2 gen3,
 Proof.
   intros. unfold gen2gen_no_edge. intros. red in H0. simpl in H0.
   specialize (H0 vidx eidx). rewrite remove_ve_dst_unchanged in H0. apply H0.
-  rewrite graph_has_e_reset. unfold egeneration. simpl. split; assumption.
+  rewrite reset_graph__heapgraph_has_field. unfold egeneration. simpl. split; assumption.
 Qed.
 
 Lemma gen2gen_no_edge_reset: forall g gen1 gen2 gen3,
@@ -502,7 +515,7 @@ Lemma gen2gen_no_edge_reset: forall g gen1 gen2 gen3,
     gen2gen_no_edge (reset_graph gen1 g) gen2 gen3.
 Proof.
   intros. unfold gen2gen_no_edge. intros. simpl. rewrite remove_ve_dst_unchanged.
-  apply H. rewrite graph_has_e_reset in H0. destruct H0. assumption.
+  apply H. rewrite reset_graph__heapgraph_has_field in H0. destruct H0. assumption.
 Qed.
 
 Lemma firstn_gen_clear_reset: forall g i,
@@ -516,10 +529,10 @@ Proof.
 Qed.
 
 Lemma reset_stct: forall g i gen1 gen2,
-    i <> gen2 -> safe_to_copy_gen g gen1 gen2 ->
-    safe_to_copy_gen (reset_graph i g) gen1 gen2.
+    i <> gen2 -> heapgraph_generation_can_copy g gen1 gen2 ->
+    heapgraph_generation_can_copy (reset_graph i g) gen1 gen2.
 Proof.
-  intros. unfold safe_to_copy_gen in *. rewrite reset_graph_gen_size_eq; auto.
+  intros. unfold heapgraph_generation_can_copy in *. rewrite reset_graph_gen_size_eq; auto.
 Qed.
 
 Lemma no_dangling_dst_reset: forall g gen,

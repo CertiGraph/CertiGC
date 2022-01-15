@@ -11,11 +11,11 @@ Module Info.
   Definition build_tag := "".
   Definition build_branch := "".
   Definition arch := "x86".
-  Definition model := "32sse2".
+  Definition model := "64".
   Definition abi := "standard".
-  Definition bitsize := 32.
+  Definition bitsize := 64.
   Definition big_endian := false.
-  Definition source_file := "c/gc.c".
+  Definition source_file := "src/c/gc.c".
   Definition normalized := true.
 End Info.
 
@@ -414,6 +414,18 @@ Definition v___stringlit_8 := {|
   gvar_volatile := false
 |}.
 
+Definition v___stringlit_1 := {|
+  gvar_info := (tarray tschar 11);
+  gvar_init := (Init_int8 (Int.repr 115) :: Init_int8 (Int.repr 114) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
+                Init_int8 (Int.repr 103) :: Init_int8 (Int.repr 99) ::
+                Init_int8 (Int.repr 46) :: Init_int8 (Int.repr 99) ::
+                Init_int8 (Int.repr 0) :: nil);
+  gvar_readonly := true;
+  gvar_volatile := false
+|}.
+
 Definition v___stringlit_3 := {|
   gvar_info := (tarray tschar 45);
   gvar_init := (Init_int8 (Int.repr 102) :: Init_int8 (Int.repr 114) ::
@@ -438,16 +450,6 @@ Definition v___stringlit_3 := {|
                 Init_int8 (Int.repr 45) :: Init_int8 (Int.repr 62) ::
                 Init_int8 (Int.repr 110) :: Init_int8 (Int.repr 101) ::
                 Init_int8 (Int.repr 120) :: Init_int8 (Int.repr 116) ::
-                Init_int8 (Int.repr 0) :: nil);
-  gvar_readonly := true;
-  gvar_volatile := false
-|}.
-
-Definition v___stringlit_1 := {|
-  gvar_info := (tarray tschar 7);
-  gvar_init := (Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
-                Init_int8 (Int.repr 103) :: Init_int8 (Int.repr 99) ::
-                Init_int8 (Int.repr 46) :: Init_int8 (Int.repr 99) ::
                 Init_int8 (Int.repr 0) :: nil);
   gvar_readonly := true;
   gvar_volatile := false
@@ -500,18 +502,18 @@ Definition f_test_int_or_ptr := {|
   fn_temps := nil;
   fn_body :=
 (Sreturn (Some (Ecast
-                 (Ebinop Oand (Ecast (Etempvar _x (tptr tvoid)) tint)
-                   (Econst_int (Int.repr 1) tint) tint) tint)))
+                 (Ebinop Oand (Ecast (Etempvar _x (tptr tvoid)) tlong)
+                   (Econst_int (Int.repr 1) tint) tlong) tint)))
 |}.
 
 Definition f_int_or_ptr_to_int := {|
-  fn_return := tint;
+  fn_return := tlong;
   fn_callconv := cc_default;
   fn_params := ((_x, (tptr tvoid)) :: nil);
   fn_vars := nil;
   fn_temps := nil;
   fn_body :=
-(Sreturn (Some (Ecast (Etempvar _x (tptr tvoid)) tint)))
+(Sreturn (Some (Ecast (Etempvar _x (tptr tvoid)) tlong)))
 |}.
 
 Definition f_int_or_ptr_to_ptr := {|
@@ -527,11 +529,11 @@ Definition f_int_or_ptr_to_ptr := {|
 Definition f_int_to_int_or_ptr := {|
   fn_return := (tptr tvoid);
   fn_callconv := cc_default;
-  fn_params := ((_x, tint) :: nil);
+  fn_params := ((_x, tlong) :: nil);
   fn_vars := nil;
   fn_temps := nil;
   fn_body :=
-(Sreturn (Some (Ecast (Etempvar _x tint) (tptr tvoid))))
+(Sreturn (Some (Ecast (Etempvar _x tlong) (tptr tvoid))))
 |}.
 
 Definition f_ptr_to_int_or_ptr := {|
@@ -561,8 +563,8 @@ Definition f_Is_block := {|
 |}.
 
 Definition v_MAX_SPACE_SIZE := {|
-  gvar_info := tuint;
-  gvar_init := (Init_int32 (Int.repr 268435456) :: nil);
+  gvar_info := tulong;
+  gvar_init := (Init_int64 (Int64.repr 1099511627776) :: nil);
   gvar_readonly := true;
   gvar_volatile := false
 |}.
@@ -617,7 +619,7 @@ Definition f_forward := {|
                 (_p, (tptr (tptr tvoid))) :: (_depth, tint) :: nil);
   fn_vars := nil;
   fn_temps := ((_v, (tptr (tptr tvoid))) :: (_va, (tptr tvoid)) ::
-               (_hd, tuint) :: (_i, tint) :: (_sz, tint) ::
+               (_hd, tulong) :: (_i, tlong) :: (_sz, tlong) ::
                (_new, (tptr (tptr tvoid))) :: (_t'5, tint) :: (_t'4, tint) ::
                (_t'3, (tptr tvoid)) :: (_t'2, (tptr tvoid)) ::
                (_t'1, (tptr tvoid)) :: (_t'8, (tptr tvoid)) ::
@@ -652,10 +654,10 @@ Definition f_forward := {|
               (Sset _hd
                 (Ederef
                   (Ebinop Oadd
-                    (Ecast (Etempvar _v (tptr (tptr tvoid))) (tptr tuint))
+                    (Ecast (Etempvar _v (tptr (tptr tvoid))) (tptr tulong))
                     (Eunop Oneg (Econst_int (Int.repr 1) tint) tint)
-                    (tptr tuint)) tuint))
-              (Sifthenelse (Ebinop Oeq (Etempvar _hd tuint)
+                    (tptr tulong)) tulong))
+              (Sifthenelse (Ebinop Oeq (Etempvar _hd tulong)
                              (Econst_int (Int.repr 0) tint) tint)
                 (Ssequence
                   (Sset _t'8
@@ -670,8 +672,8 @@ Definition f_forward := {|
                 (Ssequence
                   (Sset _sz
                     (Ecast
-                      (Ebinop Oshr (Etempvar _hd tuint)
-                        (Econst_int (Int.repr 10) tint) tuint) tuint))
+                      (Ebinop Oshr (Etempvar _hd tulong)
+                        (Econst_int (Int.repr 10) tint) tulong) tulong))
                   (Ssequence
                     (Ssequence
                       (Sset _t'7
@@ -685,23 +687,24 @@ Definition f_forward := {|
                         (Ederef (Etempvar _next (tptr (tptr (tptr tvoid))))
                           (tptr (tptr tvoid)))
                         (Ebinop Oadd (Etempvar _new (tptr (tptr tvoid)))
-                          (Etempvar _sz tint) (tptr (tptr tvoid))))
+                          (Etempvar _sz tlong) (tptr (tptr tvoid))))
                       (Ssequence
                         (Sassign
                           (Ederef
                             (Ebinop Oadd
                               (Ecast (Etempvar _new (tptr (tptr tvoid)))
-                                (tptr tuint))
+                                (tptr tulong))
                               (Eunop Oneg (Econst_int (Int.repr 1) tint)
-                                tint) (tptr tuint)) tuint)
-                          (Etempvar _hd tuint))
+                                tint) (tptr tulong)) tulong)
+                          (Etempvar _hd tulong))
                         (Ssequence
                           (Ssequence
-                            (Sset _i (Econst_int (Int.repr 0) tint))
+                            (Sset _i
+                              (Ecast (Econst_int (Int.repr 0) tint) tlong))
                             (Sloop
                               (Ssequence
-                                (Sifthenelse (Ebinop Olt (Etempvar _i tint)
-                                               (Etempvar _sz tint) tint)
+                                (Sifthenelse (Ebinop Olt (Etempvar _i tlong)
+                                               (Etempvar _sz tlong) tint)
                                   Sskip
                                   Sbreak)
                                 (Ssequence
@@ -711,7 +714,7 @@ Definition f_forward := {|
                                         (Ecast
                                           (Etempvar _v (tptr (tptr tvoid)))
                                           (tptr (tptr tvoid)))
-                                        (Etempvar _i tint)
+                                        (Etempvar _i tlong)
                                         (tptr (tptr tvoid))) (tptr tvoid)))
                                   (Sassign
                                     (Ederef
@@ -719,20 +722,20 @@ Definition f_forward := {|
                                         (Ecast
                                           (Etempvar _new (tptr (tptr tvoid)))
                                           (tptr (tptr tvoid)))
-                                        (Etempvar _i tint)
+                                        (Etempvar _i tlong)
                                         (tptr (tptr tvoid))) (tptr tvoid))
                                     (Etempvar _t'6 (tptr tvoid)))))
                               (Sset _i
-                                (Ebinop Oadd (Etempvar _i tint)
-                                  (Econst_int (Int.repr 1) tint) tint))))
+                                (Ebinop Oadd (Etempvar _i tlong)
+                                  (Econst_int (Int.repr 1) tint) tlong))))
                           (Ssequence
                             (Sassign
                               (Ederef
                                 (Ebinop Oadd
                                   (Ecast (Etempvar _v (tptr (tptr tvoid)))
-                                    (tptr tuint))
+                                    (tptr tulong))
                                   (Eunop Oneg (Econst_int (Int.repr 1) tint)
-                                    tint) (tptr tuint)) tuint)
+                                    tint) (tptr tulong)) tulong)
                               (Econst_int (Int.repr 0) tint))
                             (Ssequence
                               (Ssequence
@@ -775,12 +778,14 @@ Definition f_forward := {|
                                                (Econst_int (Int.repr 0) tint)
                                                tint)
                                   (Ssequence
-                                    (Sset _i (Econst_int (Int.repr 0) tint))
+                                    (Sset _i
+                                      (Ecast (Econst_int (Int.repr 0) tint)
+                                        tlong))
                                     (Sloop
                                       (Ssequence
                                         (Sifthenelse (Ebinop Olt
-                                                       (Etempvar _i tint)
-                                                       (Etempvar _sz tint)
+                                                       (Etempvar _i tlong)
+                                                       (Etempvar _sz tlong)
                                                        tint)
                                           Sskip
                                           Sbreak)
@@ -805,16 +810,16 @@ Definition f_forward := {|
                                              (Ecast
                                                (Etempvar _new (tptr (tptr tvoid)))
                                                (tptr (tptr tvoid)))
-                                             (Etempvar _i tint)
+                                             (Etempvar _i tlong)
                                              (tptr (tptr tvoid))) ::
                                            (Ebinop Osub
                                              (Etempvar _depth tint)
                                              (Econst_int (Int.repr 1) tint)
                                              tint) :: nil)))
                                       (Sset _i
-                                        (Ebinop Oadd (Etempvar _i tint)
+                                        (Ebinop Oadd (Etempvar _i tlong)
                                           (Econst_int (Int.repr 1) tint)
-                                          tint))))
+                                          tlong))))
                                   Sskip)))))))))))
             Sskip)))
       Sskip)))
@@ -838,42 +843,43 @@ Definition f_forward_roots := {|
   fn_callconv := cc_default;
   fn_params := ((_from_start, (tptr (tptr tvoid))) ::
                 (_from_limit, (tptr (tptr tvoid))) ::
-                (_next, (tptr (tptr (tptr tvoid)))) :: (_fi, (tptr tuint)) ::
+                (_next, (tptr (tptr (tptr tvoid)))) ::
+                (_fi, (tptr tulong)) ::
                 (_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
-  fn_temps := ((_args, (tptr (tptr tvoid))) :: (_n, tuint) :: (_i, tuint) ::
-               (_roots, (tptr tuint)) :: (_t'2, tuint) :: (_t'1, tuint) ::
-               nil);
+  fn_temps := ((_args, (tptr (tptr tvoid))) :: (_n, tulong) ::
+               (_i, tulong) :: (_roots, (tptr tulong)) :: (_t'2, tulong) ::
+               (_t'1, tulong) :: nil);
   fn_body :=
 (Ssequence
   (Sset _roots
-    (Ebinop Oadd (Etempvar _fi (tptr tuint)) (Econst_int (Int.repr 2) tint)
-      (tptr tuint)))
+    (Ebinop Oadd (Etempvar _fi (tptr tulong)) (Econst_int (Int.repr 2) tint)
+      (tptr tulong)))
   (Ssequence
     (Sset _n
       (Ederef
-        (Ebinop Oadd (Etempvar _fi (tptr tuint))
-          (Econst_int (Int.repr 1) tint) (tptr tuint)) tuint))
+        (Ebinop Oadd (Etempvar _fi (tptr tulong))
+          (Econst_int (Int.repr 1) tint) (tptr tulong)) tulong))
     (Ssequence
       (Sset _args
         (Efield
           (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
             (Tstruct _thread_info noattr)) _args (tarray (tptr tvoid) 1024)))
       (Ssequence
-        (Sset _i (Econst_int (Int.repr 0) tint))
+        (Sset _i (Ecast (Econst_int (Int.repr 0) tint) tulong))
         (Sloop
           (Ssequence
-            (Sifthenelse (Ebinop Olt (Etempvar _i tuint) (Etempvar _n tuint)
-                           tint)
+            (Sifthenelse (Ebinop Olt (Etempvar _i tulong)
+                           (Etempvar _n tulong) tint)
               Sskip
               Sbreak)
             (Ssequence
               (Ssequence
                 (Sset _t'2
                   (Ederef
-                    (Ebinop Oadd (Etempvar _roots (tptr tuint))
-                      (Etempvar _i tuint) (tptr tuint)) tuint))
-                (Sifthenelse (Ebinop Olt (Etempvar _t'2 tuint)
+                    (Ebinop Oadd (Etempvar _roots (tptr tulong))
+                      (Etempvar _i tulong) (tptr tulong)) tulong))
+                (Sifthenelse (Ebinop Olt (Etempvar _t'2 tulong)
                                (Econst_int (Int.repr 1024) tint) tint)
                   Sskip
                   (Scall None
@@ -884,14 +890,14 @@ Definition f_forward_roots := {|
                                                  (Tcons (tptr tschar) Tnil))))
                                            tvoid cc_default))
                     ((Evar ___stringlit_2 (tarray tschar 20)) ::
-                     (Evar ___stringlit_1 (tarray tschar 7)) ::
+                     (Evar ___stringlit_1 (tarray tschar 11)) ::
                      (Econst_int (Int.repr 210) tint) ::
                      (Evar ___func__ (tarray tschar 14)) :: nil))))
               (Ssequence
                 (Sset _t'1
                   (Ederef
-                    (Ebinop Oadd (Etempvar _roots (tptr tuint))
-                      (Etempvar _i tuint) (tptr tuint)) tuint))
+                    (Ebinop Oadd (Etempvar _roots (tptr tulong))
+                      (Etempvar _i tulong) (tptr tulong)) tulong))
                 (Scall None
                   (Evar _forward (Tfunction
                                    (Tcons (tptr (tptr tvoid))
@@ -904,11 +910,11 @@ Definition f_forward_roots := {|
                    (Etempvar _from_limit (tptr (tptr tvoid))) ::
                    (Etempvar _next (tptr (tptr (tptr tvoid)))) ::
                    (Ebinop Oadd (Etempvar _args (tptr (tptr tvoid)))
-                     (Etempvar _t'1 tuint) (tptr (tptr tvoid))) ::
+                     (Etempvar _t'1 tulong) (tptr (tptr tvoid))) ::
                    (Econst_int (Int.repr 0) tint) :: nil)))))
           (Sset _i
-            (Ebinop Oadd (Etempvar _i tuint) (Econst_int (Int.repr 1) tint)
-              tuint)))))))
+            (Ebinop Oadd (Etempvar _i tulong) (Econst_int (Int.repr 1) tint)
+              tulong)))))))
 |}.
 
 Definition f_do_scan := {|
@@ -919,8 +925,8 @@ Definition f_do_scan := {|
                 (_scan, (tptr (tptr tvoid))) ::
                 (_next, (tptr (tptr (tptr tvoid)))) :: nil);
   fn_vars := nil;
-  fn_temps := ((_s, (tptr (tptr tvoid))) :: (_hd, tuint) :: (_sz, tuint) ::
-               (_tag, tint) :: (_j, tint) :: (_t'1, (tptr (tptr tvoid))) ::
+  fn_temps := ((_s, (tptr (tptr tvoid))) :: (_hd, tulong) :: (_sz, tulong) ::
+               (_tag, tint) :: (_j, tlong) :: (_t'1, (tptr (tptr tvoid))) ::
                nil);
   fn_body :=
 (Ssequence
@@ -937,28 +943,28 @@ Definition f_do_scan := {|
           Sbreak))
       (Ssequence
         (Sset _hd
-          (Ederef (Ecast (Etempvar _s (tptr (tptr tvoid))) (tptr tuint))
-            tuint))
+          (Ederef (Ecast (Etempvar _s (tptr (tptr tvoid))) (tptr tulong))
+            tulong))
         (Ssequence
           (Sset _sz
             (Ecast
-              (Ebinop Oshr (Etempvar _hd tuint)
-                (Econst_int (Int.repr 10) tint) tuint) tuint))
+              (Ebinop Oshr (Etempvar _hd tulong)
+                (Econst_int (Int.repr 10) tint) tulong) tulong))
           (Ssequence
             (Sset _tag
               (Ecast
-                (Ebinop Oand (Etempvar _hd tuint)
-                  (Econst_int (Int.repr 255) tint) tuint) tuint))
+                (Ebinop Oand (Etempvar _hd tulong)
+                  (Econst_int (Int.repr 255) tint) tulong) tuint))
             (Ssequence
               (Sifthenelse (Eunop Onotbool
                              (Ebinop Oge (Etempvar _tag tint)
                                (Econst_int (Int.repr 251) tint) tint) tint)
                 (Ssequence
-                  (Sset _j (Econst_int (Int.repr 1) tint))
+                  (Sset _j (Ecast (Econst_int (Int.repr 1) tint) tlong))
                   (Sloop
                     (Ssequence
-                      (Sifthenelse (Ebinop Ole (Etempvar _j tint)
-                                     (Etempvar _sz tuint) tint)
+                      (Sifthenelse (Ebinop Ole (Etempvar _j tlong)
+                                     (Etempvar _sz tulong) tint)
                         Sskip
                         Sbreak)
                       (Scall None
@@ -975,17 +981,17 @@ Definition f_do_scan := {|
                          (Etempvar _next (tptr (tptr (tptr tvoid)))) ::
                          (Ebinop Oadd
                            (Ecast (Etempvar _s (tptr (tptr tvoid)))
-                             (tptr (tptr tvoid))) (Etempvar _j tint)
+                             (tptr (tptr tvoid))) (Etempvar _j tlong)
                            (tptr (tptr tvoid))) ::
                          (Econst_int (Int.repr 0) tint) :: nil)))
                     (Sset _j
-                      (Ebinop Oadd (Etempvar _j tint)
-                        (Econst_int (Int.repr 1) tint) tint))))
+                      (Ebinop Oadd (Etempvar _j tlong)
+                        (Econst_int (Int.repr 1) tint) tlong))))
                 Sskip)
               (Sset _s
                 (Ebinop Oadd (Etempvar _s (tptr (tptr tvoid)))
                   (Ebinop Oadd (Econst_int (Int.repr 1) tint)
-                    (Etempvar _sz tuint) tuint) (tptr (tptr tvoid)))))))))
+                    (Etempvar _sz tulong) tulong) (tptr (tptr tvoid)))))))))
     Sskip))
 |}.
 
@@ -1007,7 +1013,7 @@ Definition f_do_generation := {|
   fn_callconv := cc_default;
   fn_params := ((_from, (tptr (Tstruct _space noattr))) ::
                 (_to, (tptr (Tstruct _space noattr))) ::
-                (_fi, (tptr tuint)) ::
+                (_fi, (tptr tulong)) ::
                 (_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
   fn_temps := ((_p, (tptr (tptr tvoid))) :: (_t'13, (tptr (tptr tvoid))) ::
@@ -1048,9 +1054,10 @@ Definition f_do_generation := {|
                   (Tstruct _space noattr)) _next (tptr (tptr tvoid))))
             (Sifthenelse (Ebinop Ole
                            (Ebinop Osub (Etempvar _t'10 (tptr (tptr tvoid)))
-                             (Etempvar _t'11 (tptr (tptr tvoid))) tint)
+                             (Etempvar _t'11 (tptr (tptr tvoid))) tlong)
                            (Ebinop Osub (Etempvar _t'12 (tptr (tptr tvoid)))
-                             (Etempvar _t'13 (tptr (tptr tvoid))) tint) tint)
+                             (Etempvar _t'13 (tptr (tptr tvoid))) tlong)
+                           tint)
               Sskip
               (Scall None
                 (Evar ___assert_fail (Tfunction
@@ -1060,7 +1067,7 @@ Definition f_do_generation := {|
                                              (Tcons (tptr tschar) Tnil))))
                                        tvoid cc_default))
                 ((Evar ___stringlit_3 (tarray tschar 45)) ::
-                 (Evar ___stringlit_1 (tarray tschar 7)) ::
+                 (Evar ___stringlit_1 (tarray tschar 11)) ::
                  (Econst_int (Int.repr 251) tint) ::
                  (Evar ___func____1 (tarray tschar 14)) :: nil)))))))
     (Ssequence
@@ -1079,7 +1086,7 @@ Definition f_do_generation := {|
                                    (Tcons (tptr (tptr tvoid))
                                      (Tcons (tptr (tptr tvoid))
                                        (Tcons (tptr (tptr (tptr tvoid)))
-                                         (Tcons (tptr tuint)
+                                         (Tcons (tptr tulong)
                                            (Tcons
                                              (tptr (Tstruct _thread_info noattr))
                                              Tnil))))) tvoid cc_default))
@@ -1089,7 +1096,7 @@ Definition f_do_generation := {|
                (Efield
                  (Ederef (Etempvar _to (tptr (Tstruct _space noattr)))
                    (Tstruct _space noattr)) _next (tptr (tptr tvoid)))
-               (tptr (tptr (tptr tvoid)))) :: (Etempvar _fi (tptr tuint)) ::
+               (tptr (tptr (tptr tvoid)))) :: (Etempvar _fi (tptr tulong)) ::
              (Etempvar _ti (tptr (Tstruct _thread_info noattr))) :: nil))))
       (Ssequence
         (Ssequence
@@ -1148,10 +1155,10 @@ Definition f_do_generation := {|
                        (Evar ___stringlit_4 (tarray tschar 19)) ::
                        (Ebinop Odiv
                          (Ebinop Osub (Etempvar _t'3 (tptr (tptr tvoid)))
-                           (Etempvar _p (tptr (tptr tvoid))) tint)
+                           (Etempvar _p (tptr (tptr tvoid))) tlong)
                          (Ecast
                            (Ebinop Osub (Etempvar _t'4 (tptr (tptr tvoid)))
-                             (Etempvar _t'5 (tptr (tptr tvoid))) tint)
+                             (Etempvar _t'5 (tptr (tptr tvoid))) tlong)
                            tdouble) tdouble) :: nil))))))
             Sskip)
           (Ssequence
@@ -1169,15 +1176,16 @@ Definition f_do_generation := {|
 Definition f_create_space := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_s, (tptr (Tstruct _space noattr))) :: (_n, tuint) :: nil);
+  fn_params := ((_s, (tptr (Tstruct _space noattr))) :: (_n, tulong) :: nil);
   fn_vars := nil;
   fn_temps := ((_p, (tptr (tptr tvoid))) :: (_t'1, (tptr tvoid)) ::
-               (_t'2, tuint) :: nil);
+               (_t'2, tulong) :: nil);
   fn_body :=
 (Ssequence
   (Ssequence
-    (Sset _t'2 (Evar _MAX_SPACE_SIZE tuint))
-    (Sifthenelse (Ebinop Oge (Etempvar _n tuint) (Etempvar _t'2 tuint) tint)
+    (Sset _t'2 (Evar _MAX_SPACE_SIZE tulong))
+    (Sifthenelse (Ebinop Oge (Etempvar _n tulong) (Etempvar _t'2 tulong)
+                   tint)
       (Scall None
         (Evar _abort_with (Tfunction (Tcons (tptr tschar) Tnil) tvoid
                             cc_default))
@@ -1186,9 +1194,9 @@ Definition f_create_space := {|
   (Ssequence
     (Ssequence
       (Scall (Some _t'1)
-        (Evar _malloc (Tfunction (Tcons tuint Tnil) (tptr tvoid) cc_default))
-        ((Ebinop Omul (Etempvar _n tuint) (Esizeof (tptr tvoid) tuint) tuint) ::
-         nil))
+        (Evar _malloc (Tfunction (Tcons tulong Tnil) (tptr tvoid) cc_default))
+        ((Ebinop Omul (Etempvar _n tulong) (Esizeof (tptr tvoid) tulong)
+           tulong) :: nil))
       (Sset _p (Ecast (Etempvar _t'1 (tptr tvoid)) (tptr (tptr tvoid)))))
     (Ssequence
       (Sifthenelse (Ebinop Oeq (Etempvar _p (tptr (tptr tvoid)))
@@ -1216,7 +1224,7 @@ Definition f_create_space := {|
               (Ederef (Etempvar _s (tptr (Tstruct _space noattr)))
                 (Tstruct _space noattr)) _limit (tptr (tptr tvoid)))
             (Ebinop Oadd (Etempvar _p (tptr (tptr tvoid)))
-              (Etempvar _n tuint) (tptr (tptr tvoid)))))))))
+              (Etempvar _n tulong) (tptr (tptr tvoid)))))))))
 |}.
 
 Definition f_create_heap := {|
@@ -1230,8 +1238,8 @@ Definition f_create_heap := {|
 (Ssequence
   (Ssequence
     (Scall (Some _t'1)
-      (Evar _malloc (Tfunction (Tcons tuint Tnil) (tptr tvoid) cc_default))
-      ((Esizeof (Tstruct _heap noattr) tuint) :: nil))
+      (Evar _malloc (Tfunction (Tcons tulong Tnil) (tptr tvoid) cc_default))
+      ((Esizeof (Tstruct _heap noattr) tulong) :: nil))
     (Sset _h
       (Ecast (Etempvar _t'1 (tptr tvoid)) (tptr (Tstruct _heap noattr)))))
   (Ssequence
@@ -1246,7 +1254,7 @@ Definition f_create_heap := {|
       (Scall None
         (Evar _create_space (Tfunction
                               (Tcons (tptr (Tstruct _space noattr))
-                                (Tcons tuint Tnil)) tvoid cc_default))
+                                (Tcons tulong Tnil)) tvoid cc_default))
         ((Ebinop Oadd
            (Efield
              (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
@@ -1328,8 +1336,8 @@ Definition f_make_tinfo := {|
   (Ssequence
     (Ssequence
       (Scall (Some _t'2)
-        (Evar _malloc (Tfunction (Tcons tuint Tnil) (tptr tvoid) cc_default))
-        ((Esizeof (Tstruct _thread_info noattr) tuint) :: nil))
+        (Evar _malloc (Tfunction (Tcons tulong Tnil) (tptr tvoid) cc_default))
+        ((Esizeof (Tstruct _thread_info noattr) tulong) :: nil))
       (Sset _tinfo
         (Ecast (Etempvar _t'2 (tptr tvoid))
           (tptr (Tstruct _thread_info noattr)))))
@@ -1403,12 +1411,12 @@ Definition v___func____2 := {|
 Definition f_resume := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_fi, (tptr tuint)) ::
+  fn_params := ((_fi, (tptr tulong)) ::
                 (_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
   fn_temps := ((_h, (tptr (Tstruct _heap noattr))) ::
                (_lo, (tptr (tptr tvoid))) :: (_hi, (tptr (tptr tvoid))) ::
-               (_num_allocs, tuint) :: nil);
+               (_num_allocs, tulong) :: nil);
   fn_body :=
 (Ssequence
   (Sset _h
@@ -1418,8 +1426,8 @@ Definition f_resume := {|
   (Ssequence
     (Sset _num_allocs
       (Ederef
-        (Ebinop Oadd (Etempvar _fi (tptr tuint))
-          (Econst_int (Int.repr 0) tint) (tptr tuint)) tuint))
+        (Ebinop Oadd (Etempvar _fi (tptr tulong))
+          (Econst_int (Int.repr 0) tint) (tptr tulong)) tulong))
     (Ssequence
       (Sifthenelse (Etempvar _h (tptr (Tstruct _heap noattr)))
         Sskip
@@ -1430,7 +1438,7 @@ Definition f_resume := {|
                                      (Tcons tuint (Tcons (tptr tschar) Tnil))))
                                  tvoid cc_default))
           ((Evar ___stringlit_9 (tarray tschar 2)) ::
-           (Evar ___stringlit_1 (tarray tschar 7)) ::
+           (Evar ___stringlit_1 (tarray tschar 11)) ::
            (Econst_int (Int.repr 343) tint) ::
            (Evar ___func____2 (tarray tschar 7)) :: nil)))
       (Ssequence
@@ -1460,8 +1468,8 @@ Definition f_resume := {|
           (Ssequence
             (Sifthenelse (Ebinop Olt
                            (Ebinop Osub (Etempvar _hi (tptr (tptr tvoid)))
-                             (Etempvar _lo (tptr (tptr tvoid))) tint)
-                           (Etempvar _num_allocs tuint) tint)
+                             (Etempvar _lo (tptr (tptr tvoid))) tlong)
+                           (Etempvar _num_allocs tulong) tint)
               (Scall None
                 (Evar _abort_with (Tfunction (Tcons (tptr tschar) Tnil) tvoid
                                     cc_default))
@@ -1497,11 +1505,11 @@ Definition v___func____3 := {|
 Definition f_garbage_collect := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_fi, (tptr tuint)) ::
+  fn_params := ((_fi, (tptr tulong)) ::
                 (_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
   fn_temps := ((_h, (tptr (Tstruct _heap noattr))) :: (_i, tint) ::
-               (_w, tint) :: (_t'9, (tptr (tptr tvoid))) ::
+               (_w, tlong) :: (_t'9, (tptr (tptr tvoid))) ::
                (_t'8, (tptr (tptr tvoid))) :: (_t'7, (tptr (tptr tvoid))) ::
                (_t'6, (tptr (tptr tvoid))) ::
                (_t'5, (tptr (Tstruct __IO_FILE noattr))) ::
@@ -1589,12 +1597,12 @@ Definition f_garbage_collect := {|
                             (tptr (tptr tvoid))))
                         (Sset _w
                           (Ebinop Osub (Etempvar _t'7 (tptr (tptr tvoid)))
-                            (Etempvar _t'8 (tptr (tptr tvoid))) tint))))
+                            (Etempvar _t'8 (tptr (tptr tvoid))) tlong))))
                     (Scall None
                       (Evar _create_space (Tfunction
                                             (Tcons
                                               (tptr (Tstruct _space noattr))
-                                              (Tcons tuint Tnil)) tvoid
+                                              (Tcons tulong Tnil)) tvoid
                                             cc_default))
                       ((Ebinop Oadd
                          (Efield
@@ -1606,7 +1614,7 @@ Definition f_garbage_collect := {|
                            (Econst_int (Int.repr 1) tint) tint)
                          (tptr (Tstruct _space noattr))) ::
                        (Ebinop Omul (Econst_int (Int.repr 2) tint)
-                         (Etempvar _w tint) tint) :: nil)))
+                         (Etempvar _w tlong) tlong) :: nil)))
                   Sskip))
               (Ssequence
                 (Sifthenelse (Econst_int (Int.repr 0) tint)
@@ -1630,7 +1638,7 @@ Definition f_garbage_collect := {|
                                              (tptr (Tstruct _space noattr))
                                              (Tcons
                                                (tptr (Tstruct _space noattr))
-                                               (Tcons (tptr tuint)
+                                               (Tcons (tptr tulong)
                                                  (Tcons
                                                    (tptr (Tstruct _thread_info noattr))
                                                    Tnil)))) tvoid cc_default))
@@ -1648,7 +1656,7 @@ Definition f_garbage_collect := {|
                        (Ebinop Oadd (Etempvar _i tint)
                          (Econst_int (Int.repr 1) tint) tint)
                        (tptr (Tstruct _space noattr))) ::
-                     (Etempvar _fi (tptr tuint)) ::
+                     (Etempvar _fi (tptr tulong)) ::
                      (Etempvar _ti (tptr (Tstruct _thread_info noattr))) ::
                      nil))
                   (Ssequence
@@ -1713,19 +1721,19 @@ Definition f_garbage_collect := {|
                                          (Ebinop Osub
                                            (Etempvar _t'1 (tptr (tptr tvoid)))
                                            (Etempvar _t'2 (tptr (tptr tvoid)))
-                                           tint)
+                                           tlong)
                                          (Ebinop Osub
                                            (Etempvar _t'3 (tptr (tptr tvoid)))
                                            (Etempvar _t'4 (tptr (tptr tvoid)))
-                                           tint) tint)
+                                           tlong) tint)
                             (Ssequence
                               (Scall None
                                 (Evar _resume (Tfunction
-                                                (Tcons (tptr tuint)
+                                                (Tcons (tptr tulong)
                                                   (Tcons
                                                     (tptr (Tstruct _thread_info noattr))
                                                     Tnil)) tvoid cc_default))
-                                ((Etempvar _fi (tptr tuint)) ::
+                                ((Etempvar _fi (tptr tulong)) ::
                                  (Etempvar _ti (tptr (Tstruct _thread_info noattr))) ::
                                  nil))
                               (Sreturn None))
@@ -1745,7 +1753,7 @@ Definition f_garbage_collect := {|
                                      (Tcons tuint (Tcons (tptr tschar) Tnil))))
                                  tvoid cc_default))
           ((Evar ___stringlit_13 (tarray tschar 2)) ::
-           (Evar ___stringlit_1 (tarray tschar 7)) ::
+           (Evar ___stringlit_1 (tarray tschar 11)) ::
            (Econst_int (Int.repr 386) tint) ::
            (Evar ___func____3 (tarray tschar 16)) :: nil))))))
 |}.
@@ -1865,14 +1873,14 @@ Definition composites : list composite_definition :=
     (__IO_backup_base, (tptr tschar)) :: (__IO_save_end, (tptr tschar)) ::
     (__markers, (tptr (Tstruct __IO_marker noattr))) ::
     (__chain, (tptr (Tstruct __IO_FILE noattr))) :: (__fileno, tint) ::
-    (__flags2, tint) :: (__old_offset, tint) :: (__cur_column, tushort) ::
+    (__flags2, tint) :: (__old_offset, tlong) :: (__cur_column, tushort) ::
     (__vtable_offset, tschar) :: (__shortbuf, (tarray tschar 1)) ::
     (__lock, (tptr tvoid)) :: (__offset, tlong) ::
     (__codecvt, (tptr (Tstruct __IO_codecvt noattr))) ::
     (__wide_data, (tptr (Tstruct __IO_wide_data noattr))) ::
     (__freeres_list, (tptr (Tstruct __IO_FILE noattr))) ::
-    (__freeres_buf, (tptr tvoid)) :: (___pad5, tuint) :: (__mode, tint) ::
-    (__unused2, (tarray tschar 40)) :: nil)
+    (__freeres_buf, (tptr tvoid)) :: (___pad5, tulong) :: (__mode, tint) ::
+    (__unused2, (tarray tschar 20)) :: nil)
    noattr ::
  Composite _thread_info Struct
    ((_alloc, (tptr (tptr tvoid))) :: (_limit, (tptr (tptr tvoid))) ::
@@ -1898,14 +1906,14 @@ Definition global_definitions : list (ident * globdef fundef type) :=
  (___stringlit_4, Gvar v___stringlit_4) ::
  (___stringlit_7, Gvar v___stringlit_7) ::
  (___stringlit_8, Gvar v___stringlit_8) ::
- (___stringlit_3, Gvar v___stringlit_3) ::
  (___stringlit_1, Gvar v___stringlit_1) ::
+ (___stringlit_3, Gvar v___stringlit_3) ::
  (___stringlit_13, Gvar v___stringlit_13) ::
  (___stringlit_9, Gvar v___stringlit_9) ::
  (___stringlit_12, Gvar v___stringlit_12) ::
  (___builtin_ais_annot,
    Gfun(External (EF_builtin "__builtin_ais_annot"
-                   (mksignature (AST.Tint :: nil) AST.Tvoid
+                   (mksignature (AST.Tlong :: nil) AST.Tvoid
                      {|cc_vararg:=(Some 1); cc_unproto:=false; cc_structret:=false|}))
      (Tcons (tptr tschar) Tnil) tvoid
      {|cc_vararg:=(Some 1); cc_unproto:=false; cc_structret:=false|})) ::
@@ -1931,8 +1939,8 @@ Definition global_definitions : list (ident * globdef fundef type) :=
      (Tcons tuint Tnil) tint cc_default)) ::
  (___builtin_clzl,
    Gfun(External (EF_builtin "__builtin_clzl"
-                   (mksignature (AST.Tint :: nil) AST.Tint cc_default))
-     (Tcons tuint Tnil) tint cc_default)) ::
+                   (mksignature (AST.Tlong :: nil) AST.Tint cc_default))
+     (Tcons tulong Tnil) tint cc_default)) ::
  (___builtin_clzll,
    Gfun(External (EF_builtin "__builtin_clzll"
                    (mksignature (AST.Tlong :: nil) AST.Tint cc_default))
@@ -1943,8 +1951,8 @@ Definition global_definitions : list (ident * globdef fundef type) :=
      (Tcons tuint Tnil) tint cc_default)) ::
  (___builtin_ctzl,
    Gfun(External (EF_builtin "__builtin_ctzl"
-                   (mksignature (AST.Tint :: nil) AST.Tint cc_default))
-     (Tcons tuint Tnil) tint cc_default)) ::
+                   (mksignature (AST.Tlong :: nil) AST.Tint cc_default))
+     (Tcons tulong Tnil) tint cc_default)) ::
  (___builtin_ctzll,
    Gfun(External (EF_builtin "__builtin_ctzll"
                    (mksignature (AST.Tlong :: nil) AST.Tint cc_default))
@@ -1968,10 +1976,10 @@ Definition global_definitions : list (ident * globdef fundef type) :=
  (___builtin_memcpy_aligned,
    Gfun(External (EF_builtin "__builtin_memcpy_aligned"
                    (mksignature
-                     (AST.Tint :: AST.Tint :: AST.Tint :: AST.Tint :: nil)
-                     AST.Tvoid cc_default))
+                     (AST.Tlong :: AST.Tlong :: AST.Tlong :: AST.Tlong ::
+                      nil) AST.Tvoid cc_default))
      (Tcons (tptr tvoid)
-       (Tcons (tptr tvoid) (Tcons tuint (Tcons tuint Tnil)))) tvoid
+       (Tcons (tptr tvoid) (Tcons tulong (Tcons tulong Tnil)))) tvoid
      cc_default)) ::
  (___builtin_sel,
    Gfun(External (EF_builtin "__builtin_sel"
@@ -1981,13 +1989,13 @@ Definition global_definitions : list (ident * globdef fundef type) :=
      {|cc_vararg:=(Some 1); cc_unproto:=false; cc_structret:=false|})) ::
  (___builtin_annot,
    Gfun(External (EF_builtin "__builtin_annot"
-                   (mksignature (AST.Tint :: nil) AST.Tvoid
+                   (mksignature (AST.Tlong :: nil) AST.Tvoid
                      {|cc_vararg:=(Some 1); cc_unproto:=false; cc_structret:=false|}))
      (Tcons (tptr tschar) Tnil) tvoid
      {|cc_vararg:=(Some 1); cc_unproto:=false; cc_structret:=false|})) ::
  (___builtin_annot_intval,
    Gfun(External (EF_builtin "__builtin_annot_intval"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tint
+                   (mksignature (AST.Tlong :: AST.Tint :: nil) AST.Tint
                      cc_default)) (Tcons (tptr tschar) (Tcons tint Tnil))
      tint cc_default)) ::
  (___builtin_membar,
@@ -1996,38 +2004,38 @@ Definition global_definitions : list (ident * globdef fundef type) :=
      cc_default)) ::
  (___builtin_va_start,
    Gfun(External (EF_builtin "__builtin_va_start"
-                   (mksignature (AST.Tint :: nil) AST.Tvoid cc_default))
+                   (mksignature (AST.Tlong :: nil) AST.Tvoid cc_default))
      (Tcons (tptr tvoid) Tnil) tvoid cc_default)) ::
  (___builtin_va_arg,
    Gfun(External (EF_builtin "__builtin_va_arg"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tvoid
+                   (mksignature (AST.Tlong :: AST.Tint :: nil) AST.Tvoid
                      cc_default)) (Tcons (tptr tvoid) (Tcons tuint Tnil))
      tvoid cc_default)) ::
  (___builtin_va_copy,
    Gfun(External (EF_builtin "__builtin_va_copy"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tvoid
+                   (mksignature (AST.Tlong :: AST.Tlong :: nil) AST.Tvoid
                      cc_default))
      (Tcons (tptr tvoid) (Tcons (tptr tvoid) Tnil)) tvoid cc_default)) ::
  (___builtin_va_end,
    Gfun(External (EF_builtin "__builtin_va_end"
-                   (mksignature (AST.Tint :: nil) AST.Tvoid cc_default))
+                   (mksignature (AST.Tlong :: nil) AST.Tvoid cc_default))
      (Tcons (tptr tvoid) Tnil) tvoid cc_default)) ::
  (___compcert_va_int32,
    Gfun(External (EF_external "__compcert_va_int32"
-                   (mksignature (AST.Tint :: nil) AST.Tint cc_default))
+                   (mksignature (AST.Tlong :: nil) AST.Tint cc_default))
      (Tcons (tptr tvoid) Tnil) tuint cc_default)) ::
  (___compcert_va_int64,
    Gfun(External (EF_external "__compcert_va_int64"
-                   (mksignature (AST.Tint :: nil) AST.Tlong cc_default))
+                   (mksignature (AST.Tlong :: nil) AST.Tlong cc_default))
      (Tcons (tptr tvoid) Tnil) tulong cc_default)) ::
  (___compcert_va_float64,
    Gfun(External (EF_external "__compcert_va_float64"
-                   (mksignature (AST.Tint :: nil) AST.Tfloat cc_default))
+                   (mksignature (AST.Tlong :: nil) AST.Tfloat cc_default))
      (Tcons (tptr tvoid) Tnil) tdouble cc_default)) ::
  (___compcert_va_composite,
    Gfun(External (EF_external "__compcert_va_composite"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tint
-                     cc_default)) (Tcons (tptr tvoid) (Tcons tuint Tnil))
+                   (mksignature (AST.Tlong :: AST.Tlong :: nil) AST.Tlong
+                     cc_default)) (Tcons (tptr tvoid) (Tcons tulong Tnil))
      (tptr tvoid) cc_default)) ::
  (___builtin_unreachable,
    Gfun(External (EF_builtin "__builtin_unreachable"
@@ -2035,8 +2043,8 @@ Definition global_definitions : list (ident * globdef fundef type) :=
      cc_default)) ::
  (___builtin_expect,
    Gfun(External (EF_builtin "__builtin_expect"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tint
-                     cc_default)) (Tcons tint (Tcons tint Tnil)) tint
+                   (mksignature (AST.Tlong :: AST.Tlong :: nil) AST.Tlong
+                     cc_default)) (Tcons tlong (Tcons tlong Tnil)) tlong
      cc_default)) ::
  (___compcert_i64_dtos,
    Gfun(External (EF_runtime "__compcert_i64_dtos"
@@ -2147,21 +2155,21 @@ Definition global_definitions : list (ident * globdef fundef type) :=
      cc_default)) ::
  (___builtin_read16_reversed,
    Gfun(External (EF_builtin "__builtin_read16_reversed"
-                   (mksignature (AST.Tint :: nil) AST.Tint16unsigned
+                   (mksignature (AST.Tlong :: nil) AST.Tint16unsigned
                      cc_default)) (Tcons (tptr tushort) Tnil) tushort
      cc_default)) ::
  (___builtin_read32_reversed,
    Gfun(External (EF_builtin "__builtin_read32_reversed"
-                   (mksignature (AST.Tint :: nil) AST.Tint cc_default))
+                   (mksignature (AST.Tlong :: nil) AST.Tint cc_default))
      (Tcons (tptr tuint) Tnil) tuint cc_default)) ::
  (___builtin_write16_reversed,
    Gfun(External (EF_builtin "__builtin_write16_reversed"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tvoid
+                   (mksignature (AST.Tlong :: AST.Tint :: nil) AST.Tvoid
                      cc_default)) (Tcons (tptr tushort) (Tcons tushort Tnil))
      tvoid cc_default)) ::
  (___builtin_write32_reversed,
    Gfun(External (EF_builtin "__builtin_write32_reversed"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tvoid
+                   (mksignature (AST.Tlong :: AST.Tint :: nil) AST.Tvoid
                      cc_default)) (Tcons (tptr tuint) (Tcons tuint Tnil))
      tvoid cc_default)) ::
  (___builtin_debug,
@@ -2173,20 +2181,20 @@ Definition global_definitions : list (ident * globdef fundef type) :=
  (_stderr, Gvar v_stderr) ::
  (_fprintf,
    Gfun(External (EF_external "fprintf"
-                   (mksignature (AST.Tint :: AST.Tint :: nil) AST.Tint
+                   (mksignature (AST.Tlong :: AST.Tlong :: nil) AST.Tint
                      {|cc_vararg:=(Some 2); cc_unproto:=false; cc_structret:=false|}))
      (Tcons (tptr (Tstruct __IO_FILE noattr)) (Tcons (tptr tschar) Tnil))
      tint {|cc_vararg:=(Some 2); cc_unproto:=false; cc_structret:=false|})) ::
  (___assert_fail,
    Gfun(External (EF_external "__assert_fail"
                    (mksignature
-                     (AST.Tint :: AST.Tint :: AST.Tint :: AST.Tint :: nil)
+                     (AST.Tlong :: AST.Tlong :: AST.Tint :: AST.Tlong :: nil)
                      AST.Tvoid cc_default))
      (Tcons (tptr tschar)
        (Tcons (tptr tschar) (Tcons tuint (Tcons (tptr tschar) Tnil)))) tvoid
      cc_default)) ::
  (_malloc,
-   Gfun(External EF_malloc (Tcons tuint Tnil) (tptr tvoid) cc_default)) ::
+   Gfun(External EF_malloc (Tcons tulong Tnil) (tptr tvoid) cc_default)) ::
  (_free, Gfun(External EF_free (Tcons (tptr tvoid) Tnil) tvoid cc_default)) ::
  (_exit,
    Gfun(External (EF_external "exit"

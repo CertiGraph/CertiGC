@@ -33,29 +33,29 @@ ifeq ($(BITSIZE),32)
 endif
 
 
-src/ast-gen/x86_64-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
+theories/CertiGC/c/clightgen/x86_64-linux/gc.v: src/c/gc.c src/c/gc.h src/c/config.h src/c/mem.h
 	mkdir -p `dirname $@`
-	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ c/gc.c
+	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ src/c/gc.c
 
-src/ast-gen/x86_32-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
+theories/CertiGC/c/clightgen/x86_32-linux/gc.v: src/c/gc.c src/c/gc.h src/c/config.h src/c/mem.h
 	mkdir -p `dirname $@`
-	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ c/gc.c
+	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ src/c/gc.c
 
-_CoqProject: src/ast-gen/$(TARGET)/gc.v
+_CoqProject: theories/CertiGC/c/clightgen/$(TARGET)/gc.v
 	echo "# $(TARGET)"                                                      > $@
 	@[ -z $(VST_DIR) ]          || echo "-Q $(VST_DIR) VST"                 >> $@
 	@[ -z $(COMPCERT_DIR) ]     || echo "-Q $(COMPCERT_DIR) compcert"       >> $@
 	@[ -z $(CERTIGRAPH_DIR) ]   || echo "-Q $(CERTIGRAPH_DIR) CertiGraph"   >> $@
-	echo "-Q src/ast CertiGC.ast"                                           >> $@
-	echo "-Q src/ast-gen/$(TARGET) CertiGC.clightgen"                       >> $@
-	echo "-Q src/model CertiGC.model"                                       >> $@
-	echo "-Q src/proof CertiGC.proof"                                       >> $@
-	echo "-Q src/spec CertiGC.spec"                                         >> $@
-	find src/ast -name "*.v" | cut -d'/' -f1-                               >> $@
-	find src/ast-gen/$(TARGET) -name "*.v" | cut -d'/' -f1-                 >> $@
-	find src/model -name "*.v" | cut -d'/' -f1-                             >> $@
-	find src/proof -name "*.v" | cut -d'/' -f1-                             >> $@
-	find src/spec -name "*.v" | cut -d'/' -f1-                              >> $@
+	echo "-Q theories/CertiGC/model CertiGC.model"                          >> $@
+	echo "-Q theories/CertiGC/c/ast CertiGC.c.ast"                          >> $@
+	echo "-Q theories/CertiGC/c/clightgen/$(TARGET) CertiGC.c.clightgen"      >> $@
+	echo "-Q theories/CertiGC/c/proof CertiGC.c.proof"                      >> $@
+	echo "-Q theories/CertiGC/c/spec CertiGC.c.spec"                        >> $@
+	find theories/CertiGC/model -name "*.v" | cut -d'/' -f1-                >> $@
+	find theories/CertiGC/c/ast -name "*.v" | cut -d'/' -f1-                >> $@
+	find theories/CertiGC/c/clightgen/$(TARGET) -name "*.v" | cut -d'/' -f1-  >> $@
+	find theories/CertiGC/c/proof -name "*.v" | cut -d'/' -f1-              >> $@
+	find theories/CertiGC/c/spec -name "*.v" | cut -d'/' -f1-               >> $@
 
 Makefile.coq: Makefile _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
@@ -83,8 +83,6 @@ clean:
 	rm -f `find ./ -name "*.aux"`
 	rm -f `find ./ -name "*.glob"`
 	rm -f `find ./ -name "*.vo*"`
-	rm -rf src/ast/x86_32-linux
-	rm -rf src/ast/x86_64-linux
 
 deepclean: clean
 	rm -f _CoqProject

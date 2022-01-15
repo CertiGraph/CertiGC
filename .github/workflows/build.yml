@@ -16,8 +16,7 @@ jobs:
     strategy:
       matrix:
         image:
-          - 'tcarstens/coq-vst:8.14-ocaml-4.11-flambda--compcert-3.9--vst-2.8'
-          - 'tcarstens/coq-vst:8.13.2-ocaml-4.11.2-flambda--compcert-3.9--vst-2.8'
+          - 'tcarstens/coq-vst-certigraph:8.14.1-ocaml-4.12.0-flambda--compcert-3.9--vst-2.8'
         opam_file:
           - 'coq-certigc.opam'
           # - 'coq-certigc-32.opam'
@@ -27,9 +26,4 @@ jobs:
       - uses: coq-community/docker-coq-action@v1
         with:
           custom_image: ${{ matrix.image }}
-          install: |
-            startGroup "Install dependencies"
-              git clone https://github.com/Salamari/CertiGraph.git ~/CertiGraph
-              opam install -y ~/CertiGraph/coq-certigraph.opam ~/CertiGraph/coq-certigraph-32.opam
-            endGroup
           opam_file: ${{ matrix.opam_file }}

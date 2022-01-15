@@ -1,4 +1,4 @@
-From CertiGC.spec Require Import gc_spec.
+From CertiGC Require Import c.spec.gc_spec.
 
 Lemma body_make_tinfo: semax_body Vprog Gprog f_make_tinfo make_tinfo_spec.
 Proof.

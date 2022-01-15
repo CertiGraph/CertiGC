@@ -1,38 +1,38 @@
 # x86_64-linux
--Q src/ast CertiGC.ast
--Q src/ast-gen/x86_64-linux CertiGC.clightgen
--Q src/model CertiGC.model
--Q src/proof CertiGC.proof
--Q src/spec CertiGC.spec
-src/ast/env_graph_gc.v
-src/ast-gen/x86_64-linux/gc.v
-src/model/constants.v
-src/model/util.v
-src/model/heap.v
-src/model/forward.v
-src/model/gc_correct.v
-src/model/compatible.v
-src/model/thread_info.v
-src/model/spatial_gcgraph.v
-src/model/reset.v
-src/model/copy.v
-src/model/do_generation.v
-src/model/scan.v
-src/model/GCGraph.v
-src/model/garbage_collect.v
-src/model/cut.v
-src/model/graph.v
-src/model/update.v
-src/proof/verif_forward_roots.v
-src/proof/verif_forward.v
-src/proof/verif_create_space.v
-src/proof/verif_make_tinfo.v
-src/proof/verif_do_generation.v
-src/proof/verif_garbage_collect.v
-src/proof/verif_do_scan.v
-src/proof/verif_Is_block.v
-src/proof/verif_create_heap.v
-src/proof/verif_Is_from.v
-src/proof/verif_conversion.v
-src/proof/verif_resume.v
-src/spec/gc_spec.v
+-Q theories/CertiGC/model CertiGC.model
+-Q theories/CertiGC/c/ast CertiGC.c.ast
+-Q theories/CertiGC/c/clightgen/x86_64-linux CertiGC.c.clightgen
+-Q theories/CertiGC/c/proof CertiGC.c.proof
+-Q theories/CertiGC/c/spec CertiGC.c.spec
+theories/CertiGC/model/constants.v
+theories/CertiGC/model/util.v
+theories/CertiGC/model/heap.v
+theories/CertiGC/model/forward.v
+theories/CertiGC/model/gc_correct.v
+theories/CertiGC/model/compatible.v
+theories/CertiGC/model/thread_info.v
+theories/CertiGC/model/spatial_gcgraph.v
+theories/CertiGC/model/reset.v
+theories/CertiGC/model/copy.v
+theories/CertiGC/model/do_generation.v
+theories/CertiGC/model/scan.v
+theories/CertiGC/model/GCGraph.v
+theories/CertiGC/model/garbage_collect.v
+theories/CertiGC/model/cut.v
+theories/CertiGC/model/graph.v
+theories/CertiGC/model/update.v
+theories/CertiGC/c/ast/env_graph_gc.v
+theories/CertiGC/c/clightgen/x86_64-linux/gc.v
+theories/CertiGC/c/proof/verif_forward_roots.v
+theories/CertiGC/c/proof/verif_forward.v
+theories/CertiGC/c/proof/verif_create_space.v
+theories/CertiGC/c/proof/verif_make_tinfo.v
+theories/CertiGC/c/proof/verif_do_generation.v
+theories/CertiGC/c/proof/verif_garbage_collect.v
+theories/CertiGC/c/proof/verif_do_scan.v
+theories/CertiGC/c/proof/verif_Is_block.v
+theories/CertiGC/c/proof/verif_create_heap.v
+theories/CertiGC/c/proof/verif_Is_from.v
+theories/CertiGC/c/proof/verif_conversion.v
+theories/CertiGC/c/proof/verif_resume.v
+theories/CertiGC/c/spec/gc_spec.v

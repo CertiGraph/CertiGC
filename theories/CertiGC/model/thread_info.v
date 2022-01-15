@@ -136,8 +136,8 @@ Proof.
   rewrite Z2Nat.id, NURSERY_SIZE_eq, Zbits.Zshiftl_mul_two_p,
   Z.mul_1_l, <- two_p_is_exp by lia. split.
   - cut (two_p (16 + i) > 0). 1: intros; lia. apply two_p_gt_ZERO. lia.
-  - assert (E: MAX_SPACE_SIZE = two_p 28) by easy. rewrite E ; clear E.
-    apply two_p_monotone_strict. lia.
+  - try (assert (E: MAX_SPACE_SIZE = two_p 28) by easy ; rewrite E ; clear E ; apply two_p_monotone_strict ; lia) ;
+    try (transitivity (two_p 28) ; try easy ; apply two_p_monotone_strict ; lia).
 Qed.
 
 Lemma ngs_int_singed_range: forall i,

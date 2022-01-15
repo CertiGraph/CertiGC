@@ -1,4 +1,4 @@
-From CertiGC.spec Require Import gc_spec.
+From CertiGC Require Import c.spec.gc_spec.
 
 Local Open Scope Z_scope.
 

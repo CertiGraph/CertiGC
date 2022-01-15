@@ -1,6 +1,15 @@
 # CertiGC
 
-Built on [CertiGraph](https://github.com/Salamari/CertiGraph/)
+A formally verified garbage collector, implemented in `C` and proven correct in [Coq](https://coq.inria.fr/).
+
+Built on [CertiGraph](https://github.com/Salamari/CertiGraph/).
+
+## Contributors
+
+* [Aquinas Hobor](https://github.com/Salamari/)
+* [Shengyi Wang](https://github.com/txyyss/)
+* [Anshuman Mohan](https://github.com/anshumanmohan/)
+* [Tim Carstens](https://github.com/intoverflow/)
 
 ## Install the dependencies
 

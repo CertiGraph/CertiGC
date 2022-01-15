@@ -11,7 +11,7 @@ Definition MAX_UINT: Z
 
 Definition MAX_SPACE_SIZE: Z
  := Eval cbv [Archi.ptr64]
- in if Archi.ptr64 then Z.shiftl 1 40 else Z.shiftl 1 29.
+ in if Archi.ptr64 then Z.shiftl 1 40 else Z.shiftl 1 28.
 
 Definition SPACE_STRUCT_SIZE: Z
  := Eval cbv [Archi.ptr64]
@@ -85,5 +85,5 @@ Lemma MSS_max_wordsize_signed_range (n: Z) (Hn: 0 <= n < MAX_SPACE_SIZE):
 Proof.
   pose proof WORD_SIZE_pos as HH.
   split ; try rep_lia.
-  now transitivity (WORD_SIZE * MAX_SPACE_SIZE) ; try nia.
+  transitivity (WORD_SIZE * MAX_SPACE_SIZE) ; try nia ; try intro F ; try inversion F.
 Qed.

@@ -3,3 +3,5 @@
 *.aux
 *.glob
 *.vo*
+src/ast/x86_32-linux
+src/ast/x86_64-linux

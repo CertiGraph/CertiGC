@@ -1,0 +1,37 @@
+-Q src/ast CertiGC.ast
+-Q src/ast/x86_64-linux CertiGC.ast.clightgen
+-Q src/model CertiGC.model
+-Q src/proof CertiGC.proof
+-Q src/spec CertiGC.spec
+src/proof/verif_forward_roots.v
+src/proof/verif_forward.v
+src/proof/verif_create_space.v
+src/proof/verif_make_tinfo.v
+src/proof/verif_do_generation.v
+src/proof/verif_garbage_collect.v
+src/proof/verif_do_scan.v
+src/proof/verif_Is_block.v
+src/proof/verif_create_heap.v
+src/proof/verif_Is_from.v
+src/proof/verif_conversion.v
+src/proof/verif_resume.v
+src/ast/env_graph_gc.v
+src/ast/x86_64-linux/gc.v
+src/model/constants.v
+src/model/util.v
+src/model/heap.v
+src/model/forward.v
+src/model/gc_correct.v
+src/model/compatible.v
+src/model/thread_info.v
+src/model/spatial_gcgraph.v
+src/model/reset.v
+src/model/copy.v
+src/model/do_generation.v
+src/model/scan.v
+src/model/GCGraph.v
+src/model/garbage_collect.v
+src/model/cut.v
+src/model/graph.v
+src/model/update.v
+src/spec/gc_spec.v

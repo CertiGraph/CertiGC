@@ -15,8 +15,22 @@ Built on [CertiGraph](https://github.com/Salamari/CertiGraph/).
 
 Clone and install [CertiGraph](https://github.com/Salamari/CertiGraph/) using the included `opam` files.
 
-## Build (64-bit)
+## Install
+
+Two `opam` files are provided: one for `x86_64-linux`, the other for `x86_32-linux`. They can be installed side-by-side:
 
 ```console
-$ make
+$ opam install ./coq-certigc.opam ./coq-certigc-32.opam
+```
+
+## Build without installing (64-bit)
+
+```console
+$ make all
+```
+
+## Build without installing (32-bit)
+
+```console
+$ make deepclean ; make BITSIZE=32 all
 ```

@@ -1,0 +1,29 @@
+name: build
+
+on:
+  push:
+    branches:
+      - dev  # forall push/merge in live
+  pull_request:
+    branches:
+      - "**"  # forall submitted Pull Requests
+  workflow_dispatch:
+    inputs:
+
+jobs:
+  build-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - 'tcarstens/coq-vst:8.14-ocaml-4.11-flambda--compcert-3.9--vst-2.8'
+        opam_file:
+          - 'coq-certigc.opam'
+          # - 'coq-certigc-32.opam'
+      fail-fast: false  # don't stop jobs if one fails
+    steps:
+      - uses: actions/checkout@v2
+      - uses: coq-community/docker-coq-action@v1
+        with:
+          opam_file: ${{ matrix.opam_file }}
+          custom_image: ${{ matrix.image }}

@@ -71,7 +71,7 @@ struct space {
 #endif
 
 const uintnat MAX_SPACE_SIZE =
-    sizeof(void*) == 8 ? (((unsigned long long)1) << 40) : (1 << 29);
+    sizeof(void*) == 8 ? (((unsigned long long)1) << 40) : (1 << 28);
 /* The restriction of max space size is required by pointer
    subtraction.  If the space is larger than this restriction, the
    behavior of pointer subtraction is undefined.

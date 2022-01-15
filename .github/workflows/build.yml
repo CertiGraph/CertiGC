@@ -28,7 +28,7 @@ jobs:
           custom_image: ${{ matrix.image }}
           install: |
             startGroup "Install dependencies"
-              git clone https://github.com/Salamari/CertiGraph.git
-              opam install -y CertiGraph/coq-certigraph.opam CertiGraph/coq-certigraph-32.opam
+              git clone https://github.com/Salamari/CertiGraph.git ~/CertiGraph
+              opam install -y ~/CertiGraph/coq-certigraph.opam ~/CertiGraph/coq-certigraph-32.opam
             endGroup
           opam_file: ${{ matrix.opam_file }}

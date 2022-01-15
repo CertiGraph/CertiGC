@@ -17,6 +17,7 @@ jobs:
       matrix:
         image:
           - 'tcarstens/coq-vst:8.14-ocaml-4.11-flambda--compcert-3.9--vst-2.8'
+          - 'tcarstens/coq-vst:8.13.2-ocaml-4.11.2-flambda--compcert-3.9--vst-2.8'
         opam_file:
           - 'coq-certigc.opam'
           # - 'coq-certigc-32.opam'

@@ -1,6 +1,6 @@
 From VST Require Export floyd.proofauto.
 From VST Require Export floyd.library.
-From CertiGC Require Export ast.clightgen.gc.
+From CertiGC Require Export clightgen.gc.
 
 Instance CompSpecs : compspecs. make_compspecs prog. Defined.
 Definition Vprog : varspecs. mk_varspecs prog. Defined.

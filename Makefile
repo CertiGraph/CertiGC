@@ -33,24 +33,29 @@ ifeq ($(BITSIZE),32)
 endif
 
 
-src/ast/x86_64-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
-	mkdir -p src/ast/x86_64-linux
-	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize c/gc.c -o src/ast/x86_64-linux/gc.v
+src/ast-gen/x86_64-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
+	mkdir -p `dirname $@`
+	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ c/gc.c
 
-src/ast/x86_32-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
-	mkdir -p src/ast/x86_32-linux
-	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize c/gc.c -o src/ast/x86_32-linux/gc.v
+src/ast-gen/x86_32-linux/gc.v: c/gc.c c/gc.h c/config.h c/mem.h
+	mkdir -p `dirname $@`
+	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ c/gc.c
 
-_CoqProject: src/ast/$(TARGET)/gc.v
-	echo "-Q src/ast CertiGC.ast"                           				> $@
-	echo "-Q src/ast/$(TARGET) CertiGC.ast.clightgen"    					>> $@
-	echo "-Q src/model CertiGC.model"                       				>> $@
-	echo "-Q src/proof CertiGC.proof"                       				>> $@
-	echo "-Q src/spec CertiGC.spec"                         				>> $@
-	@[ -z $(VST_DIR) ] 			|| echo "-Q $(VST_DIR) VST" 				>> $@
-	@[ -z $(COMPCERT_DIR) ] 	|| echo "-Q $(COMPCERT_DIR) compcert"		>> $@
-	@[ -z $(CERTIGRAPH_DIR) ]	|| echo "-Q $(CERTIGRAPH_DIR) CertiGraph"	>> $@
-	find ./ -name "*.v" | cut -d'/' -f2-                    				>> $@
+_CoqProject: src/ast-gen/$(TARGET)/gc.v
+	echo "# $(TARGET)"                                                      > $@
+	@[ -z $(VST_DIR) ]          || echo "-Q $(VST_DIR) VST"                 >> $@
+	@[ -z $(COMPCERT_DIR) ]     || echo "-Q $(COMPCERT_DIR) compcert"       >> $@
+	@[ -z $(CERTIGRAPH_DIR) ]   || echo "-Q $(CERTIGRAPH_DIR) CertiGraph"   >> $@
+	echo "-Q src/ast CertiGC.ast"                                           >> $@
+	echo "-Q src/ast-gen/$(TARGET) CertiGC.clightgen"                       >> $@
+	echo "-Q src/model CertiGC.model"                                       >> $@
+	echo "-Q src/proof CertiGC.proof"                                       >> $@
+	echo "-Q src/spec CertiGC.spec"                                         >> $@
+	find src/ast -name "*.v" | cut -d'/' -f1-                               >> $@
+	find src/ast-gen/$(TARGET) -name "*.v" | cut -d'/' -f1-                 >> $@
+	find src/model -name "*.v" | cut -d'/' -f1-                             >> $@
+	find src/proof -name "*.v" | cut -d'/' -f1-                             >> $@
+	find src/spec -name "*.v" | cut -d'/' -f1-                              >> $@
 
 Makefile.coq: Makefile _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq

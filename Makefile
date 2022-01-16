@@ -42,20 +42,20 @@ theories/CertiGC/c/clightgen/x86_32-linux/gc.v: src/c/gc.c src/c/gc.h src/c/conf
 	$(CLIGHTGEN) -Wall -Wno-unused-variable -Werror -normalize -o $@ src/c/gc.c
 
 _CoqProject: theories/CertiGC/c/clightgen/$(TARGET)/gc.v
-	echo "# $(TARGET)"                                                      > $@
-	@[ -z $(VST_DIR) ]          || echo "-Q $(VST_DIR) VST"                 >> $@
-	@[ -z $(COMPCERT_DIR) ]     || echo "-Q $(COMPCERT_DIR) compcert"       >> $@
-	@[ -z $(CERTIGRAPH_DIR) ]   || echo "-Q $(CERTIGRAPH_DIR) CertiGraph"   >> $@
-	echo "-Q theories/CertiGC/model CertiGC.model"                          >> $@
-	echo "-Q theories/CertiGC/c/ast CertiGC.c.ast"                          >> $@
-	echo "-Q theories/CertiGC/c/clightgen/$(TARGET) CertiGC.c.clightgen"      >> $@
-	echo "-Q theories/CertiGC/c/proof CertiGC.c.proof"                      >> $@
-	echo "-Q theories/CertiGC/c/spec CertiGC.c.spec"                        >> $@
-	find theories/CertiGC/model -name "*.v" | cut -d'/' -f1-                >> $@
-	find theories/CertiGC/c/ast -name "*.v" | cut -d'/' -f1-                >> $@
-	find theories/CertiGC/c/clightgen/$(TARGET) -name "*.v" | cut -d'/' -f1-  >> $@
-	find theories/CertiGC/c/proof -name "*.v" | cut -d'/' -f1-              >> $@
-	find theories/CertiGC/c/spec -name "*.v" | cut -d'/' -f1-               >> $@
+	echo "# $(TARGET)"                                                          > $@
+	@[ -z $(VST_DIR) ]          || echo "-Q $(VST_DIR) VST"                     >> $@
+	@[ -z $(COMPCERT_DIR) ]     || echo "-Q $(COMPCERT_DIR) compcert"           >> $@
+	@[ -z $(CERTIGRAPH_DIR) ]   || echo "-Q $(CERTIGRAPH_DIR) CertiGraph"       >> $@
+	echo "-Q theories/CertiGC/model CertiGC.model"                              >> $@
+	echo "-Q theories/CertiGC/c/ast CertiGC.c.ast"                              >> $@
+	echo "-Q theories/CertiGC/c/clightgen/$(TARGET) CertiGC.c.clightgen"        >> $@
+	echo "-Q theories/CertiGC/c/proof CertiGC.c.proof"                          >> $@
+	echo "-Q theories/CertiGC/c/spec CertiGC.c.spec"                            >> $@
+	find theories/CertiGC/model -name "*.v" | cut -d'/' -f1-                    >> $@
+	find theories/CertiGC/c/ast -name "*.v" | cut -d'/' -f1-                    >> $@
+	find theories/CertiGC/c/clightgen/$(TARGET) -name "*.v" | cut -d'/' -f1-    >> $@
+	find theories/CertiGC/c/proof -name "*.v" | cut -d'/' -f1-                  >> $@
+	find theories/CertiGC/c/spec -name "*.v" | cut -d'/' -f1-                   >> $@
 
 Makefile.coq: Makefile _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq

@@ -56,11 +56,13 @@ The C library is installed to the path given by `vsu -I`. For example:
 $ tree `vsu -I`
 /home/tcarstens/.opam/coq-8.14/lib/coq-vsu/lib/include
 └── coq-vsu-gc
+    ├── config.h
     ├── gc.h
+    ├── mem.h
     └── src
         └── gc.c
 
-2 directories, 2 files
+2 directories, 4 files
 $
 ```
 

@@ -145,7 +145,8 @@ COQ_COMPILED=$(COQ_SOURCES:%.v=%.vo)
 
 install-vst: theories
 	[ -z $(PACKAGE_NAME) ] || echo "{" > install-meta.json
-	[ -z $(PACKAGE_NAME) ] || echo "    'coq-path': '$(COQ_INSTALL_DIR)'" >> install-meta.json
+	[ -z $(PACKAGE_NAME) ] || echo "    \"coq-library-name\": \"$(PROJECT)\"," >> install-meta.json
+	[ -z $(PACKAGE_NAME) ] || echo "    \"coq-library-path\": \"$(COQ_INSTALL_DIR)\"" >> install-meta.json
 	[ -z $(PACKAGE_NAME) ] || echo "}" >> install-meta.json
 	[ -z $(PACKAGE_NAME) ] || install -d `$(VSUTOOL) --show-unit-metadata-path`
 	[ -z $(PACKAGE_NAME) ] || install -m 0644 install-meta.json `$(VSUTOOL) --show-unit-metadata-path`/$(PACKAGE_NAME).json

@@ -1,4 +1,4 @@
-From CertiGC Require Import c.spec.gc_spec.
+From CertiGC Require Import CertiGC.vst.spec.gc_spec.
 
 Lemma body_int_to_int_or_ptr:
   semax_body Vprog Gprog f_int_to_int_or_ptr int_to_int_or_ptr_spec.

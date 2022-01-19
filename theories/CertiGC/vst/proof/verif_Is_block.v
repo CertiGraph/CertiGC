@@ -1,4 +1,4 @@
-From CertiGC Require Import c.spec.gc_spec.
+From CertiGC Require Import CertiGC.vst.spec.gc_spec.
 
 Ltac hif_tac H :=
   match type of H with context [if ?a then _ else _] => destruct a eqn: ?H end.

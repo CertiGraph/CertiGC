@@ -1,24 +1,26 @@
 opam-version: "2.0"
 name: "CertiGC"
 version: "1.0"
-maintainer: "CertiGC team"
+maintainer: "CertiGC Team"
 homepage: "https://github.com/intoverflow/CertiGC"
 dev-repo: "git+https://github.com/intoverflow/CertiGC.git"
 bug-reports: "https://github.com/intoverflow/CertiGC/issues"
 license: "https://github.com/intoverflow/CertiGC/blob/live/LICENSE"
 authors: ["CertiGC team"]
 build: [
-    [make "deepclean"]
-    [make "BITSIZE=32" "J=%{jobs}%"]
+    [make "verydeepclean"]
+    [make "BITSIZE=32" "SRC=opam" "PACKAGE_NAME=coq-vsu-gc-vst-32" "J=%{jobs}%"]
 ]
 install: [
-    make "BITSIZE=32" "install"
+    make "BITSIZE=32" "SRC=opam" "PACKAGE_NAME=coq-vsu-gc-vst-32" "install-vst"
 ]
 depends: [
     "coq" {>= "8.13.2"}
-    # "coq-certigraph-32" {>= "1.0.0"}
     "coq-compcert-32" {>= "3.9"}
+    "coq-certigraph-32" {>= "1.0.0"}
     "coq-vst-32" {>= "2.8"}
+    "coq-vsu"
+    "coq-vsu-gc-src" {= version}
 ]
 synopsis: "A formally verified garbage collector, implemented in C and proven in Coq"
 description: """CertiGC

@@ -15,7 +15,7 @@ Module Info.
   Definition abi := "standard".
   Definition bitsize := 32.
   Definition big_endian := false.
-  Definition source_file := "src/c/gc.c".
+  Definition source_file := "src/c/include/coq-vsu-gc/src/gc.c".
   Definition normalized := true.
 End Info.
 
@@ -221,6 +221,29 @@ Definition v___stringlit_15 := {|
   gvar_volatile := false
 |}.
 
+Definition v___stringlit_1 := {|
+  gvar_info := (tarray tschar 34);
+  gvar_init := (Init_int8 (Int.repr 115) :: Init_int8 (Int.repr 114) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
+                Init_int8 (Int.repr 105) :: Init_int8 (Int.repr 110) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 108) ::
+                Init_int8 (Int.repr 117) :: Init_int8 (Int.repr 100) ::
+                Init_int8 (Int.repr 101) :: Init_int8 (Int.repr 47) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 111) ::
+                Init_int8 (Int.repr 113) :: Init_int8 (Int.repr 45) ::
+                Init_int8 (Int.repr 118) :: Init_int8 (Int.repr 115) ::
+                Init_int8 (Int.repr 117) :: Init_int8 (Int.repr 45) ::
+                Init_int8 (Int.repr 103) :: Init_int8 (Int.repr 99) ::
+                Init_int8 (Int.repr 47) :: Init_int8 (Int.repr 115) ::
+                Init_int8 (Int.repr 114) :: Init_int8 (Int.repr 99) ::
+                Init_int8 (Int.repr 47) :: Init_int8 (Int.repr 103) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 46) ::
+                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 0) :: nil);
+  gvar_readonly := true;
+  gvar_volatile := false
+|}.
+
 Definition v___stringlit_14 := {|
   gvar_info := (tarray tschar 22);
   gvar_init := (Init_int8 (Int.repr 68) :: Init_int8 (Int.repr 101) ::
@@ -409,18 +432,6 @@ Definition v___stringlit_8 := {|
                 Init_int8 (Int.repr 116) :: Init_int8 (Int.repr 114) ::
                 Init_int8 (Int.repr 117) :: Init_int8 (Int.repr 99) ::
                 Init_int8 (Int.repr 116) :: Init_int8 (Int.repr 10) ::
-                Init_int8 (Int.repr 0) :: nil);
-  gvar_readonly := true;
-  gvar_volatile := false
-|}.
-
-Definition v___stringlit_1 := {|
-  gvar_info := (tarray tschar 11);
-  gvar_init := (Init_int8 (Int.repr 115) :: Init_int8 (Int.repr 114) ::
-                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
-                Init_int8 (Int.repr 99) :: Init_int8 (Int.repr 47) ::
-                Init_int8 (Int.repr 103) :: Init_int8 (Int.repr 99) ::
-                Init_int8 (Int.repr 46) :: Init_int8 (Int.repr 99) ::
                 Init_int8 (Int.repr 0) :: nil);
   gvar_readonly := true;
   gvar_volatile := false
@@ -886,7 +897,7 @@ Definition f_forward_roots := {|
                                                  (Tcons (tptr tschar) Tnil))))
                                            tvoid cc_default))
                     ((Evar ___stringlit_2 (tarray tschar 20)) ::
-                     (Evar ___stringlit_1 (tarray tschar 11)) ::
+                     (Evar ___stringlit_1 (tarray tschar 34)) ::
                      (Econst_int (Int.repr 210) tint) ::
                      (Evar ___func__ (tarray tschar 14)) :: nil))))
               (Ssequence
@@ -1062,7 +1073,7 @@ Definition f_do_generation := {|
                                              (Tcons (tptr tschar) Tnil))))
                                        tvoid cc_default))
                 ((Evar ___stringlit_3 (tarray tschar 45)) ::
-                 (Evar ___stringlit_1 (tarray tschar 11)) ::
+                 (Evar ___stringlit_1 (tarray tschar 34)) ::
                  (Econst_int (Int.repr 251) tint) ::
                  (Evar ___func____1 (tarray tschar 14)) :: nil)))))))
     (Ssequence
@@ -1432,7 +1443,7 @@ Definition f_resume := {|
                                      (Tcons tuint (Tcons (tptr tschar) Tnil))))
                                  tvoid cc_default))
           ((Evar ___stringlit_9 (tarray tschar 2)) ::
-           (Evar ___stringlit_1 (tarray tschar 11)) ::
+           (Evar ___stringlit_1 (tarray tschar 34)) ::
            (Econst_int (Int.repr 343) tint) ::
            (Evar ___func____2 (tarray tschar 7)) :: nil)))
       (Ssequence
@@ -1747,7 +1758,7 @@ Definition f_garbage_collect := {|
                                      (Tcons tuint (Tcons (tptr tschar) Tnil))))
                                  tvoid cc_default))
           ((Evar ___stringlit_13 (tarray tschar 2)) ::
-           (Evar ___stringlit_1 (tarray tschar 11)) ::
+           (Evar ___stringlit_1 (tarray tschar 34)) ::
            (Econst_int (Int.repr 386) tint) ::
            (Evar ___func____3 (tarray tschar 16)) :: nil))))))
 |}.
@@ -1891,6 +1902,7 @@ Definition composites : list composite_definition :=
 
 Definition global_definitions : list (ident * globdef fundef type) :=
 ((___stringlit_15, Gvar v___stringlit_15) ::
+ (___stringlit_1, Gvar v___stringlit_1) ::
  (___stringlit_14, Gvar v___stringlit_14) ::
  (___stringlit_10, Gvar v___stringlit_10) ::
  (___stringlit_6, Gvar v___stringlit_6) ::
@@ -1900,7 +1912,6 @@ Definition global_definitions : list (ident * globdef fundef type) :=
  (___stringlit_4, Gvar v___stringlit_4) ::
  (___stringlit_7, Gvar v___stringlit_7) ::
  (___stringlit_8, Gvar v___stringlit_8) ::
- (___stringlit_1, Gvar v___stringlit_1) ::
  (___stringlit_3, Gvar v___stringlit_3) ::
  (___stringlit_13, Gvar v___stringlit_13) ::
  (___stringlit_9, Gvar v___stringlit_9) ::
@@ -2249,3 +2260,11 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
+(*
+Input hashes (sha256):
+
+19ce7d8e4b3bfb34b9aa8fcfde382f77d135a1b1261e66862dc868278c954303  src/c/include/coq-vsu-gc/src/gc.c
+60153f31e6db31a7c363199e3b84f3adbd1fc73fc3898a0ecdbbe2b43e6979fa  src/c/include/coq-vsu-gc/config.h
+e6bf9351f7692f671ddb70634c4b18141b05590a12734ccb07ec61de757b722c  src/c/include/coq-vsu-gc/gc.h
+a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h
+*)

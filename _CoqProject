@@ -1,9 +1,12 @@
 # x86_64-linux
--Q theories/CertiGC/model CertiGC.model
--Q theories/CertiGC/c/ast CertiGC.c.ast
--Q theories/CertiGC/c/clightgen/x86_64-linux CertiGC.c.clightgen
--Q theories/CertiGC/c/proof CertiGC.c.proof
--Q theories/CertiGC/c/spec CertiGC.c.spec
+
+
+
+-Q theories/CertiGC/model                      CertiGC.CertiGC.model
+-Q theories/CertiGC/vst/ast                    CertiGC.CertiGC.vst.ast
+-Q theories/CertiGC/vst/clightgen/x86_64-linux    CertiGC.CertiGC.vst.clightgen
+-Q theories/CertiGC/vst/proof                  CertiGC.CertiGC.vst.proof
+-Q theories/CertiGC/vst/spec                   CertiGC.CertiGC.vst.spec
 theories/CertiGC/model/constants.v
 theories/CertiGC/model/util.v
 theories/CertiGC/model/heap.v
@@ -21,18 +24,18 @@ theories/CertiGC/model/garbage_collect.v
 theories/CertiGC/model/cut.v
 theories/CertiGC/model/graph.v
 theories/CertiGC/model/update.v
-theories/CertiGC/c/ast/env_graph_gc.v
-theories/CertiGC/c/clightgen/x86_64-linux/gc.v
-theories/CertiGC/c/proof/verif_forward_roots.v
-theories/CertiGC/c/proof/verif_forward.v
-theories/CertiGC/c/proof/verif_create_space.v
-theories/CertiGC/c/proof/verif_make_tinfo.v
-theories/CertiGC/c/proof/verif_do_generation.v
-theories/CertiGC/c/proof/verif_garbage_collect.v
-theories/CertiGC/c/proof/verif_do_scan.v
-theories/CertiGC/c/proof/verif_Is_block.v
-theories/CertiGC/c/proof/verif_create_heap.v
-theories/CertiGC/c/proof/verif_Is_from.v
-theories/CertiGC/c/proof/verif_conversion.v
-theories/CertiGC/c/proof/verif_resume.v
-theories/CertiGC/c/spec/gc_spec.v
+theories/CertiGC/vst/ast/env_graph_gc.v
+theories/CertiGC/vst/clightgen/x86_64-linux/gc.v
+theories/CertiGC/vst/proof/verif_forward_roots.v
+theories/CertiGC/vst/proof/verif_forward.v
+theories/CertiGC/vst/proof/verif_create_space.v
+theories/CertiGC/vst/proof/verif_make_tinfo.v
+theories/CertiGC/vst/proof/verif_do_generation.v
+theories/CertiGC/vst/proof/verif_garbage_collect.v
+theories/CertiGC/vst/proof/verif_do_scan.v
+theories/CertiGC/vst/proof/verif_Is_block.v
+theories/CertiGC/vst/proof/verif_create_heap.v
+theories/CertiGC/vst/proof/verif_Is_from.v
+theories/CertiGC/vst/proof/verif_conversion.v
+theories/CertiGC/vst/proof/verif_resume.v
+theories/CertiGC/vst/spec/gc_spec.v

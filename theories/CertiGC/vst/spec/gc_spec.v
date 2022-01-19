@@ -6,7 +6,7 @@ From CertiGraph Require Export graph.graph_model.
 From CertiGC Require Export model.constants.
 From CertiGC Require Export model.GCGraph.
 From CertiGC Require Export model.spatial_gcgraph.
-From CertiGC Require Export c.ast.env_graph_gc.
+From CertiGC Require Export CertiGC.vst.ast.env_graph_gc.
 
 Local Open Scope logic.
 

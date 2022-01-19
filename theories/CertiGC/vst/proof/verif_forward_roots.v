@@ -1,4 +1,4 @@
-From CertiGC Require Import c.spec.gc_spec.
+From CertiGC Require Import CertiGC.vst.spec.gc_spec.
 
 Lemma body_forward_roots: semax_body Vprog Gprog f_forward_roots forward_roots_spec.
 Proof.

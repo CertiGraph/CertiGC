@@ -3,7 +3,7 @@ name: build
 on:
   push:
     branches:
-      - main  # forall push/merge in live
+      - dev  # forall push/merge in live
   pull_request:
     branches:
       - "**"  # forall submitted Pull Requests

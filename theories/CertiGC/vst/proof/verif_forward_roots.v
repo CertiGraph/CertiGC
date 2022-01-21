@@ -62,8 +62,8 @@ Proof.
       replace_SEP 1 (fun_info_rep rsh f_info fi) by entailer.
       assert_PROP (force_val
                      (if Archi.ptr64
-                        then (sem_add_ptr_long tvalue (offset_val 24 ti) (Z2val z))
-                        else (sem_add_ptr_int tvalue Unsigned (offset_val 12 ti) (Z2val z)))
+                        then (sem_add_ptr_long int_or_ptr_type (offset_val 24 ti) (Z2val z))
+                        else (sem_add_ptr_int int_or_ptr_type Unsigned (offset_val 12 ti) (Z2val z)))
                       = field_address thread_info_type [ArraySubsc z; StructField _args] ti
       ).
       {
@@ -76,9 +76,9 @@ Proof.
       assert (Zlength roots' = Zlength roots) by (apply frl_roots_Zlength in H8; assumption).
       forward_call (rsh, sh, gv, fi, ti, g', t_info', f_info, roots', outlier, from, to, 0, (@inl _ (Addr*Z) i)).
       * simpl snd. apply prop_right.
-        change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with tvalue.
-        change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with tvalue.
-        change (tptr tvoid) with tvalue.
+        change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with int_or_ptr_type.
+        change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with int_or_ptr_type.
+        change (tptr tvoid) with int_or_ptr_type.
         simpl. cbv [Archi.ptr64] in H14. rewrite H14.
         rewrite <- Heqz. clear. intuition.
       * intuition. red. rewrite H15, H5. split; assumption.

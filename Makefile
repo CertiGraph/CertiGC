@@ -76,12 +76,12 @@ theories/$(PROJECT)/vst/clightgen/x86_32-linux/gc.v: \
 
 theories/$(PROJECT)/vst/clightgen/x86_64-linux/%.v:
 	mkdir -p `dirname $@`
-	$(CLIGHTGEN64) -Wall -Wno-unused-variable -Werror -I`$(VSUTOOL) -I` -normalize -o $@ $<
+	$(CLIGHTGEN64) -Wall -I`$(VSUTOOL) -I` -normalize -DCOMPCERT -o $@ $<
 	echo "(*\nInput hashes (sha256):\n\n`$(SHA256SUM) $^`\n*)" >> $@
 
 theories/$(PROJECT)/vst/clightgen/x86_32-linux/%.v:
 	mkdir -p `dirname $@`
-	$(CLIGHTGEN32) -Wall -Wno-unused-variable -Werror -I`$(VSUTOOL) -I` -normalize -o $@ $<
+	$(CLIGHTGEN32) -Wall -I`$(VSUTOOL) -I` -normalize -DCOMPCERT -o $@ $<
 	echo "(*\nInput hashes (sha256):\n\n`$(SHA256SUM) $^`\n*)" >> $@
 
 clightgen: \

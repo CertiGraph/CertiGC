@@ -5,7 +5,7 @@ Local Open Scope logic.
 Lemma sem_sub_pp_space_capacity: forall s,
     isptr (space_base s) ->
     force_val
-      (sem_sub_pp (tptr tvoid)
+      (sem_sub_pp int_or_ptr_type
                   (offset_val (WORD_SIZE * space_capacity s) (space_base s))
                   (space_base s)) =
     if Archi.ptr64 then Vlong (Int64.repr (space_capacity s)) else
@@ -27,7 +27,7 @@ Qed.
 Lemma sem_sub_pp_rest_space: forall s,
     isptr (space_base s) ->
     force_val
-      (sem_sub_pp (tptr tvoid)
+      (sem_sub_pp int_or_ptr_type
                   (offset_val (WORD_SIZE * space_capacity s) (space_base s))
                   (offset_val (WORD_SIZE * space_allocated s) (space_base s))) =
     if Archi.ptr64 then Vlong (Int64.repr (space_capacity s - space_allocated s)) else
@@ -151,8 +151,8 @@ Proof.
       * simpl in H15. subst i0. simpl. entailer!.
       * simpl. entailer!. assert (isptr (Vptr b i0)) by exact I. rewrite Heqv0 in *.
         pull_left (heap_rest_rep (ti_heap t_info')). pull_left (graph_rep g').
-        destruct H8. rewrite <- (space_base_isptr_iff g') in H22 by assumption.
-        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ H22); auto.
+        destruct H8. rewrite <- (space_base_isptr_iff g') in H23 by assumption.
+        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ H23); auto.
         1: destruct H9 as [? [? [? [? ?]]]]; assumption.
         rewrite nth_space_Znth, Z2Nat.id by lia.
         sep_apply (valid_pointer_weak
@@ -170,8 +170,8 @@ Proof.
         try contradiction; simpl; unfold denote_tc_samebase;
           apply prop_right; simpl; destruct (peq b b); simpl; [|apply n]; auto.
       simpl sem_binary_operation'.
-      change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with tvalue.
-      change (tptr tvoid) with tvalue.
+      change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with int_or_ptr_type.
+      change (tptr tvoid) with int_or_ptr_type.
       remember (Znth i (heap_spaces (ti_heap t_info'))).
       rewrite sem_sub_pp_space_capacity by assumption. subst s.
       pose proof H9. destruct H19 as [_ [_ [_ [_ ?]]]].
@@ -231,7 +231,7 @@ Proof.
             (subst g1; apply firstn_gen_clear_add; assumption).
         assert (new_gen_relation (Z.to_nat (i + 1)) g' g1). {
           subst g1. red. rewrite if_false by assumption. exists gi. split; auto. }
-        gather_SEP (malloc_token Ews (tarray tvalue (generation_size (Z.to_nat (i + 1)))) p) (ti_token_rep t_info').
+        gather_SEP (malloc_token Ews (tarray int_or_ptr_type (generation_size (Z.to_nat (i + 1)))) p) (ti_token_rep t_info').
         assert (space_capacity sp = generation_size (Z.to_nat (i + 1))) by
             (subst sp; simpl; reflexivity). rewrite <- H29.
         assert (space_base sp = p) by (subst sp; simpl; reflexivity). rewrite <- H30.
@@ -355,7 +355,7 @@ Proof.
         unfold denote_tc_samebase. simpl. Opaque denote_tc_samebase. entailer!.
       * change (Tpointer tvoid
                          {| attr_volatile := false; attr_alignas := Some 2%N |})
-          with tvalue in H39.
+          with int_or_ptr_type in H39.
         rewrite sem_sub_pp_space_capacity, sem_sub_pp_rest_space in H40; auto.
         simpl in H40. apply typed_true_of_bool in H40. rewrite negb_true_iff in H40.
         match goal with

@@ -10,8 +10,7 @@ From CertiGC Require Export CertiGC.vst.ast.env_graph_gc.
 
 Local Open Scope logic.
 
-Identity Coercion HeapGraph_LabeledGraph: HeapGraph >-> LabeledGraph.
-Coercion pg_lg: LabeledGraph >-> PreGraph.
+#[global]Identity Coercion HeapGraph_LabeledGraph: HeapGraph >-> LabeledGraph.
 
 Definition init_data2byte (d: init_data) : byte :=
   match d with
@@ -44,7 +43,7 @@ Definition MSS_constant (gv: globals): mpred :=
 Definition test_int_or_ptr_spec :=
  DECLARE _test_int_or_ptr
  WITH x : val
- PRE [ tvalue ]
+ PRE [ int_or_ptr_type ]
    PROP (valid_int_or_ptr x)
    PARAMS (x)
    GLOBALS ()
@@ -62,7 +61,7 @@ Definition test_int_or_ptr_spec :=
 Definition int_or_ptr_to_int_spec :=
   DECLARE _int_or_ptr_to_int
   WITH x : val
-  PRE [ tvalue ]
+  PRE [ int_or_ptr_type ]
     PROP (is_int I32 Signed x)
     PARAMS (x)
     GLOBALS ()
@@ -73,7 +72,7 @@ Definition int_or_ptr_to_int_spec :=
 Definition int_or_ptr_to_ptr_spec :=
   DECLARE _int_or_ptr_to_ptr
   WITH x : val
-  PRE [ tvalue ]
+  PRE [ int_or_ptr_type ]
     PROP (isptr x)
     PARAMS (x)
     GLOBALS ()
@@ -89,7 +88,7 @@ Definition int_to_int_or_ptr_spec :=
     PARAMS (x)
     GLOBALS ()
     SEP ()
-  POST [ tvalue ]
+  POST [ int_or_ptr_type ]
     PROP() LOCAL (temp ret_temp x) SEP().
 
 Definition ptr_to_int_or_ptr_spec :=
@@ -100,13 +99,13 @@ Definition ptr_to_int_or_ptr_spec :=
     PARAMS (x)
     GLOBALS ()
     SEP()
-  POST [ tvalue ]
+  POST [ int_or_ptr_type ]
     PROP() LOCAL (temp ret_temp x) SEP().
 
 Definition Is_block_spec :=
   DECLARE _Is_block
   WITH x : val
-  PRE [tvalue ]
+  PRE [ int_or_ptr_type ]
     PROP (valid_int_or_ptr x)
     PARAMS (x)
     GLOBALS ()
@@ -140,9 +139,9 @@ Program Definition Is_from_spec :=
   DECLARE _Is_from
   TYPE IS_FROM_TYPE
   WITH sh: share, start : val, n: Z, v: val, P: mpred
-  PRE [tptr tvalue,
-       tptr tvalue,
-       tptr tvalue]
+  PRE [tptr int_or_ptr_type,
+       tptr int_or_ptr_type,
+       tptr int_or_ptr_type]
     PROP ()
     PARAMS (start; offset_val n start; v)
     GLOBALS ()
@@ -195,10 +194,10 @@ Definition forward_spec :=
        g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots : roots_t, outlier: outlier_t,
        from: nat, to: nat, depth: Z, forward_p: forward_p_type
-  PRE [tptr tvalue,
-       tptr tvalue,
-       tptr (tptr tvalue),
-       tptr tvalue,
+  PRE [tptr int_or_ptr_type,
+       tptr int_or_ptr_type,
+       tptr (tptr int_or_ptr_type),
+       tptr int_or_ptr_type,
        tint]
     PROP (readable_share rsh; writable_share sh;
           super_compatible (g, t_info, roots) f_info outlier;
@@ -237,9 +236,9 @@ Definition forward_roots_spec :=
   WITH rsh: share, sh: share, gv: globals, fi: val, ti: val,
        g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots: roots_t, outlier: outlier_t, from: nat, to: nat
-  PRE [tptr tvalue,
-       tptr tvalue,
-       tptr (tptr tvalue),
+  PRE [tptr int_or_ptr_type,
+       tptr int_or_ptr_type,
+       tptr (tptr int_or_ptr_type),
        tptr (if Archi.ptr64 then tulong else tuint),
        tptr thread_info_type]
     PROP (readable_share rsh; writable_share sh;
@@ -275,10 +274,10 @@ Definition do_scan_spec :=
        g: HeapGraph, t_info: thread_info, f_info: fun_info,
        roots : roots_t, outlier: outlier_t,
        from: nat, to: nat, to_index: nat
-  PRE [tptr tvalue,
-       tptr tvalue,
-       tptr tvalue,
-       tptr (tptr tvalue)]
+  PRE [tptr int_or_ptr_type,
+       tptr int_or_ptr_type,
+       tptr int_or_ptr_type,
+       tptr (tptr int_or_ptr_type)]
     PROP (readable_share rsh; writable_share sh;
           super_compatible (g, t_info, roots) f_info outlier;
           forward_condition g t_info from to;
@@ -356,8 +355,8 @@ Definition create_space_spec :=
     EX p: val,
     PROP () LOCAL ()
     SEP (mem_mgr gv; all_string_constants rsh gv; MSS_constant gv;
-         malloc_token Ews (tarray tvalue n) p;
-         data_at_ Ews (tarray tvalue n) p;
+         malloc_token Ews (tarray int_or_ptr_type n) p;
+         data_at_ Ews (tarray int_or_ptr_type n) p;
          data_at sh space_type (p, (p, (offset_val (WORD_SIZE * n) p))) s).
 
 Definition zero_triple: (val * (val * val)) := (nullval, (nullval, nullval)).
@@ -378,8 +377,8 @@ Definition create_heap_spec :=
          data_at Ews heap_type
                  ((p, (p, (offset_val (WORD_SIZE * NURSERY_SIZE) p)))
                     :: repeat zero_triple (Z.to_nat (MAX_SPACES - 1))) h;
-         malloc_token Ews (tarray tvalue NURSERY_SIZE) p;
-         data_at_ Ews (tarray tvalue NURSERY_SIZE) p).
+         malloc_token Ews (tarray int_or_ptr_type NURSERY_SIZE) p;
+         data_at_ Ews (tarray int_or_ptr_type NURSERY_SIZE) p).
 
 Definition make_tinfo_spec :=
   DECLARE _make_tinfo
@@ -401,8 +400,8 @@ Definition make_tinfo_spec :=
          data_at Ews heap_type
                  ((p, (p, (offset_val (WORD_SIZE * NURSERY_SIZE) p)))
                     :: repeat zero_triple (Z.to_nat (MAX_SPACES - 1))) h;
-         malloc_token Ews (tarray tvalue NURSERY_SIZE) p;
-         data_at_ Ews (tarray tvalue NURSERY_SIZE) p).
+         malloc_token Ews (tarray int_or_ptr_type NURSERY_SIZE) p;
+         data_at_ Ews (tarray int_or_ptr_type NURSERY_SIZE) p).
 
 Definition resume_spec :=
   DECLARE _resume

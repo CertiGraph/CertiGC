@@ -32,7 +32,7 @@ Definition null_space: Space := {|
     space__upper_bound := ltac:(easy);
 |}.
 
-Instance Space_Inhabitant: Inhabitant Space := null_space.
+#[global]Instance Space_Inhabitant: Inhabitant Space := null_space.
 
 Lemma space_capacity__tight_range (sp: Space):
     0 <= space_capacity sp < MAX_SPACE_SIZE.

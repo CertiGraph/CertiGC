@@ -11,17 +11,11 @@ From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.compatible.
-(* From CertiGC Require Import model.constants. *)
 From CertiGC Require Import model.copy.
-(* From CertiGC Require Import model.cut. *)
 From CertiGC Require Import model.forward.
 From CertiGC Require Import model.graph.
-(* From CertiGC Require Import model.heap. *)
-(* From CertiGC Require Import model.reset. *)
 From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.util.
-
-Local Coercion pg_lg: LabeledGraph >-> PreGraph.
 
 
 Inductive scan_vertex_for_loop (from to: nat) (v: Addr):

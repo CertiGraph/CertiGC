@@ -16,8 +16,6 @@ From CertiGC Require Import model.heap.
 From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.util.
 
-Local Coercion pg_lg: LabeledGraph >-> PreGraph.
-
 
 Definition reset_gen_info (gi: Generation) : Generation := {|
     generation_base := generation_base gi;

@@ -20,9 +20,6 @@ From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.update.
 From CertiGC Require Import model.util.
 
-Local Coercion pg_lg: LabeledGraph >-> PreGraph.
-
-
 Definition forward_t: Type := Z + GC_Pointer + Addr + Field.
 
 Definition root2forward (r: root_t): forward_t :=
@@ -41,7 +38,7 @@ Definition field2forward (f: Cell): forward_t :=
 
 Definition forward_p_type: Type := Z + (Addr * Z).
 
-Instance forward_p_type_Inhabitant: Inhabitant forward_p_type := inl 0.
+#[global]Instance forward_p_type_Inhabitant: Inhabitant forward_p_type := inl 0.
 
 Definition forward_p2forward_t
            (p: forward_p_type) (roots: roots_t) (g: HeapGraph): forward_t :=

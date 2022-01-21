@@ -35,8 +35,6 @@ Import ListNotations.
 
 Local Open Scope Z_scope.
 
-Local Coercion pg_lg: LabeledGraph >-> PreGraph.
-
 Definition vertex_valid (g: HeapGraph): Prop := forall v, vvalid g v <-> heapgraph_has_block g v.
 
 Definition edge_valid (g: HeapGraph): Prop := forall e, evalid g e <-> heapgraph_has_field g e.
@@ -1007,12 +1005,10 @@ Lemma fr_O_vertex_valid: forall g g' from to p,
 Proof.
   intros. inversion H1; subst; try assumption.
   - now apply lcv_vertex_valid.
-  - assert (vertex_valid new_g <-> vertex_valid (lgraph_copy_v g (dst g e) to)) as E.
-    {
-      admit.
-    }
-    rewrite E.
-    now apply lcv_vertex_valid.
+  - replace (vertex_valid new_g) with (vertex_valid (lgraph_copy_v g (dst g e) to)).
+    + now apply lcv_vertex_valid.
+    + subst new_g.
+      admit. (* Coercion ? *)
 Admitted.
 
 Lemma lcv_heapgraph_block_fields_old: forall (g: HeapGraph) v v' to,
@@ -1103,22 +1099,6 @@ Proof.
         easy.
   - rewrite pcv_evalid_iff, H.
     admit.
-(*
-  unfold heapgraph_has_field in *. simpl.
-  rewrite pcv_evalid_iff, lcv_heapgraph_has_block_iff, H; auto. split; intros.
-  - destruct H1 as [[? ?] | ?].
-    + split; [now left|]. rewrite lcv_heapgraph_block_fields_old; auto.
-    + assert (field_addr e = new_copied_v g to). {
-        apply list_in_map_inv in H1; destruct H1 as [x [? ?]]; subst e; simpl; auto. }
-      split; [now right|]. rewrite H2.
-      now rewrite heapgraph_block_fields_map_map, lcv_lacv_heapgraph_block_fields, lacv_heapgraph_block_fields_new, map_map.
-  - destruct H1. destruct H1; [left | right].
-    + split; auto. rewrite lcv_heapgraph_block_fields_old in H2; assumption.
-    + rewrite H1 in H2.
-      rewrite heapgraph_block_fields_map_map, lcv_lacv_heapgraph_block_fields, lacv_heapgraph_block_fields_new, map_map in H2.
-      assumption.
-Qed.
-*)
 Admitted.
 
 Lemma fr_O_edge_valid: forall g1 g2 from to p,

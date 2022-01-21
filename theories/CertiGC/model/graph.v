@@ -20,11 +20,11 @@ From CertiGC Require Import model.util.
 
 Import ListNotations.
 
-#[local]Coercion pg_lg : LabeledGraph >-> PreGraph.
+#[global]Coercion pg_lg : LabeledGraph >-> PreGraph.
 
 Record Addr : Type :={ addr_gen  : nat; addr_block  : nat }.
 
-Instance Addr_EqDec : (EqDec Addr eq).
+#[global]Instance Addr_EqDec : (EqDec Addr eq).
 
 Proof.
   (intros [gen_x block_x] [gen_y block_y]).
@@ -34,7 +34,7 @@ Defined.
 
 Record Field : Type :={ field_addr  : Addr; field_index  : nat }.
 
-Instance Field_EqDec : (EqDec Field eq).
+#[global]Instance Field_EqDec : (EqDec Field eq).
 
 Proof.
   (intros [addr_x index_x] [addr_y index_y]).
@@ -47,7 +47,7 @@ Inductive GC_Pointer :=
 
 Definition FieldValue : Type := option (Z + GC_Pointer).
 
-Instance FieldValue_Inhabitant : (Inhabitant FieldValue) := None.
+#[global]Instance FieldValue_Inhabitant : (Inhabitant FieldValue) := None.
 
 Record Block : Type :=
  {
@@ -123,7 +123,7 @@ Definition null_generation : Generation :=
     generation_sh__writable := writable_share_top
   |}.
 
-Instance Generation_Inhabitant : (Inhabitant Generation) := null_generation.
+#[global]Instance Generation_Inhabitant : (Inhabitant Generation) := null_generation.
 
 Record Generations : Type :={ generations  : list Generation; generations__not_nil  : generations <> nil }.
 
@@ -633,7 +633,7 @@ Qed.
 
 Definition Cell : Type := Z + GC_Pointer + Field.
 
-Instance Cell_inhabitant : (Inhabitant Cell) := (inl (inl Z.zero)).
+#[global]Instance Cell_inhabitant : (Inhabitant Cell) := (inl (inl Z.zero)).
 
 Definition GC_Pointer2val (x : GC_Pointer) : val := match x with
                     | GCPtr b z => Vptr b z
@@ -1112,12 +1112,12 @@ Lemma lgd_copy_compatible
   (e : Field) (Hg : copy_compatible g) : 
   copy_compatible (labeledgraph_gen_dst g e v').
 Proof.
-  (unfold copy_compatible in *).
   (intros v Jv E).
+  (unfold copy_compatible in *).
   intuition.
   + (refine {| heapgraph_has_block__has_gen := _; heapgraph_has_block__has_index := _ |}; intuition).
-    - admit.
-    - admit.
+    - admit. (* Follows from Jv but my records broke the proof (!) *)
+    - admit. (* Follows from Jv but my records broke the proof (!) *)
   + admit.
 Admitted.
 
@@ -1657,7 +1657,7 @@ Qed.
 
 Definition root_t : Type := Z + GC_Pointer + Addr.
 
-Instance root_t_inhabitant : (Inhabitant root_t) := (inl (inl Z.zero)).
+#[global]Instance root_t_inhabitant : (Inhabitant root_t) := (inl (inl Z.zero)).
 
 Definition root2val (g : HeapGraph) 
   (fd : root_t) : val :=

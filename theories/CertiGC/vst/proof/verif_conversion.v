@@ -5,11 +5,7 @@ Lemma body_int_to_int_or_ptr:
 Proof.
   start_function.
   forward.
-  destruct x ; try easy.
-  unfold denote_tc_iszero, valid_int_or_ptr in *. cbv [Archi.ptr64] in *.
-  unfold is_true.
-  admit.
-Admitted.
+Qed.
 
 Lemma body_int_or_ptr_to_int:
   semax_body Vprog Gprog f_int_or_ptr_to_int int_or_ptr_to_int_spec.

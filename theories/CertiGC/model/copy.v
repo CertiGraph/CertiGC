@@ -17,8 +17,6 @@ From CertiGC Require Import model.heap.
 From CertiGC Require Import model.thread_info.
 From CertiGC Require Import model.util.
 
-Local Coercion pg_lg: LabeledGraph >-> PreGraph.
-
 
 Definition copy_v_add_edge
            (s: Addr) (g: PreGraph Addr Field) (p: Field * Addr):

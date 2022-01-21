@@ -15,4 +15,4 @@ From CertiGC Require Export model.util.
 From CertiGC Require Export model.scan.
 From CertiGC Require Export model.thread_info.
 
-Instance share_inhabitant: Inhabitant share := emptyshare.
+#[global]Instance share_inhabitant: Inhabitant share := emptyshare.

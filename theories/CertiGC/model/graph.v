@@ -1411,7 +1411,7 @@ Qed.
 
 Lemma lgd_graph_has_gen : forall g e v x, heapgraph_has_gen (labeledgraph_gen_dst g e v) x <-> heapgraph_has_gen g x.
 Proof.
-  (intros; unfold heapgraph_has_gen; intuition).
+  (intros; unfold heapgraph_has_gen; intuition idtac).
 Qed.
 
 Lemma lgd_raw_fld_length_eq :

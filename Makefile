@@ -103,11 +103,11 @@ _CoqProject: theories/$(PROJECT)/vst/clightgen/$(TARGET)/gc.v
 	echo "-Q theories/$(PROJECT)/vst/clightgen/$(TARGET)    $(PUBLISHER).$(PROJECT).vst.clightgen"  >> $@
 	echo "-Q theories/$(PROJECT)/vst/proof                  $(PUBLISHER).$(PROJECT).vst.proof"      >> $@
 	echo "-Q theories/$(PROJECT)/vst/spec                   $(PUBLISHER).$(PROJECT).vst.spec"       >> $@
-	find     theories/$(PROJECT)/model                     -name "*.v" | cut -d'/' -f1-             >> $@
-	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | cut -d'/' -f1-             >> $@
-	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | cut -d'/' -f1-             >> $@
-	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | cut -d'/' -f1-             >> $@
-	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | cut -d'/' -f1-             >> $@
+	find     theories/$(PROJECT)/model                     -name "*.v" | sort | cut -d'/' -f1-      >> $@
+	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | sort | cut -d'/' -f1-      >> $@
+	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort | cut -d'/' -f1-      >> $@
+	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort | cut -d'/' -f1-      >> $@
+	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | sort | cut -d'/' -f1-      >> $@
 
 
 Makefile.coq: Makefile _CoqProject
@@ -125,8 +125,8 @@ theories: Makefile.coq
 .PHONY: install install-src install-vst
 
 C_SOURCES= \
-	$(shell find src/c/include -name "*.c" | cut -d'/' -f4-) \
-	$(shell find src/c/include -name "*.h" | cut -d'/' -f4-)
+	$(shell find src/c/include -name "*.c" | sort | cut -d'/' -f4-) \
+	$(shell find src/c/include -name "*.h" | sort | cut -d'/' -f4-)
 
 install-src:
 	install -d "$(VSU_INCLUDE_DIR)"
@@ -135,11 +135,11 @@ install-src:
 	tree "$(VSU_INCLUDE_DIR)" || true
 
 COQ_SOURCES= \
-	$(shell find theories/$(PROJECT)/model                      -name "*.v" | cut -d'/' -f3-) \
-	$(shell find theories/$(PROJECT)/vst/ast                    -name "*.v" | cut -d'/' -f3-) \
-	$(shell find theories/$(PROJECT)/vst/clightgen/$(TARGET)    -name "*.v" | cut -d'/' -f3-) \
-	$(shell find theories/$(PROJECT)/vst/proof                  -name "*.v" | cut -d'/' -f3-) \
-	$(shell find theories/$(PROJECT)/vst/spec                   -name "*.v" | cut -d'/' -f3-)
+	$(shell find theories/$(PROJECT)/model                      -name "*.v" | sort | cut -d'/' -f3-) \
+	$(shell find theories/$(PROJECT)/vst/ast                    -name "*.v" | sort | cut -d'/' -f3-) \
+	$(shell find theories/$(PROJECT)/vst/clightgen/$(TARGET)    -name "*.v" | sort | cut -d'/' -f3-) \
+	$(shell find theories/$(PROJECT)/vst/proof                  -name "*.v" | sort | cut -d'/' -f3-) \
+	$(shell find theories/$(PROJECT)/vst/spec                   -name "*.v" | sort | cut -d'/' -f3-)
 
 COQ_COMPILED=$(COQ_SOURCES:%.v=%.vo)
 

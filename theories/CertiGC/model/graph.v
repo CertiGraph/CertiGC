@@ -1112,14 +1112,10 @@ Lemma lgd_copy_compatible
   (e : Field) (Hg : copy_compatible g) : 
   copy_compatible (labeledgraph_gen_dst g e v').
 Proof.
-  (intros v Jv E).
-  (unfold copy_compatible in *).
-  intuition.
-  + (refine {| heapgraph_has_block__has_gen := _; heapgraph_has_block__has_index := _ |}; intuition).
-    - admit. (* Follows from Jv but my records broke the proof (!) *)
-    - admit. (* Follows from Jv but my records broke the proof (!) *)
-  + admit.
-Admitted.
+  unfold copy_compatible in *.
+  intro v. specialize (Hg v) as Hv. clear Hg.
+  dintuition idtac ; simpl in *.
+Qed.
 
 Definition heapgraph_generation_is_unmarked 
   (g : HeapGraph) (gen : nat) : Prop :=

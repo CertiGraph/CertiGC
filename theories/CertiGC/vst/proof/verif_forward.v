@@ -881,14 +881,26 @@ Proof.
           entailer!.
           2: unfold thread_info_rep; thaw FR; entailer!.
           pose proof (lgd_no_dangling_dst_copied_vert g e (dst g e) H9 H19 H22 H10).
-          split; [|split; [|split; [|split]]]; try reflexivity.
-          ++ constructor ; try easy.
-             admit. (* more coercion problems? *)
+          split; [|split; [|split; [|split]]]; try easy.
+          ++ unfold super_compatible.
+             unfold roots_compatible in *.
+             constructor ; dintuition idtac.
+             {
+               unfold roots_graph_compatible in *.
+               admit.
+             }
+             {
+               intros x Hx z Hz.
+               simpl in Hz.
+               apply H34.
+               admit.
+             }
           ++ simpl forward_p2forward_t.
-             rewrite H12, Heqc. simpl. now constructor.
-          ++ constructor ; try easy.
-             admit. (* more coercion problems? *)
-          ++ easy.
+             rewrite H12, Heqc.
+             now constructor.
+          ++ unfold forward_condition.
+             apply (lgd_copy_compatible g (block_copied_vertex (heapgraph_block g (dst g e))) e) in H9.
+             intuition idtac.
         -- (* not yet forwarded *)
            forward. thaw FR.  freeze [0; 1; 2; 3; 4; 5] FR.
            try apply Int64_eq_false in H22.

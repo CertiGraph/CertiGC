@@ -16,7 +16,7 @@ Compatible with [CompCert](https://compcert.org/).
 Specifications are proven correct for the following targets:
 
 - [x] `x86_64-linux`
-- [ ] `x86_32-linux`
+- [x] `x86_32-linux`
 
 Proofs are checked by our [CI infrastructure](https://github.com/intoverflow/CertiGC/actions/workflows/build.yml).
 

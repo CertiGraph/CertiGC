@@ -880,20 +880,22 @@ Proof.
                  t_info roots.
           entailer!.
           2: unfold thread_info_rep; thaw FR; entailer!.
-          pose proof (lgd_no_dangling_dst_copied_vert g e (dst g e) H9 H19 H22 H10).
+          pose proof (lgd_no_dangling_dst_copied_vert g e (dst g e) H9 H19 H22 H10) as Hno_dangling_dst.
           split; [|split; [|split; [|split]]]; try easy.
           ++ unfold super_compatible.
              unfold roots_compatible in *.
-             constructor ; dintuition idtac.
+             intuition idtac.
              {
-               unfold roots_graph_compatible in *.
-               admit.
+               now apply lgd_forall_heapgraph_has_block.
              }
              {
-               intros x Hx z Hz.
-               simpl in Hz.
-               apply H34.
-               admit.
+              unfold outlier_compatible in *.
+              unfold roots_outlier_compatible in *.
+              unfold roots_graph_compatible in *.
+              unfold no_dangling_dst in Hno_dangling_dst.
+              intros x Hx z Hz.
+              apply lgd_heapgraph_has_block in Hx.
+              now apply (H6 x).
              }
           ++ simpl forward_p2forward_t.
              rewrite H12, Heqc.
@@ -1357,4 +1359,4 @@ Proof.
            ++ split; auto.
            ++ apply tir_id.
         -- unfold thread_info_rep. entailer!.
-Admitted.
+Qed.

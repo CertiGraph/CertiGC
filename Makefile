@@ -99,15 +99,15 @@ _CoqProject: theories/$(PROJECT)/vst/clightgen/$(TARGET)/gc.v
 	echo `$(VSUTOOL) -Q $(VST_PACKAGE)`         >> $@
 	echo `$(VSUTOOL) -Q $(CERTIGRAPH_PACKAGE)`  >> $@
 	echo "-Q theories/$(PROJECT)/model                      $(PUBLISHER).$(PROJECT).model"          >> $@
+	find     theories/$(PROJECT)/model                     -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/ast                    $(PUBLISHER).$(PROJECT).vst.ast"        >> $@
+	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/clightgen/$(TARGET)    $(PUBLISHER).$(PROJECT).vst.clightgen"  >> $@
+	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/proof                  $(PUBLISHER).$(PROJECT).vst.proof"      >> $@
+	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/spec                   $(PUBLISHER).$(PROJECT).vst.spec"       >> $@
-	find     theories/$(PROJECT)/model                     -name "*.v" | sort | cut -d'/' -f1-      >> $@
-	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | sort | cut -d'/' -f1-      >> $@
-	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort | cut -d'/' -f1-      >> $@
-	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort | cut -d'/' -f1-      >> $@
-	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | sort | cut -d'/' -f1-      >> $@
+	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | sort                       >> $@
 
 
 Makefile.coq: Makefile _CoqProject

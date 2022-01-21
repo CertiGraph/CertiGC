@@ -3,10 +3,6 @@
 
 
 -Q theories/CertiGC/model                      CertiGC.CertiGC.model
--Q theories/CertiGC/vst/ast                    CertiGC.CertiGC.vst.ast
--Q theories/CertiGC/vst/clightgen/x86_64-linux    CertiGC.CertiGC.vst.clightgen
--Q theories/CertiGC/vst/proof                  CertiGC.CertiGC.vst.proof
--Q theories/CertiGC/vst/spec                   CertiGC.CertiGC.vst.spec
 theories/CertiGC/model/compatible.v
 theories/CertiGC/model/constants.v
 theories/CertiGC/model/copy.v
@@ -24,8 +20,11 @@ theories/CertiGC/model/spatial_gcgraph.v
 theories/CertiGC/model/thread_info.v
 theories/CertiGC/model/update.v
 theories/CertiGC/model/util.v
+-Q theories/CertiGC/vst/ast                    CertiGC.CertiGC.vst.ast
 theories/CertiGC/vst/ast/env_graph_gc.v
+-Q theories/CertiGC/vst/clightgen/x86_64-linux    CertiGC.CertiGC.vst.clightgen
 theories/CertiGC/vst/clightgen/x86_64-linux/gc.v
+-Q theories/CertiGC/vst/proof                  CertiGC.CertiGC.vst.proof
 theories/CertiGC/vst/proof/verif_conversion.v
 theories/CertiGC/vst/proof/verif_create_heap.v
 theories/CertiGC/vst/proof/verif_create_space.v
@@ -38,4 +37,5 @@ theories/CertiGC/vst/proof/verif_Is_block.v
 theories/CertiGC/vst/proof/verif_Is_from.v
 theories/CertiGC/vst/proof/verif_make_tinfo.v
 theories/CertiGC/vst/proof/verif_resume.v
+-Q theories/CertiGC/vst/spec                   CertiGC.CertiGC.vst.spec
 theories/CertiGC/vst/spec/gc_spec.v

@@ -1395,6 +1395,20 @@ Proof.
   (split; intro H; destruct H; now constructor).
 Qed.
 
+Lemma lgd_forall_heapgraph_has_block
+  (g : HeapGraph) (e : Field) (v : Addr) (rr : list Addr)
+  (Hrr: Forall (heapgraph_has_block g) rr):
+  Forall (heapgraph_has_block (labeledgraph_gen_dst g e v)) rr.
+Proof.
+  generalize Hrr ; clear Hrr.
+  induction rr ; try easy.
+  intro Hrr.
+  inversion Hrr.
+  constructor.
+  + now apply lgd_heapgraph_has_block.
+  + now apply IHrr.
+Qed.
+
 Lemma lgd_graph_has_gen : forall g e v x, heapgraph_has_gen (labeledgraph_gen_dst g e v) x <-> heapgraph_has_gen g x.
 Proof.
   (intros; unfold heapgraph_has_gen; intuition).

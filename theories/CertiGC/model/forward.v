@@ -731,13 +731,14 @@ Proof.
     pose proof (fr_general_prop depth from to (field2forward (Znth e_z (heapgraph_block_cells g e_addr))) g g' _ Q P R) as HP.
     subst Q P R.
     apply HP ; clear HP ; try easy.
-    + intros g1 g2 g3 _ Hg1g2 Hg2g3 Hg1.
+    - intros g1 g2 g3 _ Hg1g2 Hg2g3 Hg1.
       now apply Hg2g3, Hg1g2.
-    + intros g'' f u _ Hu.
-      admit.
-    + intros from' g'' u to' _ Hto' _ Hu _ Efrom' Hg''.
+    - intros g'' e v _ Hg''.
+      unfold roots_graph_compatible in *.
+      now apply lgd_forall_heapgraph_has_block.
+    - intros from' g'' u to' _ Hto' _ Hu _ Efrom' Hg''.
       now apply lcv_rgc_unchanged.
-Admitted.
+Qed.
 
 Lemma fl_edge_roots_graph_compatible: forall depth from to l g g' v roots,
     addr_gen v <> from ->

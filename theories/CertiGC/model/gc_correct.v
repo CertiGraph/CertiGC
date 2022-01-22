@@ -1121,7 +1121,22 @@ Proof.
           map_map.
         easy.
   - rewrite pcv_evalid_iff, H.
-    admit.
+    destruct He as [Hblk Hid].
+    rewrite lcv_heapgraph_has_block_iff in Hblk ; try easy.
+    destruct Hblk as [Hblk|Hblk].
+    + left.
+      split ; try easy.
+      now rewrite lcv_heapgraph_block_fields_old in Hid.
+    + right.
+      apply in_map_iff.
+      exists e.
+      split.
+      {
+        rewrite <- Hblk.
+        now destruct e.
+      }
+      rewrite Hblk in Hid.
+      admit.
 Admitted.
 
 Lemma fr_O_edge_valid: forall g1 g2 from to p,
@@ -1130,11 +1145,14 @@ Lemma fr_O_edge_valid: forall g1 g2 from to p,
 Proof.
   intros. inversion H1; subst; try assumption.
   - now apply lcv_edge_valid.
-  - assert (edge_valid new_g <-> edge_valid (lgraph_copy_v g1 (dst g1 e) to)) as E.
+  - assert (Q: edge_valid (lgraph_copy_v g1 (dst g1 e) to) -> edge_valid new_g).
     {
+      intros Hto f.
+      specialize (Hto f) as Hf.
+      clear Hto.
       admit.
     }
-    rewrite E.
+    apply Q.
     now apply lcv_edge_valid.
 Admitted.
 

@@ -1388,11 +1388,18 @@ Proof.
   (apply heapgraph_generations_append__heapgraph_has_block, (H0 v); auto).
 Qed.
 
-Lemma lgd_heapgraph_has_block 
-  (g : HeapGraph) (e : Field) 
+Lemma lgd_heapgraph_has_block
+  (g : HeapGraph) (e : Field)
   (v v' : Addr) : heapgraph_has_block g v <-> heapgraph_has_block (labeledgraph_gen_dst g e v') v.
 Proof.
-  (split; intro H; destruct H; now constructor).
+  dintuition idtac.
+Qed.
+
+Lemma lgd_heapgraph_has_field
+  (g : HeapGraph) (e f : Field)
+  (v : Addr) : heapgraph_has_field g f <-> heapgraph_has_field (labeledgraph_gen_dst g e v) f.
+Proof.
+  dintuition idtac.
 Qed.
 
 Lemma lgd_forall_heapgraph_has_block

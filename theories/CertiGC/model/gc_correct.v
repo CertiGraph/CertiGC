@@ -1139,22 +1139,38 @@ Proof.
       admit.
 Admitted.
 
-Lemma fr_O_edge_valid: forall g1 g2 from to p,
-    edge_valid g1 -> heapgraph_has_gen g1 to ->
-    forward_relation from to O p g1 g2 -> edge_valid g2.
+Lemma fr_O_edge_valid (g g' : HeapGraph) (from to : nat) (p : forward_t)
+    (Hg: edge_valid g)
+    (Hto: heapgraph_has_gen g to)
+    (Hgg': forward_relation from to O p g g'):
+    edge_valid g'.
 Proof.
-  intros. inversion H1; subst; try assumption.
+  intros. inversion Hgg'; subst; try assumption.
   - now apply lcv_edge_valid.
-  - assert (Q: edge_valid (lgraph_copy_v g1 (dst g1 e) to) -> edge_valid new_g).
+  - assert (Hnew_g: edge_valid (lgraph_copy_v g (dst g e) to) -> edge_valid new_g).
     {
-      intros Hto f.
-      specialize (Hto f) as Hf.
-      clear Hto.
-      admit.
+      subst new_g.
+      intros Hvalid f.
+      specialize (Hg f).
+      specialize (Hvalid f).
+      simpl in *.
+      rewrite pcv_evalid_iff in Hvalid.
+      rewrite <- lgd_heapgraph_has_field.
+      intuition idtac.
     }
-    apply Q.
+    apply Hnew_g.
     now apply lcv_edge_valid.
-Admitted.
+  - assert (Hnew_g: edge_valid (lgraph_copy_v g (dst g e) to) -> edge_valid new_g).
+    {
+      subst new_g.
+      intros Hvalid f.
+      specialize (Hvalid f).
+      simpl in *.
+      now rewrite <- lgd_heapgraph_has_field.
+    }
+    apply Hnew_g.
+    now apply lcv_edge_valid.
+Qed.
 
 Lemma flcvae_src_old: forall g new (l: list (Field * Addr)) e,
     ~ In e (map fst l) -> src (fold_left (copy_v_add_edge new) l g) e = src g e.

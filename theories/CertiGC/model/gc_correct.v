@@ -999,17 +999,40 @@ Proof.
   rewrite pcv_vvalid_iff, lcv_heapgraph_has_block_iff; auto. now rewrite H.
 Qed.
 
-Lemma fr_O_vertex_valid: forall g g' from to p,
-    vertex_valid g -> heapgraph_has_gen g to -> forward_relation from to 0 p g g' ->
+Lemma fr_O_vertex_valid (g g': HeapGraph) (from to: nat) (p: forward_t)
+    (Hg: vertex_valid g)
+    (Hto: heapgraph_has_gen g to)
+    (Hgg': forward_relation from to 0 p g g'):
     vertex_valid g'.
 Proof.
-  intros. inversion H1; subst; try assumption.
+  inversion Hgg' ; subst ; try assumption ; clear Hgg'.
   - now apply lcv_vertex_valid.
-  - replace (vertex_valid new_g) with (vertex_valid (lgraph_copy_v g (dst g e) to)).
-    + now apply lcv_vertex_valid.
-    + subst new_g.
-      admit. (* Coercion ? *)
-Admitted.
+  - assert (Hnew_g: vertex_valid (lgraph_copy_v g (dst g e) to) -> vertex_valid new_g).
+    {
+      subst new_g.
+      intros Hvalid v.
+      specialize (Hvalid v) as Hv.
+      clear Hvalid.
+      simpl in *.
+      rewrite pcv_vvalid_iff in Hv.
+      rewrite <- lgd_heapgraph_has_block.
+      specialize (Hg v).
+      intuition idtac.
+    }
+    apply Hnew_g.
+    now apply lcv_vertex_valid.
+  - assert (Hnew_g: vertex_valid (lgraph_copy_v g (dst g e) to) -> vertex_valid new_g).
+    {
+      subst new_g.
+      intros Hvalid v.
+      specialize (Hvalid v) as Hv.
+      clear Hvalid.
+      simpl in *.
+      now rewrite <- lgd_heapgraph_has_block.
+    }
+    apply Hnew_g.
+    now apply lcv_vertex_valid.
+Qed.
 
 Lemma lcv_heapgraph_block_fields_old: forall (g: HeapGraph) v v' to,
     heapgraph_has_block g v' -> heapgraph_has_gen g to ->

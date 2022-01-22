@@ -1120,23 +1120,28 @@ Proof.
           lacv_heapgraph_block_fields_new,
           map_map.
         easy.
-  - rewrite pcv_evalid_iff, H.
-    destruct He as [Hblk Hid].
-    rewrite lcv_heapgraph_has_block_iff in Hblk ; try easy.
-    destruct Hblk as [Hblk|Hblk].
-    + left.
+  - destruct He as [He Hin].
+    apply lcv_heapgraph_has_block_iff in He ; try easy.
+    rewrite pcv_evalid_iff, H.
+    destruct He as [He|Ee].
+    {
+      left.
       split ; try easy.
-      now rewrite lcv_heapgraph_block_fields_old in Hid.
-    + right.
-      apply in_map_iff.
-      exists e.
-      split.
-      {
-        rewrite <- Hblk.
-        now destruct e.
-      }
-      rewrite Hblk in Hid.
-      admit.
+      now rewrite lcv_heapgraph_block_fields_old in Hin.
+    }
+    right.
+    apply in_map_iff.
+    exists e.
+    split.
+    {
+      destruct e.
+      simpl in *.
+      congruence.
+    }
+    unfold lgraph_copy_v in Hin.
+    rewrite <- Ee in *.
+    clear Ee.
+    admit.
 Admitted.
 
 Lemma fr_O_edge_valid (g g' : HeapGraph) (from to : nat) (p : forward_t)

@@ -15,7 +15,7 @@ PROJECT=CertiGC
 # configure
 #
 
-J?=4
+J?=`nproc`
 BITSIZE?=opam
 COQC?=coqc
 SHA256SUM?=sha256sum

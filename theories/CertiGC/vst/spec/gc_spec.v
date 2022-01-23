@@ -133,7 +133,7 @@ Definition abort_with_spec :=
   POST [ tvoid ]
     PROP (False) LOCAL() SEP().
 
-Definition IS_FROM_TYPE :=
+Definition IS_FROM_TYPE : TypeTree :=
   ProdType (ProdType (ProdType
                         (ProdType (ConstType share) (ConstType val))
                         (ConstType Z)) (ConstType val)) Mpred.

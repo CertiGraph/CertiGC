@@ -429,10 +429,15 @@ Definition create_space_spec :=
       ; MSS_constant gv
       ; malloc_token Ews (tarray int_or_ptr_type n) p
       ; data_at_ Ews (tarray int_or_ptr_type n) p
-      ; data_at sh space_type (p, (p, (offset_val (WORD_SIZE * n) p))) s
+      ; data_at sh
+          space_type
+          ( p,
+          ( p,
+          ( offset_val (WORD_SIZE * n) p
+          , offset_val (WORD_SIZE * n) p
+          )))
+          s
       ).
-
-Definition zero_triple: (val * (val * val)) := (nullval, (nullval, nullval)).
 
 Definition create_heap_spec :=
   DECLARE _create_heap
@@ -454,9 +459,18 @@ Definition create_heap_spec :=
       ; all_string_constants sh gv
       ; MSS_constant gv
       ; malloc_token Ews heap_type h
-      ; data_at Ews heap_type
-                 ((p, (p, (offset_val (WORD_SIZE * NURSERY_SIZE) p)))
-                    :: repeat zero_triple (Z.to_nat (MAX_SPACES - 1))) h
+      ; data_at Ews
+          heap_type
+          (
+            ( p,
+            ( p,
+            ( offset_val (WORD_SIZE * NURSERY_SIZE) p
+            , offset_val (WORD_SIZE * NURSERY_SIZE) p
+            )))
+          ::
+            repeat nullspace (Z.to_nat (MAX_SPACES - 1))
+          )
+          h
       ; malloc_token Ews (tarray int_or_ptr_type NURSERY_SIZE) p
       ; data_at_ Ews (tarray int_or_ptr_type NURSERY_SIZE) p
       ).
@@ -483,13 +497,27 @@ Definition make_tinfo_spec :=
       ; all_string_constants sh gv
       ; MSS_constant gv
       ; malloc_token Ews thread_info_type t
-      ; data_at Ews thread_info_type
-                 (p, (offset_val (WORD_SIZE * NURSERY_SIZE) p,
-                      (h, repeat Vundef (Z.to_nat MAX_ARGS)))) t
+      ; data_at Ews
+          thread_info_type
+          ( p,
+          ( offset_val (WORD_SIZE * NURSERY_SIZE) p,
+          ( h
+          , repeat Vundef (Z.to_nat MAX_ARGS)
+          )))
+          t
       ; malloc_token Ews heap_type h
-      ; data_at Ews heap_type
-                 ((p, (p, (offset_val (WORD_SIZE * NURSERY_SIZE) p)))
-                    :: repeat zero_triple (Z.to_nat (MAX_SPACES - 1))) h
+      ; data_at Ews
+          heap_type
+          (
+            ( p,
+            ( p,
+            ( offset_val (WORD_SIZE * NURSERY_SIZE) p
+            , offset_val (WORD_SIZE * NURSERY_SIZE) p
+            )))
+          ::
+            repeat nullspace (Z.to_nat (MAX_SPACES - 1))
+          )
+          h
       ; malloc_token Ews (tarray int_or_ptr_type NURSERY_SIZE) p
       ; data_at_ Ews (tarray int_or_ptr_type NURSERY_SIZE) p
       ).

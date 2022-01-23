@@ -55,15 +55,20 @@ Proof.
     + rewrite <- Heqv in *. red in H0. rewrite H0 in H5.
       unfold heapgraph_block_size_prev in H5. simpl in H5. unfold nth_space in H5.
       rewrite H1 in H5. simpl in H5. rewrite <- H2 in H5.
-      replace_SEP
-        4 (heap_struct_rep
-             sh ((space_base (heap_head (ti_heap t_info)),
-                  (offset_val (WORD_SIZE * space_allocated (heap_head (ti_heap t_info)))
-                              (space_base (heap_head (ti_heap t_info))),
-                   offset_val (WORD_SIZE * space_capacity (heap_head (ti_heap t_info)))
-                              (space_base (heap_head (ti_heap t_info)))))
-                   :: map space_tri hl) (ti_heap_p t_info)) by
-          (unfold heap_struct_rep; entailer!). do 2 forward.
+      replace_SEP 4
+        (heap_struct_rep sh
+          (
+            ( space_base (heap_head (ti_heap t_info)),
+            ( offset_val (WORD_SIZE * space_allocated (heap_head (ti_heap t_info))) (space_base (heap_head (ti_heap t_info))),
+            ( offset_val (WORD_SIZE * space_capacity (heap_head (ti_heap t_info))) (space_base (heap_head (ti_heap t_info)))
+            , offset_val (WORD_SIZE * space_capacity (heap_head (ti_heap t_info))) (space_base (heap_head (ti_heap t_info)))
+            )))
+            ::
+              map space_tri hl
+            )
+            (ti_heap_p t_info)) by
+          (unfold heap_struct_rep; entailer!).
+      do 2 forward.
       unfold before_gc_thread_info_rep. rewrite !heap_struct_rep_eq. rewrite <- H5.
       replace (WORD_SIZE * 0)%Z with 0 by lia.
       rewrite !isptr_offset_val_zero by assumption. entailer!. rewrite H1. simpl tl.

@@ -7,4 +7,5 @@ Definition Vprog : varspecs. mk_varspecs prog. Defined.
 
 Definition thread_info_type : type := Tstruct _thread_info noattr.
 Definition space_type : type := Tstruct _space noattr.
+Definition nullspace: reptype space_type := (nullval, (nullval, (nullval, nullval))).
 Definition heap_type: type := Tstruct _heap noattr.

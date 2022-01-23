@@ -15,7 +15,7 @@ Definition MAX_SPACE_SIZE: Z
 
 Definition SPACE_STRUCT_SIZE: Z
  := Eval cbv [Archi.ptr64]
- in if Archi.ptr64 then 24 else 12.
+ in if Archi.ptr64 then 32 else 16.
 
 
 Definition MAX_SPACES: Z := 12.

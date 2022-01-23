@@ -139,6 +139,7 @@ Definition _create_space : ident := $"create_space".
 Definition _depth : ident := $"depth".
 Definition _do_generation : ident := $"do_generation".
 Definition _do_scan : ident := $"do_scan".
+Definition _end : ident := $"end".
 Definition _exit : ident := $"exit".
 Definition _fi : ident := $"fi".
 Definition _forward : ident := $"forward".
@@ -1311,13 +1312,21 @@ Definition f_create_space := {|
                 (Tstruct _space noattr)) _next
               (tptr (talignas 3%N (tptr tvoid))))
             (Etempvar _p (tptr (talignas 3%N (tptr tvoid)))))
-          (Sassign
-            (Efield
-              (Ederef (Etempvar _s (tptr (Tstruct _space noattr)))
-                (Tstruct _space noattr)) _limit
-              (tptr (talignas 3%N (tptr tvoid))))
-            (Ebinop Oadd (Etempvar _p (tptr (talignas 3%N (tptr tvoid))))
-              (Etempvar _n tulong) (tptr (talignas 3%N (tptr tvoid))))))))))
+          (Ssequence
+            (Sassign
+              (Efield
+                (Ederef (Etempvar _s (tptr (Tstruct _space noattr)))
+                  (Tstruct _space noattr)) _limit
+                (tptr (talignas 3%N (tptr tvoid))))
+              (Ebinop Oadd (Etempvar _p (tptr (talignas 3%N (tptr tvoid))))
+                (Etempvar _n tulong) (tptr (talignas 3%N (tptr tvoid)))))
+            (Sassign
+              (Efield
+                (Ederef (Etempvar _s (tptr (Tstruct _space noattr)))
+                  (Tstruct _space noattr)) _end
+                (tptr (talignas 3%N (tptr tvoid))))
+              (Ebinop Oadd (Etempvar _p (tptr (talignas 3%N (tptr tvoid))))
+                (Etempvar _n tulong) (tptr (talignas 3%N (tptr tvoid)))))))))))
 |}.
 
 Definition f_create_heap := {|
@@ -1392,19 +1401,35 @@ Definition f_create_heap := {|
                         (Tstruct _space noattr)) _next
                       (tptr (talignas 3%N (tptr tvoid))))
                     (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid)))
-                  (Sassign
-                    (Efield
-                      (Ederef
-                        (Ebinop Oadd
-                          (Efield
-                            (Ederef
-                              (Etempvar _h (tptr (Tstruct _heap noattr)))
-                              (Tstruct _heap noattr)) _spaces
-                            (tarray (Tstruct _space noattr) 12))
-                          (Etempvar _i tint) (tptr (Tstruct _space noattr)))
-                        (Tstruct _space noattr)) _limit
-                      (tptr (talignas 3%N (tptr tvoid))))
-                    (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid))))))
+                  (Ssequence
+                    (Sassign
+                      (Efield
+                        (Ederef
+                          (Ebinop Oadd
+                            (Efield
+                              (Ederef
+                                (Etempvar _h (tptr (Tstruct _heap noattr)))
+                                (Tstruct _heap noattr)) _spaces
+                              (tarray (Tstruct _space noattr) 12))
+                            (Etempvar _i tint)
+                            (tptr (Tstruct _space noattr)))
+                          (Tstruct _space noattr)) _limit
+                        (tptr (talignas 3%N (tptr tvoid))))
+                      (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid)))
+                    (Sassign
+                      (Efield
+                        (Ederef
+                          (Ebinop Oadd
+                            (Efield
+                              (Ederef
+                                (Etempvar _h (tptr (Tstruct _heap noattr)))
+                                (Tstruct _heap noattr)) _spaces
+                              (tarray (Tstruct _space noattr) 12))
+                            (Etempvar _i tint)
+                            (tptr (Tstruct _space noattr)))
+                          (Tstruct _space noattr)) _end
+                        (tptr (talignas 3%N (tptr tvoid))))
+                      (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid)))))))
             (Sset _i
               (Ebinop Oadd (Etempvar _i tint) (Econst_int (Int.repr 1) tint)
                 tint))))
@@ -1539,7 +1564,7 @@ Definition f_resume := {|
                                  tvoid cc_default))
           ((Evar ___stringlit_9 (tarray tschar 2)) ::
            (Evar ___stringlit_1 (tarray tschar 34)) ::
-           (Econst_int (Int.repr 343) tint) ::
+           (Econst_int (Int.repr 345) tint) ::
            (Evar ___func____2 (tarray tschar 7)) :: nil)))
       (Ssequence
         (Sset _lo
@@ -1865,7 +1890,7 @@ Definition f_garbage_collect := {|
                                  tvoid cc_default))
           ((Evar ___stringlit_13 (tarray tschar 2)) ::
            (Evar ___stringlit_1 (tarray tschar 34)) ::
-           (Econst_int (Int.repr 386) tint) ::
+           (Econst_int (Int.repr 388) tint) ::
            (Evar ___func____3 (tarray tschar 16)) :: nil))))))
 |}.
 
@@ -2004,7 +2029,8 @@ Definition composites : list composite_definition :=
  Composite _space Struct
    ((_start, (tptr (talignas 3%N (tptr tvoid)))) ::
     (_next, (tptr (talignas 3%N (tptr tvoid)))) ::
-    (_limit, (tptr (talignas 3%N (tptr tvoid)))) :: nil)
+    (_limit, (tptr (talignas 3%N (tptr tvoid)))) ::
+    (_end, (tptr (talignas 3%N (tptr tvoid)))) :: nil)
    noattr ::
  Composite _heap Struct
    ((_spaces, (tarray (Tstruct _space noattr) 12)) :: nil)
@@ -2370,7 +2396,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\n837d3678bf8a1b26695946283e7f127ea2e231c4a93caca0c5be12eb0acbc0d7  src/c/include/coq-vsu-gc/src/gc.c
+(*\nInput hashes (sha256):\n\n3d10cbaede3c865fa344c9afa255c7ed67fc69baf3ab2d17c46a0febc4be7518  src/c/include/coq-vsu-gc/src/gc.c
 60153f31e6db31a7c363199e3b84f3adbd1fc73fc3898a0ecdbbe2b43e6979fa  src/c/include/coq-vsu-gc/config.h
 9bef10c6cd654bdfcc03c36e4e3d5d27619302f21e2fbcb8b3b6cad30cf287ff  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

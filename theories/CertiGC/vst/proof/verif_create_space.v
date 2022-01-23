@@ -46,5 +46,5 @@ Proof.
                          data_at_ sh space_type s; MSS_constant gv)).
         -- contradiction.
         -- forward. unfold MSS_constant. entailer!.
-        -- do 3 forward. Exists p. unfold tarray. entailer!.
+        -- do 4 forward. Exists p. unfold tarray. entailer!.
 Qed.

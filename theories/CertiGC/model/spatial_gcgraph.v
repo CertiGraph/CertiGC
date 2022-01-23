@@ -183,8 +183,12 @@ Definition heap_rest_rep (hp: Heap): mpred :=
   iter_sepcon hp.(heap_spaces) space_rest_rep.
 
 Definition space_tri (sp: Space): (reptype space_type) :=
-  let s := sp.(space_base) in (s, (offset_val (WORD_SIZE * sp.(space_allocated)) s,
-                                    offset_val (WORD_SIZE * sp.(space_capacity)) s)).
+  let s := sp.(space_base) in
+  ( s,
+  ( offset_val (WORD_SIZE * sp.(space_allocated)) s,
+  ( offset_val (WORD_SIZE * sp.(space_capacity)) s
+  , offset_val (WORD_SIZE * sp.(space_capacity)) s
+  ))).
 
 Definition heap_struct_rep (sh: share) (sp_reps: list (reptype space_type)) (h: val):
   mpred := data_at sh heap_type sp_reps h.
@@ -197,7 +201,7 @@ Definition before_gc_thread_info_rep (sh: share) (ti: thread_info) (t: val) :=
           (offset_val (WORD_SIZE * nursery.(space_allocated)) p,
            (n_lim, (ti.(ti_heap_p), ti.(ti_args)))) t *
   heap_struct_rep
-    sh ((p, (Vundef, n_lim))
+    sh ((p, (Vundef, (n_lim, n_lim)))
           :: map space_tri (tl ti.(ti_heap).(heap_spaces))) ti.(ti_heap_p) *
   heap_rest_rep ti.(ti_heap).
 
@@ -1405,16 +1409,17 @@ Proof.
       * destruct p; try contradiction. clear -H2. unfold align_compatible in *.
         unfold heap_type.
         remember {|
-            co_su := Struct;
-            co_members := [(_spaces, tarray (Tstruct _space noattr) 12)];
-            co_attr := noattr;
-            co_sizeof := if Archi.ptr64 then 288 else 144;
-            co_alignof := WORD_SIZE;
-            co_rank := 2;
-            co_sizeof_pos := Zgeb0_ge0 (if Archi.ptr64 then 288 else 144) eq_refl;
-            co_alignof_two_p := prove_alignof_two_p WORD_SIZE eq_refl;
-            co_sizeof_alignof :=
-              prove_Zdivide WORD_SIZE (if Archi.ptr64 then 288 else 144) eq_refl |}.
+          co_su := Struct;
+          co_members := [(_spaces, tarray (Tstruct _space noattr) 12)];
+          co_attr := noattr;
+          co_sizeof := SPACE_STRUCT_SIZE * 12;
+          co_alignof := WORD_SIZE;
+          co_rank := 2;
+          co_sizeof_pos := Zgeb0_ge0 (SPACE_STRUCT_SIZE * 12) eq_refl;
+          co_alignof_two_p := prove_alignof_two_p WORD_SIZE eq_refl;
+          co_sizeof_alignof :=
+          prove_Zdivide WORD_SIZE (SPACE_STRUCT_SIZE * 12) eq_refl
+        |} as c eqn:Heqnc.
         apply (align_compatible_rec_Tstruct cenv_cs _heap noattr c _); subst c.
         1: reflexivity. simpl co_members. intros. simpl in H.
         if_tac in H; inversion H. subst. clear H. inversion H0. subst z0.

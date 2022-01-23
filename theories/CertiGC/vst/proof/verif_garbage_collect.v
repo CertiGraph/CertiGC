@@ -90,7 +90,7 @@ Proof.
   assert (isptr (space_base (nth_space t_info 0))) by
       (rewrite <- H3; apply generation_base__isptr). do 2 forward. deadvars!.
   rewrite upd_Znth0_old.
-  2: { pose proof (@Zlength_nonneg (val * (val * val))
+  2: { pose proof (@Zlength_nonneg (val * (val * (val * val)))
                                    (map space_tri (tl (heap_spaces (ti_heap t_info))))).
        rewrite Zlength_cons. lia. }
   rewrite sublist_1_cons, Zlength_cons, sublist_same, Znth_0_cons by lia.
@@ -245,9 +245,11 @@ Proof.
         assert (space_base sp <> nullval) by
             (rewrite H30; destruct p; try contradiction; intro; inversion H31).
         sep_apply (ti_token_rep_add t_info' sp (i + 1) H20 H24 H31); auto.
-        replace (space_base sp,
-                 (space_base sp,
-                  offset_val (WORD_SIZE * space_capacity sp) (space_base sp))) with
+        replace ( space_base sp,
+                ( space_base sp,
+                ( offset_val (WORD_SIZE * space_capacity sp) (space_base sp)
+                , offset_val (WORD_SIZE * space_capacity sp) (space_base sp)
+                ))) with
             (space_tri sp) by          
             (unfold space_tri; do 2 f_equal; subst sp; simpl;
              rewrite isptr_offset_val_zero by assumption; reflexivity).

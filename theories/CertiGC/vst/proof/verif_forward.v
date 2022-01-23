@@ -284,7 +284,7 @@ Proof.
            remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) as sp_to.
            assert (isptr (space_base sp_to)) by (rewrite <- H23; apply generation_base__isptr).
            remember (map space_tri (heap_spaces (ti_heap t_info))) as l.
-           assert (@Znth (val * (val * val)) (Vundef, (Vundef, Vundef))
+           assert (@Znth (val * (val * (val * val))) (Vundef, (Vundef, (Vundef, Vundef)))
                          (Z.of_nat to) l = space_tri sp_to). {
              subst l sp_to. rewrite Znth_map by (rewrite heap_spaces__size; rep_lia).
              reflexivity. }
@@ -927,7 +927,7 @@ Proof.
            remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))) as sp_to.
            assert (isptr (space_base sp_to)) by (rewrite <- H24; apply generation_base__isptr).
            remember (map space_tri (heap_spaces (ti_heap t_info))).
-           assert (@Znth (val * (val * val)) (Vundef, (Vundef, Vundef))
+           assert (@Znth (val * (val * (val * val))) (Vundef, (Vundef, (Vundef, Vundef)))
                          (Z.of_nat to) l = space_tri sp_to). {
              subst l sp_to. rewrite Znth_map by (rewrite heap_spaces__size; rep_lia).
              reflexivity. }

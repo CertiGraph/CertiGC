@@ -36,7 +36,7 @@ int Is_block(value x) {
 
 /* A "space" describes one generation of the generational collector. */
 struct space {
-  value *start, *next, *limit;
+  value *start, *next, *limit, *end;
 };
 /* Either start==NULL (meaning that this generation has not yet been created),
    or start <= next <= limit.  The words in start..next  are allocated
@@ -295,6 +295,7 @@ void create_space(struct space *s,  /* which generation to create */
   s->start=p;
   s->next=p;
   s->limit = p+n;
+  s->end = p+n;
 }
 
 struct heap *create_heap()
@@ -310,6 +311,7 @@ struct heap *create_heap()
     h->spaces[i].start = NULL;
     h->spaces[i].next = NULL;
     h->spaces[i].limit = NULL;
+    h->spaces[i].end = NULL;
   }
   return h;
 }

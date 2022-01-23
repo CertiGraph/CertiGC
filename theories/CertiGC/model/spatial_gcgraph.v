@@ -2,7 +2,9 @@ Require Import Coq.Lists.List.
 
 From VST Require Import veric.compcert_rmaps.
 From VST Require Import msl.shares.
-From VST Require Export msl.wand_frame.
+From VST Require Import msl.wand_frame.
+From VST Require Import floyd.proofauto.
+From VST Require Import floyd.library.
 
 From CertiGraph Require Import lib.List_ext.
 From CertiGraph Require Import msl_ext.log_normalize.
@@ -13,7 +15,9 @@ From CertiGraph Require Import graph.graph_model.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.GCGraph.
-From CertiGC Require Export ast.env_graph_gc.
+From CertiGC Require Import ast.env_graph_gc.
+From CertiGC Require Import CertiGC.vst.clightgen.gc.
+
 
 Local Open Scope logic.
 

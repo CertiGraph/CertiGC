@@ -1,5 +1,5 @@
 Require Import Coq.Logic.FinFun.
-Require Export Coq.Program.Basics.
+Require Import Coq.Program.Basics.
 Require Import Coq.ZArith.ZArith.
 
 From compcert Require Import lib.Integers.

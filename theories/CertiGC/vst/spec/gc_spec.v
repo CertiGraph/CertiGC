@@ -1,12 +1,15 @@
-From VST Require Export veric.rmaps.
-From CertiGraph Require Export lib.List_ext.
-From CertiGraph Require Export msl_ext.iter_sepcon.
-From CertiGraph Require Export graph.graph_model.
+From VST Require Import veric.rmaps.
+From VST Require Import floyd.proofauto.
+From VST Require Import floyd.library.
+From CertiGraph Require Import lib.List_ext.
+From CertiGraph Require Import msl_ext.iter_sepcon.
+From CertiGraph Require Import graph.graph_model.
 
-From CertiGC Require Export model.constants.
-From CertiGC Require Export model.GCGraph.
-From CertiGC Require Export model.spatial_gcgraph.
-From CertiGC Require Export CertiGC.vst.ast.env_graph_gc.
+From CertiGC Require Import model.constants.
+From CertiGC Require Import model.GCGraph.
+From CertiGC Require Import model.spatial_gcgraph.
+From CertiGC Require Import CertiGC.vst.ast.env_graph_gc.
+From CertiGC Require Import CertiGC.vst.clightgen.gc.
 
 Local Open Scope logic.
 

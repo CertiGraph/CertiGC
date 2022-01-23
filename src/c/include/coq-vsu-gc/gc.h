@@ -86,11 +86,8 @@ recent collection.
 To call the garbage collector, the mutator passes a fun_info and
 a thread_info, as follows. */
 
-typedef void  * value
-#ifdef COMPCERT
-  __attribute((aligned(_Alignof(void *))))
-#endif
-  ;
+typedef void* value __attribute((aligned(_Alignof(void *))));
+
 typedef uintnat header_t;
 typedef uintnat mlsize_t;
 typedef unsigned int tag_t;             /* Actually, an unsigned char */

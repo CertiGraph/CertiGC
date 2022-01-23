@@ -2366,11 +2366,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*
-Input hashes (sha256):
-
-19ce7d8e4b3bfb34b9aa8fcfde382f77d135a1b1261e66862dc868278c954303  src/c/include/coq-vsu-gc/src/gc.c
+(*\nInput hashes (sha256):\n\n19ce7d8e4b3bfb34b9aa8fcfde382f77d135a1b1261e66862dc868278c954303  src/c/include/coq-vsu-gc/src/gc.c
 60153f31e6db31a7c363199e3b84f3adbd1fc73fc3898a0ecdbbe2b43e6979fa  src/c/include/coq-vsu-gc/config.h
-e6bf9351f7692f671ddb70634c4b18141b05590a12734ccb07ec61de757b722c  src/c/include/coq-vsu-gc/gc.h
-a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h
-*)
+9bef10c6cd654bdfcc03c36e4e3d5d27619302f21e2fbcb8b3b6cad30cf287ff  src/c/include/coq-vsu-gc/gc.h
+a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

@@ -192,6 +192,24 @@ Definition reset_space (sp: Space) : Space := {|
     space__upper_bound := space__upper_bound sp;
 |}.
 
+Lemma space_base__reset_space (sp: Space):
+  space_base (reset_space sp) = space_base sp.
+Proof.
+  easy.
+Qed.
+
+Lemma space_allocated__reset_space (sp: Space):
+  space_allocated (reset_space sp) = 0.
+Proof.
+  easy.
+Qed.
+
+Lemma space_capacity__reset_space (sp: Space):
+  space_capacity (reset_space sp) = space_capacity sp.
+Proof.
+  easy.
+Qed.
+
 Fixpoint reset_nth_space (n: nat) (s: list Space): list Space :=
   match n with
   | O => match s with

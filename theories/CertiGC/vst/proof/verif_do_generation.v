@@ -179,70 +179,74 @@ Proof.
       apply thread_info_rep_ramif_stable_1; assumption.
     }
     thaw FR.
-    unfold thread_info_rep. Intros. freeze [0;2;3;4;6] FR. rewrite heap_struct_rep_eq.
+    unfold thread_info_rep.
+    Intros.
+    freeze [0;2;3;4;6] FR.
+    rewrite heap_struct_rep_eq.
     assert_PROP (space_address t_info2 from =
                  field_address (tarray space_type 12) [ArraySubsc (Z.of_nat from)]
-                               (ti_heap_p t_info2)). {
-      entailer!. unfold space_address. unfold field_address. rewrite if_true.
-      - simpl. f_equal.
-      - unfold field_compatible in *. simpl in *. intuition. }
-    rewrite H40. clear H40. Opaque Znth. forward.
+                               (ti_heap_p t_info2)) as Espace_address.
     {
-      Transparent Znth.
       entailer!.
+      unfold space_address, field_address.
+      rewrite if_true.
+      - f_equal.
+      - unfold field_compatible in *.
+        simpl in *.
+        intuition lia.
     }
-    forward.
-    {
-      Transparent Znth.
-      entailer!.
-    }
-    unfold space_tri at 2 3 4 5 6 7.
-    repeat rewrite upd_Znth_twice.
-    2: {
-      rewrite Zlength_map.
-      rewrite heap_spaces__size.
-      rep_lia.
-    }
-    repeat rewrite Znth_map by (rewrite heap_spaces__size; rep_lia).
+    rewrite Espace_address. clear Espace_address.
+    Opaque Znth.
+    forward. { Transparent Znth. entailer!. }
+    forward. { Transparent Znth. entailer!. }
+    repeat rewrite upd_Znth_twice by (rewrite heap_spaces__size ; rep_lia).
+    repeat rewrite Znth_map by (rewrite heap_spaces__size ; rep_lia).
     repeat rewrite <- nth_space_Znth.
     repeat rewrite upd_Znth_same by (
       rewrite Zlength_map;
       rewrite heap_spaces__size;
       rep_lia
     ).
-    simpl.
+    rewrite upd_Znth_twice by (rewrite Zlength_map, heap_spaces__size ; rep_lia).
+    unfold space_tri at 2 3 4 5 6 7.
     thaw FR.
     assert (heapgraph_has_gen g2 from) by (destruct H35 as [_ [? _]]; assumption).
     rewrite (graph_rep_reset g2 from) by assumption.
-    remember (reset_graph from g2) as g3.
-    remember (reset_nth_heap_thread_info from t_info2) as t_info3.
-    admit.
-(*
-    Intros.     
+    Intros.
     sep_apply (heap_rest_rep_reset g2 t_info2 from (proj1 H34) H40).
     rewrite <- heap_struct_rep_eq.
     gather_SEP (data_at _ _ _ _) (heap_struct_rep _ _ _) (heap_rest_rep _).
     replace_SEP 0 (thread_info_rep sh (reset_nth_heap_thread_info from t_info2) ti).
-    + unfold thread_info_rep. simpl ti_heap_p. simpl ti_args. entailer!.
+    + unfold thread_info_rep.
+      simpl ti_heap_p.
+      simpl ti_args.
+      entailer!.
       assert (from < length (heap_spaces (ti_heap t_info2)))%nat by
-          (destruct H34 as [[_ [_ ?]] _]; red in H40; lia). simpl.
+          (destruct H34 as [[_ [_ ?]] _]; red in H40; lia).
+      simpl.
       rewrite (reset_nth_space_Znth _ _ H54), <- nth_space_Znth, <- upd_Znth_map.
-      unfold space_tri at 3. simpl. replace (WORD_SIZE * 0)%Z with 0 by lia.
-      repeat rewrite isptr_offset_val_zero by assumption. cancel.
+      unfold space_tri at 3.
+      simpl.
+      rewrite isptr_offset_val_zero by assumption.
+      cancel.
     + apply super_compatible_reset with (gen := from) in H34.
-      2: { apply (frr_not_pointing from to f_info roots g roots1 g1); auto.
-           - clear -H0. destruct H0 as [_ [_ [_ [? _]]]]. assumption.
-           - clear -H. destruct H as [_ [_ [[_ ?] _]]]. assumption. }
+      2: {
+        apply (frr_not_pointing from to f_info roots g roots1 g1); auto.
+        - now destruct H0 as [_ [_ [_ [? _]]]].
+        - now destruct H as [_ [_ [[_ ?] _]]].
+      }
       remember (reset_nth_heap_thread_info from t_info2) as t_info3.
       remember (reset_graph from g2) as g3.
       assert (do_generation_relation from to f_info roots roots1 g g3) by
           (exists g1, g2; split; [|split]; assumption).
-      assert (thread_info_relation t_info t_info3). {
+      assert (thread_info_relation t_info t_info3).
+      {
         apply tir_trans with t_info2.
         - apply tir_trans with t_info1; assumption.
-        - subst t_info3. apply tir_reset. }
+        - subst t_info3.
+          apply tir_reset.
+      }
       Exists g3 t_info3 roots1.
-      destruct H34 as [? [? [? ?]]]. now entailer!.
+      destruct H34 as [? [? [? ?]]].
+      now entailer!.
 Qed.
-*)
-Admitted.

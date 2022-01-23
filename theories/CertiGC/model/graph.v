@@ -134,6 +134,8 @@ Definition generations_append
 
 Definition HeapGraph := LabeledGraph Addr Field Block unit Generations.
 
+#[global]Identity Coercion HeapGraph_LabeledGraph: HeapGraph >-> LabeledGraph.
+
 Definition heapgraph_block (g : HeapGraph) (v : Addr) : Block := vlabel g v.
 
 Definition heapgraph_field_pairs 

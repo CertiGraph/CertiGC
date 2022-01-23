@@ -13,8 +13,6 @@ From CertiGC Require Import CertiGC.vst.clightgen.gc.
 
 Local Open Scope logic.
 
-#[global]Identity Coercion HeapGraph_LabeledGraph: HeapGraph >-> LabeledGraph.
-
 Definition init_data2byte (d: init_data) : byte :=
   match d with
   | Init_int8 m => Byte.repr (Int.intval m)

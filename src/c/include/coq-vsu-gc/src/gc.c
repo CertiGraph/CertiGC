@@ -253,8 +253,10 @@ void do_generation (struct space *from,  /* descriptor of from-space */
   do_scan(from->start, from->limit, p, &to->next);
   if(0)  fprintf(stderr,"%5.3f%% occupancy\n",
 	  (to->next-p)/(double)(from->next-from->start));
-  from->next=from->start;
-  from->limit=from->end;
+  value *start = from->start;
+  value *end  = from->end;
+  from->next  = start;
+  from->limit = end;
 }
 
 #if 0

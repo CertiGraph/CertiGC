@@ -176,7 +176,7 @@ Definition space_rest_rep (sp: Space): mpred :=
   if (Val.eq sp.(space_base) nullval)
   then emp
   else data_at_ (space_sh sp)
-                (tarray int_or_ptr_type (sp.(space_capacity) - sp.(space_allocated)))
+                (tarray int_or_ptr_type (sp.(space_capacity) - sp.(space_allocated) - sp.(space_remembered)))
                 (offset_val (WORD_SIZE * space_allocated sp) sp.(space_base)).
 
 Definition heap_rest_rep (hp: Heap): mpred :=
@@ -186,7 +186,7 @@ Definition space_tri (sp: Space): (reptype space_type) :=
   let s := sp.(space_base) in
   ( s,
   ( offset_val (WORD_SIZE * sp.(space_allocated)) s,
-  ( offset_val (WORD_SIZE * sp.(space_capacity)) s
+  ( offset_val (WORD_SIZE * (sp.(space_capacity) - sp.(space_remembered))) s
   , offset_val (WORD_SIZE * sp.(space_capacity)) s
   ))).
 
@@ -715,7 +715,13 @@ Proof.
     apply iter_sepcon_func_strong. intros gen ?.
     unfold space_rest_rep, heap_rest_gen_data_at_. rewrite nat_inc_list_In_iff in H4.
     specialize (H0 _ H4). destruct H0 as [? [? ?]]. rewrite <- H0, if_false.
-    + unfold heapgraph_generation_base. rewrite if_true. 2: assumption. rewrite <- H5, <- H6. f_equal.
+    + unfold heapgraph_generation_base. rewrite if_true. 2: assumption. rewrite <- H5, <- H6.
+      repeat rewrite (space_remembered__is_zero (nth_space t_info gen)).
+      replace
+        (space_capacity (nth_space t_info gen) - heapgraph_block_size_prev g gen (generation_block_count (heapgraph_generation g gen)) - 0)
+        with (space_capacity (nth_space t_info gen) - heapgraph_block_size_prev g gen (generation_block_count (heapgraph_generation g gen)))
+        by lia.
+      f_equal.
     + pose proof (generation_base__isptr (heapgraph_generation g gen)).
       destruct (generation_base (heapgraph_generation g gen)); try contradiction. intro. inversion H8.
   - unfold nth_space. remember (heap_spaces (ti_heap t_info)) as ls.
@@ -1043,17 +1049,16 @@ Proof.
   rewrite (sepcon_comm _ P), <- sepcon_assoc. f_equal.
   unfold space_rest_rep. simpl. do 2 rewrite if_false by assumption.
   red in H2. subst P. remember (Znth i (heap_spaces h)) as sp.
-  assert (Hs__order: 0 <= s <= space_capacity sp - space_allocated sp).
-  {
-    pose proof (space_remembered__lower_bound sp).
-    lia.
-  }
-  rewrite (data_at__tarray_value _ _ _ _ Hs__order).
+  rewrite (data_at__tarray_value _ _ _ _ H2).
   rewrite offset_offset_val.
-  replace (space_capacity sp - space_allocated sp - s) with
-      (space_capacity sp - (space_allocated sp + s)) by lia.
-  replace (WORD_SIZE * space_allocated sp + WORD_SIZE * s) with
-      (WORD_SIZE * (space_allocated sp + s))%Z by rep_lia.
+  replace
+    (space_capacity sp - space_allocated sp - space_remembered sp - s)
+    with (space_capacity sp - (space_allocated sp + s) - space_remembered sp)
+    by lia.
+  replace
+    (WORD_SIZE * space_allocated sp + WORD_SIZE * s)
+    with (WORD_SIZE * (space_allocated sp + s))%Z
+    by rep_lia.
   reflexivity.
 Qed.
 
@@ -1673,7 +1678,11 @@ Proof.
   rewrite H5. simpl. remember (nth_space t_info gen).
   replace (WORD_SIZE * 0)%Z with 0 by lia.
   rewrite isptr_offset_val_zero by assumption.
-  replace (space_capacity s - 0) with (space_capacity s) by lia.
+  replace (space_capacity s - 0 - 0) with (space_capacity s) by lia.
+  replace
+    (space_capacity s - space_allocated s - space_remembered s)
+    with (space_capacity s - space_allocated s)
+    by (pose proof space_remembered__is_zero s ; lia).
   rewrite <- data_at__tarray_value.
   2: {
     pose proof (space_allocated__lower_bound s).

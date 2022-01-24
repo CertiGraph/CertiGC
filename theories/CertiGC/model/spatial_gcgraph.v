@@ -755,8 +755,13 @@ Proof.
   remember (heapgraph_generation_sh g gen) as sh.
   rewrite <- (data_at__tarray_value sh _ _ (heapgraph_generation_base g gen)).
   - unfold gen_size. entailer!.
-  - unfold heapgraph_generation_size. destruct (gt_gs_compatible _ _ H0 _ H) as [_ [_ ?]].
-    rewrite H1. apply space__order.
+  - unfold heapgraph_generation_size.
+    destruct (gt_gs_compatible _ _ H0 _ H) as [_ [_ ?]].
+    rewrite H1.
+    pose proof (space_allocated__lower_bound (nth_space t_info gen)).
+    pose proof (space_remembered__lower_bound (nth_space t_info gen)).
+    pose proof (space__order (nth_space t_info gen)).
+    lia.
 Qed.
 
 Lemma graph_heap_rest_iter_sepcon: forall g t_info,
@@ -1038,11 +1043,18 @@ Proof.
   rewrite (sepcon_comm _ P), <- sepcon_assoc. f_equal.
   unfold space_rest_rep. simpl. do 2 rewrite if_false by assumption.
   red in H2. subst P. remember (Znth i (heap_spaces h)) as sp.
-  rewrite (data_at__tarray_value _ _ _ _ H2). rewrite offset_offset_val.
+  assert (Hs__order: 0 <= s <= space_capacity sp - space_allocated sp).
+  {
+    pose proof (space_remembered__lower_bound sp).
+    lia.
+  }
+  rewrite (data_at__tarray_value _ _ _ _ Hs__order).
+  rewrite offset_offset_val.
   replace (space_capacity sp - space_allocated sp - s) with
       (space_capacity sp - (space_allocated sp + s)) by lia.
   replace (WORD_SIZE * space_allocated sp + WORD_SIZE * s) with
-      (WORD_SIZE * (space_allocated sp + s))%Z by rep_lia. reflexivity.
+      (WORD_SIZE * (space_allocated sp + s))%Z by rep_lia.
+  reflexivity.
 Qed.
 
 Lemma data_at__singleton_array_eq:
@@ -1662,7 +1674,14 @@ Proof.
   replace (WORD_SIZE * 0)%Z with 0 by lia.
   rewrite isptr_offset_val_zero by assumption.
   replace (space_capacity s - 0) with (space_capacity s) by lia.
-  rewrite <- data_at__tarray_value by apply space__order. cancel.
+  rewrite <- data_at__tarray_value.
+  2: {
+    pose proof (space_allocated__lower_bound s).
+    pose proof (space_remembered__lower_bound s).
+    pose proof (space__order s).
+    lia.
+  }
+  cancel.
 Qed.
 
 Definition space_token_rep (sp: Space): mpred :=

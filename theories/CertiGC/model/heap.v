@@ -14,20 +14,28 @@ From CertiGC Require Import util.
 Record Space: Type := {
     space_base: val;
     space_allocated: Z;
+    space_remembered: Z;
     space_capacity: Z;
     space_sh: share;
-    space__order: (0 <= space_allocated <= space_capacity)%Z;
+    space_remembered__is_zero: space_remembered = 0;
+    space_allocated__lower_bound: 0 <= space_allocated;
+    space_remembered__lower_bound: 0 <= space_remembered;
+    space__order: (0 <= space_allocated + space_remembered <= space_capacity)%Z;
     space__upper_bound: (space_capacity < MAX_SPACE_SIZE)%Z;
 }.
 
 Definition has_space (sp: Space) (s: Z): Prop :=
-  0 <= s <= space_capacity sp - space_allocated sp.
+  0 <= s <= space_capacity sp - space_allocated sp - space_remembered sp.
 
 Definition null_space: Space := {|
     space_base := nullval;
     space_allocated := 0;
+    space_remembered := 0;
     space_capacity := 0;
     space_sh := emptyshare;
+    space_remembered__is_zero := eq_refl;
+    space_allocated__lower_bound := ltac:(easy);
+    space_remembered__lower_bound := ltac:(easy);
     space__order := ltac:(easy);
     space__upper_bound := ltac:(easy);
 |}.
@@ -58,22 +66,35 @@ Lemma space_allocated__signed_range (sp: Space):
     Ptrofs.min_signed <= WORD_SIZE * space_allocated sp <= Ptrofs.max_signed.
 Proof.
     apply MSS_max_wordsize_signed_range.
-    pose proof (space__order sp).
-    pose proof (space__upper_bound sp).
-    lia.
+    destruct sp ; simpl ; lia.
+Qed.
+
+Lemma space_remembered__signed_range (sp: Space):
+    Ptrofs.min_signed <= WORD_SIZE * space_remembered sp <= Ptrofs.max_signed.
+Proof.
+    apply MSS_max_wordsize_signed_range.
+    destruct sp ; simpl ; lia.
+Qed.
+
+Lemma space_used__signed_range (sp: Space):
+    Ptrofs.min_signed <= WORD_SIZE * (space_allocated sp + space_remembered sp) <= Ptrofs.max_signed.
+Proof.
+    apply MSS_max_wordsize_signed_range.
+    destruct sp ; simpl ; lia.
 Qed.
 
 Lemma space_remaining__signed_range (sp: Space):
-    Ptrofs.min_signed <= WORD_SIZE * space_capacity sp - WORD_SIZE * space_allocated sp <= Ptrofs.max_signed.
+    Ptrofs.min_signed <= WORD_SIZE * space_capacity sp - WORD_SIZE * space_allocated sp - WORD_SIZE * space_remembered sp <= Ptrofs.max_signed.
 Proof.
-    rewrite <- Z.mul_sub_distr_l. apply MSS_max_wordsize_signed_range.
+    repeat rewrite <- Z.mul_sub_distr_l.
+    apply MSS_max_wordsize_signed_range.
     pose proof (space__order sp).
     pose proof (space_capacity__tight_range sp).
     lia.
 Qed.
 
 Lemma space_remaining__repable_signed (sp: Space):
-    range_signed (space_capacity sp - space_allocated sp).
+    range_signed (space_capacity sp - space_allocated sp - space_remembered sp).
 Proof.
     rewrite <- signed_range_repable_signed.
     pose proof (space_remaining__signed_range sp) as H.
@@ -86,6 +107,24 @@ Lemma space_allocated__repable_signed (sp: Space):
 Proof.
     rewrite <- signed_range_repable_signed.
     pose proof (space_allocated__signed_range sp) as H.
+    unfold WORD_SIZE in H.
+    rep_lia.
+Qed.
+
+Lemma space_remembered__repable_signed (sp: Space):
+    range_signed (space_remembered sp).
+Proof.
+    rewrite <- signed_range_repable_signed.
+    pose proof (space_remembered__signed_range sp) as H.
+    unfold WORD_SIZE in H.
+    rep_lia.
+Qed.
+
+Lemma space_used__repable_signed (sp: Space):
+    range_signed (space_allocated sp + space_remembered sp).
+Proof.
+    rewrite <- signed_range_repable_signed.
+    pose proof (space_used__signed_range sp) as H.
     unfold WORD_SIZE in H.
     rep_lia.
 Qed.

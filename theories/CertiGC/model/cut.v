@@ -11,14 +11,33 @@ From CertiGC Require Import model.thread_info.
 
 
 Lemma cut_space__order: forall (sp : Space) (s : Z),
-    has_space sp s -> 0 <= space_allocated sp + s <= space_capacity sp.
-Proof. intros. pose proof (space__order sp). red in H. lia. Qed.
+    has_space sp s -> 0 <= space_allocated sp + s + space_remembered sp <= space_capacity sp.
+Proof.
+  intros.
+  pose proof (space__order sp).
+  red in H.
+  lia.
+Qed.
+
+
+Lemma cut_space_allocated__lower_bound: forall (sp : Space) (s : Z),
+    has_space sp s -> 0 <= space_allocated sp + s.
+Proof.
+  intros.
+  pose proof (space_allocated__lower_bound sp).
+  red in H.
+  lia.
+Qed.
 
 Definition cut_space (sp: Space) (s: Z) (H: has_space sp s): Space := {|
     space_base := space_base sp;
     space_allocated := space_allocated sp + s;
+    space_remembered := space_remembered sp;
     space_capacity := space_capacity sp;
     space_sh := space_sh sp;
+    space_remembered__is_zero := space_remembered__is_zero sp;
+    space_allocated__lower_bound := cut_space_allocated__lower_bound sp s H;
+    space_remembered__lower_bound := space_remembered__lower_bound sp;
     space__order := cut_space__order sp s H;
     space__upper_bound := space__upper_bound sp;
 |}.

@@ -42,8 +42,10 @@ Proof.
   1: apply thread_info_rep_ramif_stable; assumption.
   remember (space_base (nth_space t_info from)) as from_p.
   remember (space_base (nth_space t_info to)) as to_p.
-  remember (WORD_SIZE * space_allocated (nth_space t_info to))%Z as to_used.
   remember (WORD_SIZE * space_capacity (nth_space t_info to))%Z as to_total.
+  (* remember (WORD_SIZE * (space_allocated (nth_space t_info to) + space_remembered (nth_space t_info to)))%Z as to_used. *)
+  (* remember (WORD_SIZE * (space_allocated (nth_space t_info from) + space_remembered (nth_space t_info from)))%Z as from_used. *)
+  remember (WORD_SIZE * space_allocated (nth_space t_info to))%Z as to_used.
   remember (WORD_SIZE * space_allocated (nth_space t_info from))%Z as from_used.
   assert (is_true (sameblock (offset_val from_used from_p) from_p)). {
     destruct from_p; try contradiction. simpl.
@@ -54,17 +56,32 @@ Proof.
   forward_if True.
   - forward. entailer!.
   - destruct from_p; try contradiction. inv_int i. destruct to_p; try contradiction.
-    inv_int i0. simpl in H18; unfold sem_sub_pp in H18;
-                  destruct eq_block in H18; [|easy]. exfalso.
+    inv_int i0.
+    simpl in H18; unfold sem_sub_pp in H18; destruct eq_block in H18; [|easy].
+    exfalso.
     rewrite !ptrofs_add_repr, !ptrofs_sub_repr, !if_true in H18 by reflexivity.
-    simpl in H18. replace (ofs0 + to_total - (ofs0 + to_used)) with
-                      (to_total - to_used) in H18 by lia.
+    simpl in H18.
+    replace (ofs0 + to_total - (ofs0 + to_used)) with (to_total - to_used) in H18 by lia.
     replace (ofs + from_used - ofs) with from_used in H18 by lia.
-    assert (Ptrofs.min_signed <= from_used <= Ptrofs.max_signed) by
-        (subst; apply space_allocated__signed_range).
-    assert (Ptrofs.min_signed <= to_total - to_used <= Ptrofs.max_signed) by
-        (subst; apply space_remaining__signed_range). unfold Ptrofs.divs in H18.
-    rewrite !Ptrofs.signed_repr in H18 by rep_lia. subst. unfold WORD_SIZE in H18.
+    assert (E: forall x, space_allocated x = space_allocated x + space_remembered x).
+    {
+      intro x.
+      pose proof (space_remembered__is_zero x).
+      lia.
+    }
+    rewrite E in Heqfrom_used.
+    rewrite E in Heqto_used.
+    assert (Ptrofs.min_signed <= from_used <= Ptrofs.max_signed) by (subst; apply space_used__signed_range).
+    assert (Ptrofs.min_signed <= to_total - to_used <= Ptrofs.max_signed).
+    {
+      subst.
+      pose proof (space_remaining__signed_range (nth_space t_info to)).
+      lia.
+    }
+    unfold Ptrofs.divs in H18.
+    Check Ptrofs.signed_repr.
+    rewrite !Ptrofs.signed_repr in H18 by rep_lia.
+    subst. unfold WORD_SIZE in H18.
     rewrite <- Z.mul_sub_distr_l, Z.mul_comm, Z.quot_mul,
     Z.mul_comm, Z.quot_mul in H18 by lia.
     first [rewrite !ptrofs_to_int_repr in H18 |
@@ -72,23 +89,38 @@ Proof.
     remember (if Archi.ptr64
               then Int64.lt
                      (Int64.repr
-                        (space_capacity (nth_space t_info to) -
-                         space_allocated (nth_space t_info to)))
-                     (Int64.repr (space_allocated (nth_space t_info from)))
+                      (space_capacity (nth_space t_info to) -
+                      (space_allocated (nth_space t_info to) +
+                        space_remembered (nth_space t_info to))))
+                (Int64.repr (space_allocated (nth_space t_info from) + space_remembered (nth_space t_info from)))
               else Int.lt
                      (Int.repr
-                        (space_capacity (nth_space t_info to) -
-                         space_allocated (nth_space t_info to)))
-                     (Int.repr (space_allocated (nth_space t_info from)))) as lte.
-    simpl in Heqlte. rewrite <- Heqlte in H18. destruct lte; simpl in H18.
+                      (space_capacity (nth_space t_info to) -
+                      (space_allocated (nth_space t_info to) +
+                        space_remembered (nth_space t_info to))))
+                (Int.repr (space_allocated (nth_space t_info from) + space_remembered (nth_space t_info from)))) as lte.
+    simpl in Heqlte.
+    rewrite <- Heqlte in H18.
+    destruct lte; simpl in H18.
     2: inversion H18. symmetry in Heqlte.
     match goal with
     | H : Int64.lt _ _ = true |- _ => apply lt64_repr in H
     | H : Int.lt _ _ = true |- _ => apply lt_repr in H
     end.
-    2: apply space_remaining__repable_signed.
-    2: apply space_allocated__repable_signed. clear -H8 H3 Heqlte. red in H3.
-    unfold heapgraph_generation_size, rest_gen_size in H3. rewrite H8 in H3. lia.
+    2: {
+      replace
+        (space_capacity (nth_space t_info to) - (space_allocated (nth_space t_info to) + space_remembered (nth_space t_info to)))
+        with (space_capacity (nth_space t_info to) - space_allocated (nth_space t_info to) - space_remembered (nth_space t_info to))
+        by lia.
+      apply space_remaining__repable_signed.
+    }
+    2: {
+      apply space_used__repable_signed.
+    }
+    clear -H8 H3 Heqlte. red in H3.
+    unfold heapgraph_generation_size, rest_gen_size in H3. rewrite H8 in H3.
+    repeat rewrite space_remembered__is_zero in *.
+    lia.
   - Intros. localize [space_struct_rep sh t_info from].
     unfold space_struct_rep, space_tri. do 2 (forward; [subst from_p; entailer!|]).
     replace_SEP 0 (space_struct_rep sh t_info from) by

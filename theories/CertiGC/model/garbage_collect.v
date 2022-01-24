@@ -77,16 +77,26 @@ Proof.
   assert (heapgraph_has_gen g i) by (unfold heapgraph_has_gen in H0 |-*; lia).
   split; [|split; [|split; [|split; [|split; [|split; [|split]]]]]]; auto.
   - unfold heapgraph_can_copy_except, heapgraph_generation_can_copy in H. red.
-    unfold rest_gen_size. specialize (H (S i)). simpl in H.
-    destruct (gt_gs_compatible _ _ H1 _ H0) as [_ [_ ?]].
-    destruct (gt_gs_compatible _ _ H1 _ H7) as [_ [_ ?]].
-    fold (heapgraph_generation_size g (S i)) in H8. fold (heapgraph_generation_size g i) in H9.
-    rewrite <- H8. fold (gen_size t_info (S i)).
-    destruct (space__order (nth_space t_info i)) as [_ ?].
-    fold (gen_size t_info i) in H10. rewrite <- H9 in H10.
-    transitivity (gen_size t_info i). 1: assumption.
+    unfold rest_gen_size.
+    specialize (H (S i)) ; simpl in H.
+    destruct (gt_gs_compatible _ _ H1 _ H0) as [_ [_ HSi]].
+    destruct (gt_gs_compatible _ _ H1 _ H7) as [_ [_ Hi]].
+    fold (heapgraph_generation_size g (S i)) in HSi.
+    fold (heapgraph_generation_size g i) in Hi.
+    rewrite <- HSi.
+    fold (gen_size t_info (S i)).
+    destruct (space__order (nth_space t_info i)) as [_ Horder].
+    fold (gen_size t_info i) in Horder.
+    rewrite <- Hi in Horder.
+    transitivity (gen_size t_info i).
+    {
+      pose proof (space_remembered__lower_bound (nth_space t_info i)).
+      lia.
+    }
     rewrite (ti_size_gen _ _ _ H1 H7 H6), (ti_size_gen _ _ _ H1 H0 H6).
-    apply H; [lia.. | assumption].
+    rewrite space_remembered__is_zero in *.
+    transitivity (generation_size (S i) - heapgraph_generation_size g (S i)) ; try lia.
+    apply H ; now try lia.
   - apply graph_unmarked_copy_compatible; assumption.
   - rewrite (ti_size_gen _ _ _ H1 H0 H6). apply ngs_0_lt.
   - rewrite graph_heapgraph_generation_is_unmarked_iff in H2. apply H2.

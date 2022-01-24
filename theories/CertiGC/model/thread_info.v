@@ -57,7 +57,7 @@ Qed.
 Definition gen_size t_info n := space_capacity (nth_space t_info n).
 
 Definition rest_gen_size (t_info: thread_info) (gen: nat): Z :=
-  space_capacity (nth_space t_info gen) - space_allocated (nth_space t_info gen).
+  space_capacity (nth_space t_info gen) - space_allocated (nth_space t_info gen) - space_remembered (nth_space t_info gen).
 
 Definition enough_space_to_copy g t_info from to: Prop :=
   (unmarked_gen_size g from <= rest_gen_size t_info to)%Z.

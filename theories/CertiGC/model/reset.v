@@ -186,8 +186,12 @@ Proof. intros. pose proof (space__order sp). lia. Qed.
 Definition reset_space (sp: Space) : Space := {|
     space_base := space_base sp;
     space_allocated := 0;
+    space_remembered := 0;
     space_capacity := space_capacity sp;
     space_sh := space_sh sp;
+    space_remembered__is_zero := eq_refl;
+    space_allocated__lower_bound := ltac:(easy);
+    space_remembered__lower_bound := ltac:(easy);
     space__order := reset_space__order sp;
     space__upper_bound := space__upper_bound sp;
 |}.
@@ -200,6 +204,12 @@ Qed.
 
 Lemma space_allocated__reset_space (sp: Space):
   space_allocated (reset_space sp) = 0.
+Proof.
+  easy.
+Qed.
+
+Lemma space_remembered__reset_space (sp: Space):
+  space_remembered (reset_space sp) = 0.
 Proof.
   easy.
 Qed.

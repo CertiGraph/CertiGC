@@ -303,11 +303,16 @@ Proof.
     {
         apply Zmult_lt_compat_l ; try assumption.
         pose proof (proj2 (space__order (nth_space t_info (addr_gen v)))) as HH'.
-        apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v))) ; try assumption.
+        apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v)) + space_remembered (nth_space t_info (addr_gen v))) ; try assumption.
         destruct Hv as [Hv_gen Hv_index].
         destruct (gt_gs_compatible _ _ Hcompat _ Hv_gen) as [Estart [Esh Eused]].
         rewrite <- Eused.
-        now apply heapgraph_block_offset__heapgraph_generation_size.
+        pose proof (space_remembered__lower_bound (nth_space t_info (addr_gen v))) as Hnth_lower_bound.
+        pose proof (heapgraph_block_offset__heapgraph_generation_size g v Hv_index) as Hgen_size.
+        change
+          (heapgraph_block_size_prev g (addr_gen v) (generation_block_count (heapgraph_generation g (addr_gen v))))
+          with (heapgraph_generation_size g (addr_gen v)).
+        lia.
     }
 Qed.
 

@@ -36,19 +36,21 @@ Lemma sem_sub_pp_rest_space: forall s,
     force_val
       (sem_sub_pp int_or_ptr_type
                   (offset_val (WORD_SIZE * space_capacity s) (space_base s))
-                  (offset_val (WORD_SIZE * space_allocated s) (space_base s))) =
-    if Archi.ptr64 then Vlong (Int64.repr (space_capacity s - space_allocated s)) else
-      Vint (Int.repr (space_capacity s - space_allocated s)).
+                  (offset_val (WORD_SIZE * (space_allocated s + space_remembered s)) (space_base s))) =
+    if Archi.ptr64 then Vlong (Int64.repr (space_capacity s - space_allocated s - space_remembered s)) else
+      Vint (Int.repr (space_capacity s - space_allocated s - space_remembered s)).
 Proof.
   intros. destruct (space_base s); try contradiction. simpl. destruct (eq_block b b).
   2: exfalso; apply n; reflexivity.
   inv_int i. unfold sem_sub_pp; destruct eq_block; [|easy].
   rewrite !ptrofs_add_repr, ptrofs_sub_repr.
-  replace (ofs + WORD_SIZE * space_capacity s - (ofs + WORD_SIZE * space_allocated s)) with
-          (WORD_SIZE * (space_capacity s - space_allocated s))%Z by
+  replace (ofs + WORD_SIZE * space_capacity s - (ofs + WORD_SIZE * (space_allocated s + space_remembered s))) with
+          (WORD_SIZE * (space_capacity s - space_allocated s - space_remembered s))%Z by
       (rewrite Z.mul_sub_distr_l; lia). simpl.
-  pose proof (space_remaining__signed_range s). rewrite <- Z.mul_sub_distr_l in H0.
-  unfold Ptrofs.divs. rewrite !Ptrofs.signed_repr by rep_lia.
+  pose proof (space_remaining__signed_range s).
+  repeat rewrite <- Z.mul_sub_distr_l in H0.
+  unfold Ptrofs.divs.
+  rewrite !Ptrofs.signed_repr by rep_lia.
   unfold vptrofs, Archi.ptr64. unfold WORD_SIZE.
   rewrite Z.mul_comm, Z.quot_mul by lia.
   first [rewrite ptrofs_to_int64_repr by easy | rewrite ptrofs_to_int_repr]. easy.
@@ -212,8 +214,12 @@ Proof.
         remember ({|
           space_base := p;
           space_allocated := 0;
+          space_remembered := 0;
+          space_remembered__is_zero := eq_refl;
           space_capacity := generation_size (Z.to_nat (i + 1));
           space_sh := Ews;
+          space_allocated__lower_bound := ltac:(easy);
+          space_remembered__lower_bound := ltac:(easy);
           space__order := Hso;
           space__upper_bound := proj2 H22;
         |}) as sp.
@@ -365,21 +371,35 @@ Proof.
       * change (Tpointer tvoid
                          {| attr_volatile := false; attr_alignas := Some 2%N |})
           with int_or_ptr_type in H39.
-        rewrite sem_sub_pp_space_capacity, sem_sub_pp_rest_space in H40; auto.
+        rewrite sem_sub_pp_space_capacity in H40 ; auto.
+        replace
+          (space_allocated (Znth (i + 1) (heap_spaces (ti_heap t_info2))))
+          with (space_allocated (Znth (i + 1) (heap_spaces (ti_heap t_info2))) + space_remembered (Znth (i + 1) (heap_spaces (ti_heap t_info2))))
+          in H40.
+        2: {
+          pose proof (space_remembered__is_zero (Znth (i + 1) (heap_spaces (ti_heap t_info2)))).
+          lia.
+        }
+        rewrite sem_sub_pp_rest_space in H40; auto.
         simpl in H40. apply typed_true_of_bool in H40. rewrite negb_true_iff in H40.
         match goal with
         | H : Int64.lt _ _ = false |- _ => apply lt64_repr_false in H
         | H : Int.lt _ _ = false |- _ => apply lt_repr_false in H
         end.
         2: apply space_remaining__repable_signed. 2: apply space_capacity__repable_signed.
-        assert (heapgraph_generation_can_copy g2 (Z.to_nat i) (S (Z.to_nat i))). {
+        assert (heapgraph_generation_can_copy g2 (Z.to_nat i) (S (Z.to_nat i))).
+        {
           red. destruct H27 as [? _]. destruct H36 as [_ [_ [_ [_ ?]]]].
           do 2 (erewrite <- ti_size_gen; eauto). rewrite <- H23 in *.
-          unfold gen_size, heapgraph_generation_size. destruct (gt_gs_compatible _ _ H27 _ H30)
-            as [_ [_ ?]]. rewrite H41, !nth_space_Znth, !Z2Nat.id; lia. }
+          unfold gen_size, heapgraph_generation_size.
+          destruct (gt_gs_compatible _ _ H27 _ H30) as [_ [_ ?]].
+          pose proof (space_remembered__lower_bound (Znth (i + 1) (heap_spaces (ti_heap t_info2)))).
+          rewrite H41, !nth_space_Znth, !Z2Nat.id ; lia.
+        }
         assert (graph_thread_info_compatible g2 t_info2) by (apply (proj1 H27)).
         assert (graph_gen_clear g2 O) by (apply H37; rewrite H23; lia).
-        forward_call (rsh, sh, gv, fi, ti, g2, t_info2, f_info, roots2). forward.
+        forward_call (rsh, sh, gv, fi, ti, g2, t_info2, f_info, roots2).
+        forward.
         Exists g2 t_info2 roots2. entailer!. split.
         -- exists (Z.to_nat i). rewrite <- H23 at 1. split; assumption.
         -- rewrite H23 in H38. eapply heapgraph_can_copy__complete; eauto.

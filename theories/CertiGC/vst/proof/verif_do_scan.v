@@ -122,7 +122,11 @@ Proof.
       assert (0 <= ofs + used_offset <= Ptrofs.max_unsigned). {
         subst.
         pose proof (space__order (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info')))).
-        unfold WORD_SIZE in *. rep_lia. }
+        pose proof (space_allocated__lower_bound (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info')))).
+        pose proof (space_remembered__lower_bound (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info')))).
+        unfold WORD_SIZE in *.
+        rep_lia.
+      }
       assert (0 <= ofs + index_offset <= Ptrofs.max_unsigned). {
         subst. red in H8. pose proof (heapgraph_block_size_prev__nonneg g' to (to_index + n)%nat).
         pose proof (heapgraph_block_size_prev__mono g' to _ _ H8). unfold WORD_SIZE in *. rep_lia. }
@@ -161,8 +165,14 @@ Proof.
         - subst. unfold gen_size. split. 1: apply (proj1 H34).
           transitivity (WORD_SIZE * space_allocated (nth_space t_info' to))%Z.
           + rewrite nth_space_Znth. apply (proj2 H34).
-          + apply Zmult_le_compat_l. apply (proj2 (space__order _)).
-            unfold WORD_SIZE. lia.
+          + apply Zmult_le_compat_l.
+            {
+              pose proof (space_remembered__lower_bound (nth_space t_info' to)).
+              pose proof (space__order (nth_space t_info' to)).
+              lia.
+            }
+            unfold WORD_SIZE.
+            lia.
         - clear -H3 H7. destruct H7 as [? [? ?]].
           rewrite <- H0. unfold WORD_SIZE. lia. }
       apply andp_right; apply H34.
@@ -170,8 +180,14 @@ Proof.
         1: pose proof (heapgraph_block_size_prev__nonneg g' to (to_index + n)%nat); unfold WORD_SIZE; lia.
         apply Zmult_le_compat_l. 2: unfold WORD_SIZE; lia. rewrite <- H20.
         apply heapgraph_block_size_prev__mono. assumption.
-      * split; [|lia]; subst; apply Z.mul_nonneg_nonneg;
-                                  [unfold WORD_SIZE; lia | apply space__order].
+      * split ; try lia.
+        subst.
+        apply Z.mul_nonneg_nonneg.
+        {
+          unfold WORD_SIZE.
+          lia.
+        }
+        apply space_allocated__lower_bound.
     + assert (index_offset < used_offset). {
         destruct (zlt index_offset used_offset); trivial.
         rewrite H24 in H25; unfold typed_true in H25. easy. }

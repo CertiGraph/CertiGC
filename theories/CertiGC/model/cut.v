@@ -35,7 +35,6 @@ Definition cut_space (sp: Space) (s: Z) (H: has_space sp s): Space := {|
     space_remembered := space_remembered sp;
     space_capacity := space_capacity sp;
     space_sh := space_sh sp;
-    space_remembered__is_zero := space_remembered__is_zero sp;
     space_allocated__lower_bound := cut_space_allocated__lower_bound sp s H;
     space_remembered__lower_bound := space_remembered__lower_bound sp;
     space__order := cut_space__order sp s H;

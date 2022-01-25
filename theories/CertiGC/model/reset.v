@@ -189,7 +189,6 @@ Definition reset_space (sp: Space) : Space := {|
     space_remembered := 0;
     space_capacity := space_capacity sp;
     space_sh := space_sh sp;
-    space_remembered__is_zero := eq_refl;
     space_allocated__lower_bound := ltac:(easy);
     space_remembered__lower_bound := ltac:(easy);
     space__order := reset_space__order sp;
@@ -366,11 +365,15 @@ Proof.
     intros n ?. rewrite gsc_iff in H by assumption. rewrite graph_has_gen_reset in H2.
     specialize (H _ H2). red in H. simpl. unfold heapgraph_generation, nth_space in *. simpl.
     rewrite remove_ve_glabel_unchanged. destruct (Nat.eq_dec n gen).
-    + subst gen. red in H2. rewrite reset_heapgraph_generation_info_same.
-      rewrite reset_nth_space_same by lia. intuition.
+    + subst gen. red in H2.
+      unfold generation_space_compatible in * ; simpl in *.
+      rewrite reset_heapgraph_generation_info_same.
+      rewrite reset_nth_space_same by lia.
+      dintuition idtac.
     + rewrite reset_heapgraph_generation_info_diff, reset_nth_space_diff by assumption.
-      destruct H as [? [? ?]]. split. 1: assumption. split. 1: assumption.
-      rewrite pvs_reset_unchanged. assumption.
+      unfold generation_space_compatible in * ; simpl in *.
+      dintuition idtac.
+      now rewrite pvs_reset_unchanged.
   - rewrite remove_ve_glabel_unchanged.
     destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen).
     + rewrite reset_nth_space_overflow; assumption.

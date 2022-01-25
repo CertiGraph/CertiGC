@@ -45,14 +45,39 @@ Proof.
 Qed.
 
 
-Definition generation_space_compatible (g: HeapGraph)
-           (tri: nat * Generation * Space) : Prop :=
-  match tri with
-  | (gen, gi, sp) =>
-    generation_base gi = sp.(space_base) /\
-    generation_sh gi = sp.(space_sh) /\
-    heapgraph_block_size_prev g gen gi.(generation_block_count) = sp.(space_allocated)
-  end.
+Record generation__space__compatible (g: HeapGraph) (gen: nat) (gi: Generation) (sp: Space) :=
+{
+  generation__space__compatible__base: generation_base gi = sp.(space_base);
+  generation__space__compatible__sh: generation_sh gi = sp.(space_sh);
+  generation__space__compatible__allocated: heapgraph_block_size_prev g gen gi.(generation_block_count) = sp.(space_allocated);
+  generation__space__compatible__remembered: heapgraph_remember_size g gen = sp.(space_remembered);
+}.
+
+Arguments generation__space__compatible__base [_] [_] [_] [_].
+Arguments generation__space__compatible__sh [_] [_] [_] [_].
+Arguments generation__space__compatible__allocated [_] [_] [_] [_].
+Arguments generation__space__compatible__remembered [_] [_] [_] [_].
+
+
+Definition generation_space_compatible (g: HeapGraph) (tri: nat * Generation * Space) : Prop :=
+  generation__space__compatible g (fst (fst tri)) (snd (fst tri)) (snd tri).
+
+Lemma lgd_forall_generation_space_compatible
+  (g : HeapGraph) (e : Field) (v : Addr) (ll : list (nat * Generation * Space))
+  (Hll: Forall (generation_space_compatible g) ll):
+  Forall (generation_space_compatible (labeledgraph_gen_dst g e v)) ll.
+Proof.
+  generalize Hll ; clear Hll.
+  induction ll as [|l ll IHll]; try easy.
+  intro Hll.
+  inversion Hll.
+  rename H1 into Hl.
+  constructor.
+  + unfold generation_space_compatible in *.
+    dintuition idtac.
+  + now apply IHll.
+Qed.
+
 
 Definition graph_thread_info_compatible (g: HeapGraph) (ti: thread_info): Prop :=
   Forall (generation_space_compatible g)
@@ -133,8 +158,12 @@ Lemma space_base_isptr: forall (g: HeapGraph) (t_info: thread_info) i,
     heapgraph_has_gen g (Z.to_nat i) ->
     isptr (space_base (Znth i (heap_spaces (ti_heap t_info)))).
 Proof.
-  intros. destruct (gt_gs_compatible _ _ H _ H1) as [? _].
-  rewrite nth_space_Znth in H2. rewrite Z2Nat.id in H2 by lia. rewrite <- H2.
+  intros.
+  pose proof (generation__space__compatible__base (gt_gs_compatible _ _ H _ H1)) as HH.
+  simpl in HH.
+  rewrite nth_space_Znth in HH.
+  rewrite Z2Nat.id in HH by lia.
+  rewrite <- HH.
   apply generation_base__isptr.
 Qed.
 
@@ -237,7 +266,10 @@ Lemma lgd_graph_thread_info_compatible:
   graph_thread_info_compatible g t_info ->
   graph_thread_info_compatible (labeledgraph_gen_dst g e v') t_info.
 Proof.
-  intros; destruct H; split; assumption. Qed.
+  intros.
+  destruct H; split; simpl in * ; dintuition idtac.
+  now apply lgd_forall_generation_space_compatible.
+Qed.
 
 Lemma lgd_fun_thread_arg_compatible:
   forall (g : HeapGraph) (t_info : thread_info) e (v' : Addr) f_info roots,
@@ -292,28 +324,24 @@ Lemma graph_thread_v_in_range (g: HeapGraph) (t_info: thread_info) (v: Addr)
         (heapgraph_generation_base g (addr_gen v))
         (WORD_SIZE * gen_size t_info (addr_gen v)).
 Proof.
-    exists (WORD_SIZE * heapgraph_block_offset g v).
-    pose proof WORD_SIZE_pos as HH.
-    repeat split.
-    {
-        pose proof (heapgraph_block_size_prev__nonneg g (addr_gen v) (addr_block v)) as HH'.
-        unfold heapgraph_block_offset.
-        lia.
-    }
-    {
-        apply Zmult_lt_compat_l ; try assumption.
-        pose proof (proj2 (space__order (nth_space t_info (addr_gen v)))) as HH'.
-        apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v)) + space_remembered (nth_space t_info (addr_gen v))) ; try assumption.
-        destruct Hv as [Hv_gen Hv_index].
-        destruct (gt_gs_compatible _ _ Hcompat _ Hv_gen) as [Estart [Esh Eused]].
-        rewrite <- Eused.
-        pose proof (space_remembered__lower_bound (nth_space t_info (addr_gen v))) as Hnth_lower_bound.
-        pose proof (heapgraph_block_offset__heapgraph_generation_size g v Hv_index) as Hgen_size.
-        change
-          (heapgraph_block_size_prev g (addr_gen v) (generation_block_count (heapgraph_generation g (addr_gen v))))
-          with (heapgraph_generation_size g (addr_gen v)).
-        lia.
-    }
+  exists (WORD_SIZE * heapgraph_block_offset g v).
+  pose proof WORD_SIZE_pos as HH.
+  repeat split.
+  {
+    pose proof (heapgraph_block_size_prev__nonneg g (addr_gen v) (addr_block v)) as HH'.
+    unfold heapgraph_block_offset.
+    lia.
+  }
+  {
+    apply Zmult_lt_compat_l ; try assumption.
+    pose proof (proj2 (space_allocated__order (nth_space t_info (addr_gen v)))) as HH'.
+    apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v))) ; try easy.
+    destruct Hv as [Hv_gen Hv_index].
+    destruct (gt_gs_compatible _ _ Hcompat _ Hv_gen) as [Estart Esh Eallocated Eremembered].
+    simpl in *.
+    rewrite <- Eallocated.
+    now apply heapgraph_block_offset__heapgraph_generation_size.
+  }
 Qed.
 
 
@@ -337,8 +365,17 @@ Proof.
   split; [|split]; auto.
   - rewrite gsc_iff in H |- * by assumption. intros.
     apply heapgraph_has_gen__heapgraph_generations_append in H8. destruct H8.
-    + rewrite heapgraph_generation__heapgraph_generations_append__old by assumption. rewrite ans_nth_old.
-      1: apply H; assumption. red in H8. rewrite H5 in H8. lia.
+    + rewrite heapgraph_generation__heapgraph_generations_append__old by assumption.
+      rewrite ans_nth_old.
+      {
+        specialize (H gen ltac:(easy)).
+        unfold generation_space_compatible in *.
+        simpl in *.
+        dintuition idtac.
+      }
+      red in H8.
+      rewrite H5 in H8.
+      lia.
     + subst gen. rewrite heapgraph_generation__heapgraph_generations_append__new, H5, ans_nth_new. apply H2.
   - simpl. rewrite <- upd_Znth_map. rewrite app_length. rewrite H5 in *. simpl.
     change (S O) with (Z.to_nat 1).

@@ -77,8 +77,16 @@ Definition enough_space_to_have_g g t_info from to: Prop :=
 
 
 Definition thread_info_relation t t':=
-  ti_heap_p t = ti_heap_p t' /\ (forall n, gen_size t n = gen_size t' n) /\
-  forall n, space_base (nth_space t n) = space_base (nth_space t' n).
+  ti_heap_p t = ti_heap_p t'
+  /\ (forall n, gen_size t n = gen_size t' n)
+  /\ forall n, space_base (nth_space t n) = space_base (nth_space t' n).
+
+Lemma thread_info_relation__space_remembered t t' n:
+  thread_info_relation t t' ->
+  space_remembered (nth_space t n) = space_remembered (nth_space t' n).
+Proof.
+  admit.
+Admitted.
 
 Lemma tir_id: forall t, thread_info_relation t t.
 Proof. intros. red. split; [|split]; reflexivity. Qed.

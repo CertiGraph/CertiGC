@@ -18,7 +18,8 @@ Proof.
     Intros. exfalso. destruct t_info. simpl in *. subst. contradiction.
   - Intros. destruct (heap_head__cons (ti_heap t_info)) as [hs [hl [? ?]]].
     rewrite H1, <- H2, map_cons.
-    destruct (gt_gs_compatible _ _ H _ (heapgraph_has_gen__O _)) as [? [? ?]].
+    destruct (gt_gs_compatible _ _ H _ (heapgraph_has_gen__O _)) as [H3 H4 H5 HH6].
+    simpl in H3, H4, H5, HH6.
     assert (isptr (space_base (heap_head (ti_heap t_info)))). {
       rewrite H2. unfold nth_space in H3. rewrite H1 in H3. simpl in H3.
       rewrite <- H3. apply generation_base__isptr. } unfold space_tri at 1. do 2 forward.
@@ -37,21 +38,26 @@ Proof.
       simpl in H7. unfold Ptrofs.divs in H7.
       first [rewrite (Ptrofs.signed_repr 8) in H7 by rep_lia |
              rewrite (Ptrofs.signed_repr 4) in H7 by rep_lia].
-      rewrite Ptrofs.signed_repr in H7 by (apply space_capacity__signed_range).
+      rewrite Ptrofs.signed_repr in H7 by (apply space_limit__signed_range).
       unfold WORD_SIZE in H7. rewrite Z.mul_comm, Z.quot_mul in H7 by lia.
       first [rewrite ptrofs_to_int64_repr in H7 by easy |
              rewrite ptrofs_to_int_repr in H7]. hnf in H7.
       remember (if Archi.ptr64 then
-                  (Int64.ltu (Int64.repr (space_capacity h))
+                  (Int64.ltu (Int64.repr (space_capacity h - space_remembered h))
                              (Int64.repr (fun_word_size f_info))) else
-                  (Int.ltu (Int.repr (space_capacity h))
+                  (Int.ltu (Int.repr (space_capacity h - space_remembered h))
                            (Int.repr (fun_word_size f_info)))) as comp.
-      cbv [Archi.ptr64] in Heqcomp. rewrite <- Heqcomp in H7.
-      destruct comp eqn:? ; simpl in H7. 1: inversion H7. symmetry in Heqcomp.
+      cbv [Archi.ptr64] in Heqcomp.
+      rewrite <- Heqcomp in H7.
+      destruct comp eqn:? ; simpl in H7 ; try congruence.
+      symmetry in Heqcomp.
       match goal with
       | H : Int64.ltu _ _ = false |- _ => apply ltu64_repr_false in H
       | H : Int.ltu _ _ = false |- _ => apply ltu_repr_false in H
-      end; [lia | first [apply space_capacity__range | apply word_size_range]..].
+      end.
+      { pose proof (space_remembered__lower_bound h). lia. }
+      { apply word_size_range. }
+      { apply space_limit__range. }
     + rewrite <- Heqv in *. red in H0. rewrite H0 in H5.
       unfold heapgraph_block_size_prev in H5. simpl in H5. unfold nth_space in H5.
       rewrite H1 in H5. simpl in H5. rewrite <- H2 in H5.
@@ -60,7 +66,7 @@ Proof.
           (
             ( space_base (heap_head (ti_heap t_info)),
             ( offset_val (WORD_SIZE * space_allocated (heap_head (ti_heap t_info))) (space_base (heap_head (ti_heap t_info))),
-            ( offset_val (WORD_SIZE * space_capacity (heap_head (ti_heap t_info))) (space_base (heap_head (ti_heap t_info)))
+            ( offset_val (WORD_SIZE * (space_capacity (heap_head (ti_heap t_info)) - space_remembered (heap_head (ti_heap t_info)))) (space_base (heap_head (ti_heap t_info)))
             , offset_val (WORD_SIZE * space_capacity (heap_head (ti_heap t_info))) (space_base (heap_head (ti_heap t_info)))
             )))
             ::

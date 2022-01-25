@@ -344,9 +344,36 @@ Definition heapgraph_block_offset
   (g : HeapGraph) (v : Addr) : Z := 
   heapgraph_block_size_prev g (addr_gen v) (addr_block v) + 1.
 
+Definition heapgraph_remember_size
+  (g : HeapGraph) (gen : nat) : Z :=
+  0.
+
+Lemma heapgraph_remember_size__is_zero (g : HeapGraph) (gen : nat):
+  heapgraph_remember_size g gen = 0.
+Proof.
+  easy.
+Qed.
+
+#[global]Opaque heapgraph_remember_size.
+
+Lemma heapgraph_remember_size__nonneg (g : HeapGraph) (gen : nat):
+  0 <= heapgraph_remember_size g gen.
+Proof.
+  rewrite heapgraph_remember_size__is_zero.
+  lia.
+Qed.
+
 Definition heapgraph_generation_size 
   (g : HeapGraph) (gen : nat) : Z :=
   heapgraph_block_size_prev g gen (generation_block_count (heapgraph_generation g gen)).
+
+Lemma heapgraph_generation_size__nonneg (g : HeapGraph) (gen : nat):
+  0 <= heapgraph_generation_size g gen.
+Proof.
+  unfold heapgraph_generation_size.
+  pose proof (heapgraph_block_size_prev__nonneg g gen (generation_block_count (heapgraph_generation g gen))).
+  lia.
+Qed.
 
 Lemma heapgraph_block_offset__heapgraph_generation_size 
   (g : HeapGraph) (v : Addr) 
@@ -359,9 +386,11 @@ Proof.
   (remember (addr_gen v) as gen eqn:Egen ).
   (assert (S (addr_block v) <= n)%nat by lia).
   (apply Z.lt_le_trans with (heapgraph_block_size_prev g gen (S (addr_block v)))).
-  + (rewrite heapgraph_block_size_prev__S).
-    (apply Zplus_lt_compat_l, heapgraph_block_size__one).
-  + now apply heapgraph_block_size_prev__mono.
+  - (rewrite heapgraph_block_size_prev__S).
+    pose proof (heapgraph_block_size__one g ({| addr_gen := gen; addr_block := addr_block v |})).
+    lia.
+  - pose proof (heapgraph_block_size_prev__mono g gen (S (addr_block v)) n ltac:(easy)).
+    lia.
 Qed.
 
 Definition heapgraph_generations_append 
@@ -382,6 +411,14 @@ Proof.
   (unfold heapgraph_has_gen; simpl).
   (rewrite app_length; simpl).
   lia.
+Qed.
+
+Lemma heapgraph_remember_size__heapgraph_generations_append__old 
+  (g : HeapGraph) (gi : Generation) 
+  (gen : nat) (Hgen : heapgraph_has_gen g gen) :
+  heapgraph_remember_size (heapgraph_generations_append g gi) gen = heapgraph_remember_size g gen.
+Proof.
+  now rewrite heapgraph_remember_size__is_zero.
 Qed.
 
 Lemma heapgraph_generation__heapgraph_generations_append__old 
@@ -869,7 +906,7 @@ Qed.
 
 Definition heapgraph_generation_can_copy 
   g from to : Prop := 
-  generation_size from <= generation_size to - heapgraph_generation_size g to.
+  generation_size from <= generation_size to - heapgraph_generation_size g to - heapgraph_remember_size g to.
 
 Definition heapgraph_can_copy 
   (g : HeapGraph) : Prop := 
@@ -1307,10 +1344,7 @@ Proof.
   (intros).
   (unfold heapgraph_generation_size).
   (rewrite heapgraph_generation__heapgraph_generations_append__old by assumption).
-  (apply fold_left_ext).
-  (intros).
-  (unfold heapgraph_block_size_accum).
-  reflexivity.
+  (now apply fold_left_ext).
 Qed.
 
 Lemma stcte_add :

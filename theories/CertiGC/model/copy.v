@@ -501,6 +501,15 @@ Proof.
     apply lcv_heapgraph_block_size_new.
 Qed.
 
+Lemma lcv__heapgraph_remember_size: forall g v to,
+    heapgraph_has_gen g to ->
+    heapgraph_remember_size (lgraph_copy_v g v to) to =
+    heapgraph_remember_size g to.
+Proof.
+  intros.
+  now repeat rewrite heapgraph_remember_size__is_zero.
+Qed.
+
 Lemma lcv_pvs_old: forall g v to gen,
     gen <> to -> heapgraph_has_gen g to -> heapgraph_has_gen g gen ->
     heapgraph_block_size_prev (lgraph_copy_v g v to) gen
@@ -887,35 +896,74 @@ Proof.
   split; [|split]; [|simpl; rewrite cvmgil_length by assumption..].
   - rewrite gsc_iff in *; simpl. 2: assumption.
     + intros. unfold nth_space. simpl.
-      rewrite <- lcv_graph_has_gen in H4 by assumption. specialize (H0 _ H4).
-      simpl in H0. destruct H0 as [? [? ?]]. split; [|split].
-      * clear -H0 H3 H. rewrite <- map_nth, <- H3, map_nth. clear H3.
-        unfold heapgraph_generation, nth_space in *. simpl. destruct (Nat.eq_dec gen to).
-        -- subst gen. rewrite cvmgil_eq; simpl; assumption.
-        -- rewrite cvmgil_not_eq; assumption.
-      * assert (map space_sh
-                    (upd_Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))
-                              (cut_space
-                                 (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info)))
-                                 (heapgraph_block_size g v) Hh)) =
-                map space_sh (heap_spaces (ti_heap t_info))). {
-          rewrite <- upd_Znth_map. simpl. rewrite <- Znth_map by assumption.
-          rewrite upd_Znth_unchanged; [reflexivity|rewrite Zlength_map; assumption]. }
-        rewrite <- map_nth, H7, map_nth. clear -H5 H. unfold heapgraph_generation, nth_space in *.
+      rewrite <- lcv_graph_has_gen in H4 by assumption.
+      specialize (H0 _ H4).
+      unfold generation_space_compatible in *.
+      simpl in *.
+      dintuition idtac ; simpl in *.
+      * rewrite <- map_nth, <- H3, map_nth.
+        unfold heapgraph_generation, nth_space in *.
         simpl. destruct (Nat.eq_dec gen to).
         -- subst gen. rewrite cvmgil_eq; simpl; assumption.
         -- rewrite cvmgil_not_eq; assumption.
-      * assert (0 <= Z.of_nat gen < Zlength (heap_spaces (ti_heap t_info))). {
-          split. 1: apply Nat2Z.is_nonneg. rewrite Zlength_correct.
-          apply inj_lt. red in H4. lia. }
-        rewrite <- (Nat2Z.id gen) at 3. rewrite nth_Znth.
-        2: rewrite upd_Znth_Zlength; assumption. destruct (Nat.eq_dec gen to).
+      * assert
+          (map space_sh
+              (upd_Znth (Z.of_nat to) (heap_spaces (ti_heap t_info))
+                        (cut_space
+                            (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info)))
+                            (heapgraph_block_size g v) Hh)) =
+          map space_sh (heap_spaces (ti_heap t_info)))
+          as Emap_sh.
+        {
+          rewrite <- upd_Znth_map. simpl.
+          rewrite <- Znth_map by lia.
+          rewrite upd_Znth_unchanged; [reflexivity|rewrite Zlength_map; lia].
+        }
+        rewrite <- map_nth, Emap_sh, map_nth.
+        unfold heapgraph_generation, nth_space in *.
+        simpl. destruct (Nat.eq_dec gen to).
+        -- subst gen. rewrite cvmgil_eq; simpl; assumption.
+        -- rewrite cvmgil_not_eq; assumption.
+      * rewrite <- (Nat2Z.id gen) at 3.
+        assert (0 <= Z.of_nat gen < Zlength (heap_spaces (ti_heap t_info))) as Hgen.
+        {
+          split ; try lia.
+          rewrite Zlength_correct.
+          apply inj_lt.
+          red in H4.
+          lia.
+        }
+        rewrite nth_Znth.
+        2: {
+          rewrite upd_Znth_Zlength ; lia.
+        }
+        destruct (Nat.eq_dec gen to).
         -- subst gen. rewrite upd_Znth_same by assumption. simpl.
            rewrite lcv_pvs_same by assumption.
-           rewrite H6, nth_space_Znth. reflexivity.
+           now rewrite generation__space__compatible__allocated, nth_space_Znth.
         -- assert (Z.of_nat gen <> Z.of_nat to) by
               (intro; apply n, Nat2Z.inj; assumption).
-           rewrite upd_Znth_diff, <- nth_space_Znth, lcv_pvs_old; assumption.
+           now rewrite upd_Znth_diff, <- nth_space_Znth, lcv_pvs_old.
+      * rewrite <- (Nat2Z.id gen) at 2.
+        assert (0 <= Z.of_nat gen < Zlength (heap_spaces (ti_heap t_info))) as Hgen.
+        {
+          split ; try lia.
+          rewrite Zlength_correct.
+          apply inj_lt.
+          red in H4.
+          lia.
+        }
+        rewrite nth_Znth.
+        2: {
+          rewrite upd_Znth_Zlength ; lia.
+        }
+        destruct (Nat.eq_dec gen to).
+        -- subst gen. rewrite upd_Znth_same by assumption. simpl.
+           rewrite lcv__heapgraph_remember_size by easy.
+           now rewrite generation__space__compatible__remembered, nth_space_Znth.
+        -- assert (Z.of_nat gen <> Z.of_nat to) by
+              (intro; apply n, Nat2Z.inj; assumption).
+           now rewrite upd_Znth_diff, <- nth_space_Znth.
     + rewrite cvmgil_length, <- !ZtoNat_Zlength, upd_Znth_Zlength, !ZtoNat_Zlength;
         assumption.
   - intros. rewrite <- H3. assumption.

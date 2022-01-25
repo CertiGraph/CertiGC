@@ -292,9 +292,18 @@ Lemma fr_O_graph_gen_size_unchanged: forall from to p g1 g2,
 Proof.
   intros. unfold heapgraph_generation_size.
   erewrite <- (fr_O_heapgraph_generation_unchanged from to _ g1 g2); eauto.
-  unfold heapgraph_block_size_prev. apply fold_left_ext. intros.
-  unfold heapgraph_block_size_accum. f_equal. rewrite nat_inc_list_In_iff in H3.
-  eapply (fr_heapgraph_block_size O from to); eauto. split; simpl; assumption.
+  replace
+    (heapgraph_block_size_prev g2 gen (generation_block_count (heapgraph_generation g1 gen)))
+    with (heapgraph_block_size_prev g1 gen (generation_block_count (heapgraph_generation g1 gen))).
+  {
+    easy.
+  }
+  apply fold_left_ext.
+  intros.
+  unfold heapgraph_block_size_accum.
+  f_equal.
+  rewrite nat_inc_list_In_iff in H3.
+  now apply (fr_heapgraph_block_size O from to p g1 g2).
 Qed.
 
 

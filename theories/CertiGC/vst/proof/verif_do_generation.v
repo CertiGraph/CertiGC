@@ -12,11 +12,18 @@ Lemma body_do_generation: semax_body Vprog Gprog f_do_generation do_generation_s
 Proof.
   start_function.
   pose proof H. pose proof H0. destruct H2 as [? _]. destruct H3 as [? [? [? _]]].
-  assert (generation_space_compatible
-            g (from, heapgraph_generation g from, nth_space t_info from)) by
-      (apply gt_gs_compatible; assumption). destruct H6 as [? [? ?]].
-  assert (generation_space_compatible g (to, heapgraph_generation g to, nth_space t_info to)) by
-      (apply gt_gs_compatible; assumption). destruct H9 as [? [? ?]].
+  assert
+    (generation_space_compatible g (from, heapgraph_generation g from, nth_space t_info from))
+    as H6
+    by (apply gt_gs_compatible; assumption).
+  destruct H6 as [H6 H7 H8 HH9].
+  simpl in H6, H7, H8, HH9.
+  assert
+    (generation_space_compatible g (to, heapgraph_generation g to, nth_space t_info to))
+    as H9
+    by (apply gt_gs_compatible; assumption).
+  destruct H9 as [H9 H10 H11].
+  simpl in H9, H10, H11.
   assert (isptr (space_base (nth_space t_info from))) by
       (rewrite <- H6; apply generation_base__isptr).
   assert (isptr (space_base (nth_space t_info to))) by
@@ -42,9 +49,7 @@ Proof.
   1: apply thread_info_rep_ramif_stable; assumption.
   remember (space_base (nth_space t_info from)) as from_p.
   remember (space_base (nth_space t_info to)) as to_p.
-  remember (WORD_SIZE * space_capacity (nth_space t_info to))%Z as to_total.
-  (* remember (WORD_SIZE * (space_allocated (nth_space t_info to) + space_remembered (nth_space t_info to)))%Z as to_used. *)
-  (* remember (WORD_SIZE * (space_allocated (nth_space t_info from) + space_remembered (nth_space t_info from)))%Z as from_used. *)
+  remember (WORD_SIZE * (space_capacity (nth_space t_info to) - space_remembered (nth_space t_info to)))%Z as to_total.
   remember (WORD_SIZE * space_allocated (nth_space t_info to))%Z as to_used.
   remember (WORD_SIZE * space_allocated (nth_space t_info from))%Z as from_used.
   assert (is_true (sameblock (offset_val from_used from_p) from_p)). {
@@ -63,23 +68,16 @@ Proof.
     simpl in H18.
     replace (ofs0 + to_total - (ofs0 + to_used)) with (to_total - to_used) in H18 by lia.
     replace (ofs + from_used - ofs) with from_used in H18 by lia.
-    assert (E: forall x, space_allocated x = space_allocated x + space_remembered x).
-    {
-      intro x.
-      pose proof (space_remembered__is_zero x).
-      lia.
-    }
-    rewrite E in Heqfrom_used.
-    rewrite E in Heqto_used.
-    assert (Ptrofs.min_signed <= from_used <= Ptrofs.max_signed) by (subst; apply space_used__signed_range).
+    assert (Ptrofs.min_signed <= from_used <= Ptrofs.max_signed) by (subst; apply space_allocated__signed_range).
     assert (Ptrofs.min_signed <= to_total - to_used <= Ptrofs.max_signed).
     {
       subst.
       pose proof (space_remaining__signed_range (nth_space t_info to)).
+      repeat rewrite <- Z.mul_sub_distr_l.
+      repeat rewrite <- Z.mul_sub_distr_l in H22.
       lia.
     }
     unfold Ptrofs.divs in H18.
-    Check Ptrofs.signed_repr.
     rewrite !Ptrofs.signed_repr in H18 by rep_lia.
     subst. unfold WORD_SIZE in H18.
     rewrite <- Z.mul_sub_distr_l, Z.mul_comm, Z.quot_mul,
@@ -89,33 +87,34 @@ Proof.
     remember (if Archi.ptr64
               then Int64.lt
                      (Int64.repr
-                      (space_capacity (nth_space t_info to) -
-                      (space_allocated (nth_space t_info to) +
-                        space_remembered (nth_space t_info to))))
-                (Int64.repr (space_allocated (nth_space t_info from) + space_remembered (nth_space t_info from)))
+                      ( space_capacity (nth_space t_info to)
+                      - space_remembered (nth_space t_info to)
+                      - space_allocated (nth_space t_info to)))
+                (Int64.repr (space_allocated (nth_space t_info from)))
               else Int.lt
                      (Int.repr
-                      (space_capacity (nth_space t_info to) -
-                      (space_allocated (nth_space t_info to) +
-                        space_remembered (nth_space t_info to))))
-                (Int.repr (space_allocated (nth_space t_info from) + space_remembered (nth_space t_info from)))) as lte.
+                      ( space_capacity (nth_space t_info to)
+                      - space_remembered (nth_space t_info to)
+                      - space_allocated (nth_space t_info to)))
+                (Int.repr (space_allocated (nth_space t_info from)))) as lte.
     simpl in Heqlte.
     rewrite <- Heqlte in H18.
     destruct lte; simpl in H18.
-    2: inversion H18. symmetry in Heqlte.
+    2: inversion H18.
+    symmetry in Heqlte.
     match goal with
     | H : Int64.lt _ _ = true |- _ => apply lt64_repr in H
     | H : Int.lt _ _ = true |- _ => apply lt_repr in H
     end.
     2: {
       replace
-        (space_capacity (nth_space t_info to) - (space_allocated (nth_space t_info to) + space_remembered (nth_space t_info to)))
+        (space_capacity (nth_space t_info to) - space_remembered (nth_space t_info to) - space_allocated (nth_space t_info to))
         with (space_capacity (nth_space t_info to) - space_allocated (nth_space t_info to) - space_remembered (nth_space t_info to))
         by lia.
       apply space_remaining__repable_signed.
     }
     2: {
-      apply space_used__repable_signed.
+      apply space_allocated__repable_signed.
     }
     clear -H8 H3 Heqlte. red in H3.
     unfold heapgraph_generation_size, rest_gen_size in H3. rewrite H8 in H3.
@@ -130,9 +129,10 @@ Proof.
     destruct H0 as [? [? [? ?]]]. rewrite <- Heqfrom_p.
     replace from_p with (heapgraph_generation_base g from) by
         (subst; unfold heapgraph_generation_base; rewrite if_true; assumption).
-    replace (offset_val (WORD_SIZE * space_capacity (nth_space t_info from))
-                        (heapgraph_generation_base g from)) with (limit_address g t_info from) by
-        (unfold limit_address, gen_size; reflexivity).
+    replace
+      (offset_val (WORD_SIZE * (space_capacity (nth_space t_info from) - space_remembered (nth_space t_info from))) (heapgraph_generation_base g from))
+      with (limit_address g t_info from)
+      by (unfold limit_address, gen_size; reflexivity).
     assert_PROP (isptr (space_address t_info to)). {
       unfold space_address. rewrite isptr_offset_val. unfold thread_info_rep.
       Intros. unfold heap_struct_rep. entailer!. }
@@ -144,13 +144,15 @@ Proof.
       - destruct H as [[_ [_ ?]] _]. unfold field_compatible in *.
         simpl in *. unfold in_members. simpl. intuition. } thaw FR.
     forward_call (rsh, sh, gv, fi, ti, g, t_info, f_info, roots, outlier, from, to).
-    1: intuition. Intros vret. destruct vret as [[g1 t_info1] roots1]. simpl fst in *.
+    Intros vret. destruct vret as [[g1 t_info1] roots1]. simpl fst in *.
     simpl snd in *. freeze [0;1;2;3] FR. 
     replace (space_address t_info from) with (space_address t_info1 from) by
         (unfold space_address; rewrite (proj1 H26); reflexivity).
     assert (space_base (nth_space t_info1 from) = heapgraph_generation_base g1 from). {
       destruct H23 as [? _]. destruct H25 as [_ [? _]].
-      destruct (gt_gs_compatible _ _ H23 _ H25) as [? _]. rewrite <- H27.
+      destruct (gt_gs_compatible _ _ H23 _ H25) as [H27 _ _ _].
+      simpl in H27.
+      rewrite <- H27.
       unfold heapgraph_generation_base. rewrite if_true by assumption. reflexivity. }
     assert (isptr (space_base (nth_space t_info1 from))). {
       rewrite H27. unfold heapgraph_generation_base. destruct H25 as [_ [? _]].
@@ -161,9 +163,9 @@ Proof.
         (unfold space_struct_rep, space_tri; entailer!).
     unlocalize [thread_info_rep sh t_info1 ti].
     1: apply thread_info_rep_ramif_stable_1; assumption. thaw FR. rewrite H27.
-    replace (offset_val (WORD_SIZE * space_capacity (nth_space t_info1 from))
-                        (heapgraph_generation_base g1 from)) with (limit_address g1 t_info1 from) by
-        (unfold limit_address, gen_size; reflexivity).
+    replace
+      (offset_val (WORD_SIZE * (space_capacity (nth_space t_info1 from) - space_remembered (nth_space t_info1 from))) (heapgraph_generation_base g1 from))
+      with (limit_address g1 t_info1 from) by (unfold limit_address, gen_size; reflexivity).
     assert_PROP (offset_val WORD_SIZE (space_address t_info to) =
                  next_address t_info1 to). {
       unfold thread_info_rep. unfold heap_struct_rep. entailer!.
@@ -194,8 +196,12 @@ Proof.
     assert (space_base (nth_space t_info2 from) = heapgraph_generation_base g2 from).
     {
       destruct H34 as [? _]. destruct H35 as [_ [? _]].
-      destruct (gt_gs_compatible _ _ H34 _ H35) as [? _]. rewrite <- H38.
-      unfold heapgraph_generation_base. rewrite if_true by assumption. reflexivity.
+      destruct (gt_gs_compatible _ _ H34 _ H35) as [H38 _ _ _].
+      simpl in H38.
+      rewrite <- H38.
+      unfold heapgraph_generation_base.
+      rewrite if_true by assumption.
+      reflexivity.
     }
     assert (isptr (space_base (nth_space t_info2 from))).
     {
@@ -259,6 +265,10 @@ Proof.
       rewrite (reset_nth_space_Znth _ _ H54), <- nth_space_Znth, <- upd_Znth_map.
       unfold space_tri at 3.
       simpl.
+      replace
+        (space_capacity (nth_space t_info2 from) - 0)
+        with (space_capacity (nth_space t_info2 from))
+        by lia.
       rewrite isptr_offset_val_zero by assumption.
       cancel.
     + apply super_compatible_reset with (gen := from) in H34.

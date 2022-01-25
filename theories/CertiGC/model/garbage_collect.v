@@ -73,30 +73,32 @@ Lemma gc_cond_implies_do_gen_cons: forall g t_info roots f_info i,
     garbage_collect_condition g t_info roots f_info ->
     do_generation_condition g t_info roots f_info i (S i).
 Proof.
-  intros. destruct H2 as [? [? [? [? ?]]]].
+  intros.
+  destruct H2 as [? [? [? [? ?]]]].
   assert (heapgraph_has_gen g i) by (unfold heapgraph_has_gen in H0 |-*; lia).
   split; [|split; [|split; [|split; [|split; [|split; [|split]]]]]]; auto.
   - unfold heapgraph_can_copy_except, heapgraph_generation_can_copy in H. red.
     unfold rest_gen_size.
-    specialize (H (S i)) ; simpl in H.
-    destruct (gt_gs_compatible _ _ H1 _ H0) as [_ [_ HSi]].
-    destruct (gt_gs_compatible _ _ H1 _ H7) as [_ [_ Hi]].
-    fold (heapgraph_generation_size g (S i)) in HSi.
-    fold (heapgraph_generation_size g i) in Hi.
-    rewrite <- HSi.
+    specialize (H (S i) ltac:(lia) ltac:(lia) H0) ; simpl in H.
+    pose proof (generation__space__compatible__remembered (gt_gs_compatible _ _ H1 _ H0)) as HSi_remembered.
+    pose proof (generation__space__compatible__allocated (gt_gs_compatible _ _ H1 _ H0)) as HSi_allocated.
+    pose proof (generation__space__compatible__allocated (gt_gs_compatible _ _ H1 _ H7)) as Hallocated.
+    simpl in HSi_remembered, HSi_allocated, Hallocated.
     fold (gen_size t_info (S i)).
-    destruct (space__order (nth_space t_info i)) as [_ Horder].
+    pose proof (proj2 (space__order (nth_space t_info i))) as Horder.
     fold (gen_size t_info i) in Horder.
-    rewrite <- Hi in Horder.
+    unfold heapgraph_generation_size.
+    rewrite Hallocated. clear Hallocated.
     transitivity (gen_size t_info i).
     {
       pose proof (space_remembered__lower_bound (nth_space t_info i)).
       lia.
     }
     rewrite (ti_size_gen _ _ _ H1 H7 H6), (ti_size_gen _ _ _ H1 H0 H6).
-    rewrite space_remembered__is_zero in *.
-    transitivity (generation_size (S i) - heapgraph_generation_size g (S i)) ; try lia.
-    apply H ; now try lia.
+    unfold heapgraph_generation_size in H.
+    rewrite HSi_allocated in H ; clear HSi_allocated.
+    rewrite HSi_remembered in H ; clear HSi_remembered.
+    assumption.
   - apply graph_unmarked_copy_compatible; assumption.
   - rewrite (ti_size_gen _ _ _ H1 H0 H6). apply ngs_0_lt.
   - rewrite graph_heapgraph_generation_is_unmarked_iff in H2. apply H2.

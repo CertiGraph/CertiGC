@@ -83,7 +83,9 @@ Proof.
       clear -H5 H14. destruct H5 as [_ [_ ?]]. red in H14.
       pose proof (heap_spaces__size (ti_heap t_info')).
       rewrite Zlength_correct in H0. rep_lia. }
-    destruct (gt_gs_compatible _ _ H5 _ H14) as [? [? ?]]. rewrite nth_space_Znth in *.
+    destruct (gt_gs_compatible _ _ H5 _ H14) as [H18 H19 H20 HH21].
+    simpl in H18, H19, H20, HH21.
+    rewrite nth_space_Znth in *.
     remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info'))) as sp_to.
     assert (isptr (space_base sp_to)) by (rewrite <- H18; apply generation_base__isptr).
     remember (map space_tri (heap_spaces (ti_heap t_info'))).
@@ -376,8 +378,11 @@ Proof.
                      (eapply fr_gen_start; eauto).
                  assert (limit_address g3 t_info3 from =
                          limit_address g4 t_info4 from). {
-                   unfold limit_address. rewrite H45.
-                   do 2 f_equal. apply (proj2 H42). }
+                   unfold limit_address.
+                   rewrite H45.
+                   do 2 f_equal.
+                   now rewrite (proj1 (proj2 H42)), (thread_info_relation__space_remembered _ _ _ H42).
+                 }
                  assert (next_address t_info3 to = next_address t_info4 to) by
                      (unfold next_address; f_equal; apply (proj1 H42)). entailer!.
                  split; [|split; [|split]]; try easy.

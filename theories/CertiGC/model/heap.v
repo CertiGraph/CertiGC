@@ -12,20 +12,31 @@ From CertiGC Require Import util.
 
 
 Record Space: Type := {
-    space_base: val;
-    space_allocated: Z;
-    space_remembered: Z;
-    space_capacity: Z;
-    space_sh: share;
-    space_remembered__is_zero: space_remembered = 0;
-    space_allocated__lower_bound: 0 <= space_allocated;
-    space_remembered__lower_bound: 0 <= space_remembered;
-    space__order: (0 <= space_allocated + space_remembered <= space_capacity)%Z;
-    space__upper_bound: (space_capacity < MAX_SPACE_SIZE)%Z;
+  space_base: val;
+  space_allocated: Z;
+  space_remembered: Z;
+  space_capacity: Z;
+  space_sh: share;
+  space_allocated__lower_bound: 0 <= space_allocated;
+  space_remembered__lower_bound: 0 <= space_remembered;
+  space__order: 0 <= space_allocated + space_remembered <= space_capacity;
+  space__upper_bound: (space_capacity < MAX_SPACE_SIZE)%Z;
 }.
 
+Lemma space_allocated__order (sp: Space):
+  0 <= space_allocated sp <= space_capacity sp.
+Proof.
+  destruct sp ; simpl in * ; lia.
+Qed.
+
+Lemma space_remembered__order (sp: Space):
+  0 <= space_remembered sp <= space_capacity sp.
+Proof.
+  destruct sp ; simpl in * ; lia.
+Qed.
+
 Definition has_space (sp: Space) (s: Z): Prop :=
-  0 <= s <= space_capacity sp - space_allocated sp - space_remembered sp.
+  0 <= s <= space_capacity sp - space_remembered sp - space_allocated sp.
 
 Definition null_space: Space := {|
     space_base := nullval;
@@ -33,7 +44,6 @@ Definition null_space: Space := {|
     space_remembered := 0;
     space_capacity := 0;
     space_sh := emptyshare;
-    space_remembered__is_zero := eq_refl;
     space_allocated__lower_bound := ltac:(easy);
     space_remembered__lower_bound := ltac:(easy);
     space__order := ltac:(easy);
@@ -60,6 +70,21 @@ Lemma space_capacity__signed_range (sp: Space):
     Ptrofs.min_signed <= WORD_SIZE * space_capacity sp <= Ptrofs.max_signed.
 Proof.
     apply MSS_max_wordsize_signed_range, space_capacity__tight_range.
+Qed.
+
+Lemma space_limit__range (sp: Space):
+    0 <= space_capacity sp - space_remembered sp <= (if Archi.ptr64 then Int64.max_unsigned else Int.max_unsigned).
+Proof.
+    apply MSS_max_unsigned_range.
+    pose proof space_capacity__tight_range.
+    destruct sp ; simpl in * ; lia.
+Qed.
+
+Lemma space_limit__signed_range (sp: Space):
+    Ptrofs.min_signed <= WORD_SIZE * (space_capacity sp - space_remembered sp) <= Ptrofs.max_signed.
+Proof.
+    apply MSS_max_wordsize_signed_range.
+    destruct sp ; simpl ; lia.
 Qed.
 
 Lemma space_allocated__signed_range (sp: Space):
@@ -98,6 +123,15 @@ Lemma space_remaining__repable_signed (sp: Space):
 Proof.
     rewrite <- signed_range_repable_signed.
     pose proof (space_remaining__signed_range sp) as H.
+    unfold WORD_SIZE in H.
+    rep_lia.
+Qed.
+
+Lemma space_limit__repable_signed (sp: Space):
+    range_signed (space_capacity sp - space_remembered sp).
+Proof.
+    rewrite <- signed_range_repable_signed.
+    pose proof (space_limit__signed_range sp) as H.
     unfold WORD_SIZE in H.
     rep_lia.
 Qed.

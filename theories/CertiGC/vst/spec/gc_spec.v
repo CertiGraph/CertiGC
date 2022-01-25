@@ -182,7 +182,7 @@ Definition forward_p_address
   end.
 
 Definition limit_address g t_info from : val :=
-  offset_val (WORD_SIZE * gen_size t_info from) (heapgraph_generation_base g from).
+  offset_val (WORD_SIZE * (gen_size t_info from - space_remembered (nth_space t_info from))) (heapgraph_generation_base g from).
 
 Definition next_address t_info to : val :=
   field_address heap_type

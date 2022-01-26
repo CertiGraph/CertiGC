@@ -794,14 +794,20 @@ Proof.
       (thread_info_relation t_info t_info')
       as H41.
     {
-      subst t_info'. split; [|split]; [reflexivity| |]; intros m.
-      - rewrite utiacti_gen_size. reflexivity.
-      - rewrite utiacti_space_base. reflexivity.
+      subst t_info'.
+      refine {|
+        thread_info_relation__ti_heap := _;
+        thread_info_relation__gen_size m := _;
+        thread_info_relation__space_base m := _;
+      |}.
+      - easy.
+      - now rewrite utiacti_gen_size.
+      - now rewrite utiacti_space_base.
     }
     forward_if.
     {
       pose proof H41 as HH41.
-      destruct H41 as [H41 [H43 H44]].
+      destruct H41 as [H41 H43 H44].
       replace
         fp
         with (heapgraph_generation_base g' from)
@@ -814,9 +820,10 @@ Proof.
         unfold limit_address.
         f_equal.
         f_equal.
-        rewrite <- H43, <- (thread_info_relation__space_remembered _ _ from HH41).
+        (* rewrite <- H43, <- (thread_info_relation__space_remembered _ _ from HH41).
         unfold nth_space.
-        now rewrite <- nth_Znth'.
+        now rewrite <- nth_Znth'. *)
+        admit. (* TODO TIM: needs the fact that space_remembered is unchanged *)
       }
       replace
         n_addr
@@ -854,8 +861,8 @@ Proof.
         assert
           (forward_loop from to (Z.to_nat (depth - 1)) [] g' g')
           by constructor.
-        unfold thread_info_relation.
         entailer!.
+        now constructor.
       }
       {
         Intros.
@@ -911,9 +918,10 @@ Proof.
           as H57.
         {
           unfold limit_address. f_equal. 2: assumption. f_equal.
-          rewrite (thread_info_relation__space_remembered _ _ _ H56).
+          (* rewrite (thread_info_relation__space_remembered _ _ _ H56).
           destruct H56 as [? [? _]].
-          now rewrite H57.
+          now rewrite H57. *)
+          admit. (* TODO TIM: needs the fact that space_remembered is unchanged *)
         }
         rewrite H57.
         assert
@@ -946,7 +954,7 @@ Proof.
       assert
         (thread_info_relation t_info t_info3)
         as H49
-        by (apply tir_trans with t_info'; [split; [|split]|]; assumption).
+        by (now apply tir_trans with t_info').
       rewrite sublist_all in H46.
       clear Heqt.
       2: {
@@ -990,11 +998,13 @@ Proof.
   (* p is Vtype * Z, ie located in graph *)
   destruct p as [v n]. destruct H0 as [? [? [? ?]]]. freeze [0; 1; 2; 4] FR.
   localize [vertex_rep (heapgraph_generation_sh g (addr_gen v)) g v].
-  unfold vertex_rep, vertex_at. Intros.
+  unfold vertex_rep, vertex_at.
+  Intros.
   assert_PROP (offset_val (WORD_SIZE * n) (heapgraph_block_ptr g v) =
                 field_address (tarray int_or_ptr_type
                                       (Zlength (heapgraph_block_cells_vals g v)))
-                              [ArraySubsc n] (heapgraph_block_ptr g v)). {
+                              [ArraySubsc n] (heapgraph_block_ptr g v)).
+  {
     entailer!. unfold field_address. rewrite if_true; [simpl; f_equal|].
     clear -H20 H11; rewrite <- fields_eq_length in H11.
     unfold field_compatible in *; simpl in *; intuition.
@@ -1064,13 +1074,19 @@ Proof.
     1: exfalso; apply H20'; reflexivity.
     forward. Exists g t_info roots. entailer!. split.
     * easy.
-    * unfold forward_condition, thread_info_relation.
-      simpl. rewrite Heqc, H12. simpl. constructor; [constructor|easy].
+    * unfold forward_condition.
+      simpl.
+      rewrite Heqc, H12.
+      simpl.
+      constructor; [constructor|easy].
   }
   {
     (* GC_Pointer *)
     destruct g0. unfold heapgraph_cell_val, GC_Pointer2val. forward_if.
-    2: exfalso; apply Int.one_not_zero; assumption.
+    2: {
+      exfalso.
+      now apply Int.one_not_zero.
+    }
     forward_call (Vptr b i). 
     unfold thread_info_rep; Intros.
     gather_SEP (graph_rep _) (heap_rest_rep _) (outlier_rep _).
@@ -1671,9 +1687,15 @@ Proof.
   }
   assert (thread_info_relation t_info t_info').
   {
-    subst t_info'. split; [|split]; [reflexivity| |]; intros m.
-    - rewrite cti_gen_size. reflexivity.
-    - rewrite cti_space_base. reflexivity.
+    subst t_info'.
+    refine {|
+      thread_info_relation__ti_heap := _;
+      thread_info_relation__gen_size m := _;
+      thread_info_relation__space_base m := _;
+    |}.
+    - easy.
+    - now rewrite cti_gen_size.
+    - now rewrite cti_space_base.
   }
   forward_if.
   2: {
@@ -1682,8 +1704,7 @@ Proof.
     Exists g1 t_info' roots. entailer!. simpl. rewrite Heqc.
     simpl field2forward. rewrite H12. simpl. now constructor.
   }
-  pose proof H55 as HH55.
-  destruct H55 as [? [? ?]].
+  destruct H55 as [H55 H57 H58].
   replace
     fp
     with (heapgraph_generation_base g1 from)
@@ -1698,7 +1719,8 @@ Proof.
     change
       (nth from (heap_spaces (ti_heap t_info)) default)
       with (nth_space t_info from).
-    now rewrite (thread_info_relation__space_remembered _ _ _ HH55).
+    (* now rewrite (thread_info_relation__space_remembered _ _ _ HH55). *)
+    admit. (* TODO TIM: needs the fact that space_remembered is unchanged *)
   }
   replace
     n_addr
@@ -1734,7 +1756,7 @@ Proof.
     Exists g1 t_info'. autorewrite with sublist.
     assert
       (forward_loop from to (Z.to_nat (depth - 1)) [] g1 g1)
-      by constructor. unfold thread_info_relation.
+      by constructor.
     destruct H54 as [? [? [? ?]]].
     now entailer!.
   }
@@ -1780,9 +1802,10 @@ Proof.
       assert (limit_address g3 t_info3 from = limit_address g4 t_info4 from).
       {
         unfold limit_address. f_equal. 2: assumption. f_equal.
-        rewrite (thread_info_relation__space_remembered _ _ _ H70).
+        (* rewrite (thread_info_relation__space_remembered _ _ _ H70).
         destruct H70 as [_ [H71 _]].
-        now rewrite H71.
+        now rewrite H71. *)
+        admit. (* TODO TIM: needs the fact that space_remembered is unchanged *)
       }
       rewrite H71.
       assert (next_address t_info3 to = next_address t_info4 to).
@@ -1807,17 +1830,23 @@ Proof.
       entailer!.
   - Intros g3 t_info3.
     assert (thread_info_relation t_info t_info3) by
-        (apply tir_trans with t_info';
-        [split; [| split]|]; assumption).
+        (now apply tir_trans with t_info').
     rewrite sublist_all in H60.
-    2: { rewrite Z.le_lteq. right. subst n' g1 from.
-        rewrite heapgraph_field_pairs__Zlength,  <- lgd_raw_fld_length_eq.
-        subst g'; rewrite lcv_vlabel_new; auto. }
-    Opaque super_compatible. Exists g3 t_info3 roots.
-    entailer!. simpl.
-    replace (Z.to_nat depth) with (S (Z.to_nat (depth - 1))) by
-        (rewrite <- Z2Nat.inj_succ; [f_equal|]; lia).
-    rewrite Heqc, H12. simpl.
+    2: {
+      rewrite Z.le_lteq. right. subst n' g1 from.
+      rewrite heapgraph_field_pairs__Zlength,  <- lgd_raw_fld_length_eq.
+      subst g'; rewrite lcv_vlabel_new; auto.
+    }
+    Opaque super_compatible.
+    Exists g3 t_info3 roots.
+    entailer!.
+    simpl.
+    replace
+      (Z.to_nat depth)
+      with (S (Z.to_nat (depth - 1)))
+      by (rewrite <- Z2Nat.inj_succ; [f_equal|]; lia).
+    rewrite Heqc, H12.
+    simpl.
     constructor; [reflexivity | assumption..].
     Transparent super_compatible.
-Qed.
+Admitted.

@@ -76,28 +76,31 @@ Definition enough_space_to_have_g g t_info from to: Prop :=
 
 
 
-Definition thread_info_relation t t':=
-  ti_heap_p t = ti_heap_p t'
-  /\ (forall n, gen_size t n = gen_size t' n)
-  /\ forall n, space_base (nth_space t n) = space_base (nth_space t' n).
+Record thread_info_relation t t' :=
+{
+  thread_info_relation__ti_heap: ti_heap_p t = ti_heap_p t';
+  thread_info_relation__gen_size (n: nat): gen_size t n = gen_size t' n;
+  thread_info_relation__space_base (n: nat): space_base (nth_space t n) = space_base (nth_space t' n);
+}.
 
-Lemma thread_info_relation__space_remembered t t' n:
-  thread_info_relation t t' ->
-  space_remembered (nth_space t n) = space_remembered (nth_space t' n).
-Proof.
-  admit.
-Admitted.
+Arguments thread_info_relation__ti_heap [_] [_].
+Arguments thread_info_relation__gen_size [_] [_].
+Arguments thread_info_relation__space_base [_] [_].
+
+
+(* thread_info_relation__space_remembered (n: nat): space_remembered (nth_space t n) = space_remembered (nth_space t' n); *)
+
 
 Lemma tir_id: forall t, thread_info_relation t t.
-Proof. intros. red. split; [|split]; reflexivity. Qed.
+Proof.
+  dintuition idtac.
+Qed.
 
 Lemma tir_trans: forall t1 t2 t3,
     thread_info_relation t1 t2 -> thread_info_relation t2 t3 ->
     thread_info_relation t1 t3.
 Proof.
-  intros. destruct H as [? [? ?]], H0 as [? [? ?]].
-  split; [|split]; [rewrite H; assumption | intros; rewrite H1; apply H3|
-                   intros; rewrite H2; apply H4].
+  dintuition congruence.
 Qed.
 
 
@@ -124,9 +127,14 @@ Lemma ti_relation_size_spec: forall t_info1 t_info2 : thread_info,
     thread_info_relation t_info1 t_info2 ->
     ti_size_spec t_info1 -> ti_size_spec t_info2.
 Proof.
-  intros. unfold ti_size_spec in *. rewrite Forall_forall in *. intros.
-  specialize (H0 _ H1). unfold generation_size_spec in *. destruct H as [? [? ?]].
-  rewrite <- H2, <- H3. assumption.
+  intros.
+  unfold ti_size_spec in *.
+  rewrite Forall_forall in *.
+  intros.
+  specialize (H0 _ H1). unfold generation_size_spec in *.
+  pose proof (thread_info_relation__gen_size H) as H2.
+  pose proof (thread_info_relation__space_base H) as H3.
+  now rewrite <- H2, <- H3.
 Qed.
 
 

@@ -1758,11 +1758,19 @@ Definition ti_token_rep (ti: thread_info): mpred :=
 Lemma ti_rel_token_the_same: forall (t1 t2: thread_info),
     thread_info_relation t1 t2 -> ti_token_rep t1 = ti_token_rep t2.
 Proof.
-  intros. destruct H as [? [? ?]]. unfold ti_token_rep. rewrite H. f_equal.
+  intros.
+  destruct H as [H H0 H1].
+  unfold ti_token_rep.
+  rewrite H.
+  f_equal.
   apply (iter_sepcon_pointwise_eq _ _ _ _ null_space null_space).
-  - rewrite <- !ZtoNat_Zlength, !heap_spaces__size. reflexivity.
-  - intros. fold (nth_space t1 i). fold (nth_space t2 i). unfold gen_size in H0.
-    unfold space_token_rep. rewrite H0, H1. reflexivity.
+  - now rewrite <- !ZtoNat_Zlength, !heap_spaces__size.
+  - intros.
+    fold (nth_space t1 i).
+    fold (nth_space t2 i).
+    unfold gen_size in H0.
+    unfold space_token_rep.
+    now rewrite H0, H1.
 Qed.
 
 Lemma ti_token_rep_add: forall ti sp i (Hs: 0 <= i < MAX_SPACES),

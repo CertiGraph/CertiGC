@@ -474,15 +474,29 @@ Qed.
 Lemma tir_reset: forall t_info gen,
     thread_info_relation t_info (reset_nth_heap_thread_info gen t_info).
 Proof.
-  intros. split; simpl. 1: reflexivity.
-  unfold gen_size, nth_space. simpl.
-  destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen).
-  - rewrite reset_nth_space_overflow by assumption. split; intros; reflexivity.
-  - split; intros; destruct (Nat.eq_dec n gen).
-    + subst. rewrite reset_nth_space_same; simpl; [reflexivity | assumption].
-    + rewrite reset_nth_space_diff; [reflexivity | assumption].
-    + subst. rewrite reset_nth_space_same; simpl; [reflexivity | assumption].
-    + rewrite reset_nth_space_diff; [reflexivity | assumption].
+  intros.
+  refine {|
+    thread_info_relation__ti_heap := _;
+    thread_info_relation__gen_size n := _;
+    thread_info_relation__space_base n := _;
+  |}.
+  - easy.
+  - unfold gen_size, nth_space.
+    unfold heap_spaces at 2.
+    simpl.
+    destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen) as [Hgen|Hgen].
+    + now rewrite reset_nth_space_overflow.
+    + destruct (Nat.eq_dec n gen) as [Hngen|Hngen].
+      * subst.
+        now rewrite reset_nth_space_same.
+      * now rewrite reset_nth_space_diff.
+  - unfold reset_nth_heap_thread_info, nth_space ; simpl.
+    destruct (le_lt_dec (length (heap_spaces (ti_heap t_info))) gen) as [Hgen|Hgen].
+    + now rewrite reset_nth_space_overflow.
+    + destruct (Nat.eq_dec n gen) as [Hngen|Hngen].
+      * subst.
+        now rewrite reset_nth_space_same.
+      * now rewrite reset_nth_space_diff.
 Qed.
 
 

@@ -98,10 +98,11 @@ Proof.
         {
           unfold limit_address.
           rewrite H22.
-          now rewrite (proj1 (proj2 H20)), (thread_info_relation__space_remembered _ _ _ H20).
+          (* now rewrite (proj1 (proj2 H20)), (thread_info_relation__space_remembered _ _ _ H20). *)
+          admit. (* TIM TODO: we need to prove that space_remembered is unchanged *)
         }
         assert (next_address t_info2 to = next_address t_info' to) by
-            (unfold next_address; rewrite (proj1 H20); reflexivity).
+            (unfold next_address; now rewrite (thread_info_relation__ti_heap H20)).
         destruct H16 as [? [? [? ?]]]. entailer!.
         replace (Z.to_nat (i + 1)) with (S (Z.to_nat i)) by
             (rewrite Z2Nat.inj_add by lia; simpl; lia).
@@ -112,4 +113,4 @@ Proof.
   - Intros g' t_info' roots'. Exists g' t_info' roots'.
     destruct H8 as [? [? [? ?]]]. entailer!. rewrite <- H5, ZtoNat_Zlength in H6.
     easy.
-Qed.
+Admitted.

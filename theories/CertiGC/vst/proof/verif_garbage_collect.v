@@ -562,7 +562,7 @@ Proof.
     replace
       (ti_heap_p t_info1)
       with (ti_heap_p t_info2)
-      by (rewrite (proj1 H28); reflexivity).
+      by (now rewrite (thread_info_relation__ti_heap H28)).
     unfold thread_info_rep, heap_struct_rep.
     Intros.
     assert

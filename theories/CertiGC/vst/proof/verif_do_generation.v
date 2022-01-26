@@ -243,7 +243,7 @@ Proof.
   replace
     (space_address t_info from)
     with (space_address t_info1 from)
-    by (unfold space_address; now rewrite (proj1 H26)).
+    by (unfold space_address; now rewrite (thread_info_relation__ti_heap H26)).
   assert
     (space_base (nth_space t_info1 from) = heapgraph_generation_base g1 from)
     as H27.
@@ -287,7 +287,7 @@ Proof.
     unfold thread_info_rep, heap_struct_rep.
     entailer!.
     unfold space_address, next_address, field_address.
-    rewrite (proj1 H26), if_true.
+    rewrite (thread_info_relation__ti_heap H26), if_true.
     - simpl. now rewrite offset_offset_val.
     - unfold field_compatible in *.
       simpl.
@@ -318,7 +318,7 @@ Proof.
   assert
     (0 < gen_size t_info1 to)
     as H32
-    by (rewrite <- (proj1 (proj2 H26)); assumption).
+    by (now rewrite <- (thread_info_relation__gen_size H26)).
   assert
     (heapgraph_generation_is_unmarked g1 to)
     as H33
@@ -333,7 +333,7 @@ Proof.
     (space_address t_info1 from)
     with (space_address t_info2 from)
     in *
-    by (unfold space_address; rewrite (proj1 H37); reflexivity).
+    by (unfold space_address; now rewrite (thread_info_relation__ti_heap H37)).
   assert
     (space_base (nth_space t_info2 from) = heapgraph_generation_base g2 from)
     as H38.

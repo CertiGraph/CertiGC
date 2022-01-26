@@ -1,12 +1,12 @@
 opam-version: "2.0"
 name: "CertiGC"
 version: "1.0"
-maintainer: "CertiGC Team"
-homepage: "https://github.com/intoverflow/CertiGC"
-dev-repo: "git+https://github.com/intoverflow/CertiGC.git"
-bug-reports: "https://github.com/intoverflow/CertiGC/issues"
-license: "https://github.com/intoverflow/CertiGC/blob/live/LICENSE"
-authors: ["CertiGC team"]
+maintainer: "The CertiGraph Team"
+homepage: "https://github.com/CertiGraph/CertiGC"
+dev-repo: "git+https://github.com/CertiGraph/CertiGC.git"
+bug-reports: "https://github.com/CertiGraph/CertiGC/issues"
+license: "https://github.com/CertiGraph/CertiGC/blob/live/LICENSE"
+authors: ["The CertiGraph Team"]
 build: []
 install: [
     make "install-src"

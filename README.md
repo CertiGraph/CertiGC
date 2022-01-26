@@ -1,8 +1,8 @@
 # CertiGC
 
-[![build](https://github.com/intoverflow/CertiGC/actions/workflows/build.yml/badge.svg)](https://github.com/intoverflow/CertiGC/actions/workflows/build.yml)
+[![build](https://github.com/CertiGraph/CertiGC/actions/workflows/build.yml/badge.svg)](https://github.com/CertiGraph/CertiGC/actions/workflows/build.yml)
 
-![GitHub](https://img.shields.io/github/license/intoverflow/CertiGC)
+![GitHub](https://img.shields.io/github/license/CertiGraph/CertiGC)
 
 A [Verified Software Unit](https://github.com/appliedfm/coq-vsu) that provides a formally verified generational garbage collector.
 
@@ -18,7 +18,7 @@ Specifications are proven correct for the following targets:
 - [x] `x86_64-linux`
 - [x] `x86_32-linux`
 
-Proofs are checked by our [CI infrastructure](https://github.com/intoverflow/CertiGC/actions/workflows/build.yml).
+Proofs are checked by our [CI infrastructure](https://github.com/CertiGraph/CertiGC/actions/workflows/build.yml).
 
 ## Contributors
 

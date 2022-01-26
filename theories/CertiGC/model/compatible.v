@@ -322,7 +322,7 @@ Lemma graph_thread_v_in_range (g: HeapGraph) (t_info: thread_info) (v: Addr)
     v_in_range
         (heapgraph_block_ptr g v)
         (heapgraph_generation_base g (addr_gen v))
-        (WORD_SIZE * gen_size t_info (addr_gen v)).
+        (WORD_SIZE * (gen_size t_info (addr_gen v) - space_remembered (nth_space t_info (addr_gen v)))).
 Proof.
   exists (WORD_SIZE * heapgraph_block_offset g v).
   pose proof WORD_SIZE_pos as HH.
@@ -334,12 +334,14 @@ Proof.
   }
   {
     apply Zmult_lt_compat_l ; try assumption.
-    pose proof (proj2 (space_allocated__order (nth_space t_info (addr_gen v)))) as HH'.
-    apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v))) ; try easy.
+    pose proof (space__order (nth_space t_info (addr_gen v))) as HH1.
+    pose proof (space_allocated__order (nth_space t_info (addr_gen v))) as HH2.
     destruct Hv as [Hv_gen Hv_index].
-    destruct (gt_gs_compatible _ _ Hcompat _ Hv_gen) as [Estart Esh Eallocated Eremembered].
+    destruct (gt_gs_compatible _ _ Hcompat _ Hv_gen) as [_ _ HH5 _].
     simpl in *.
-    rewrite <- Eallocated.
+    unfold gen_size.
+    apply Z.lt_le_trans with (space_allocated (nth_space t_info (addr_gen v))) ; try lia.
+    rewrite <- HH5.
     now apply heapgraph_block_offset__heapgraph_generation_size.
   }
 Qed.

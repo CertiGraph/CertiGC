@@ -239,7 +239,11 @@ Proof.
         pull_left (graph_rep g').
         destruct H8 as [H8 H24].
         rewrite <- (space_base_isptr_iff g') in H23 by assumption.
-        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ H23).
+        assert
+          (gen_size t_info' (Z.to_nat (i + 1)) > space_remembered (nth_space t_info' (Z.to_nat (i + 1))))
+          as HH_FIXME (* TODO TIM *)
+          by admit.
+        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ HH_FIXME H23).
         {
           now destruct H9 as [? [? [? [? ?]]]].
         }
@@ -712,4 +716,4 @@ Proof.
   Intros.
   forward_call ((gv ___stringlit_12), (map init_data2byte (gvar_init v___stringlit_12)), rsh).
   now exfalso.
-Qed.
+Admitted.

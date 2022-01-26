@@ -106,13 +106,15 @@ Proof.
         forall b i,
           Vptr b i = space_base sp_to ->
           graph_rep g' * heap_rest_rep (ti_heap t_info') |--
-      !! (WORD_SIZE * space_capacity sp_to + Ptrofs.unsigned i <= Ptrofs.max_unsigned)). {
+      !! (WORD_SIZE * (space_capacity sp_to - space_remembered sp_to) + Ptrofs.unsigned i <= Ptrofs.max_unsigned)).
+    {
       intros. sep_apply (graph_and_heap_rest_data_at_ _ _ _ H14 H5).
       assert (space_base sp_to = heapgraph_generation_base g' to) by
           (unfold heapgraph_generation_base; rewrite if_true by assumption;
            rewrite <- H18; reflexivity). rewrite H24 in H23.
       sep_apply (generation_data_at__ptrofs g' t_info' to b i H23).
-      unfold gen_size; rewrite nth_space_Znth; entailer!. }
+      unfold gen_size; rewrite nth_space_Znth; entailer!.
+    }
     assert_PROP (force_val
                    (sem_cmp_pp Clt (offset_val index_offset (space_base sp_to))
                                (offset_val used_offset (space_base sp_to))) =
@@ -144,7 +146,11 @@ Proof.
       assert (heapgraph_generation_base g' to = space_base sp_to) by
           (subst; unfold heapgraph_generation_base; rewrite if_true; assumption). rewrite H31.
       rewrite data_at__memory_block. Intros. rewrite sizeof_tarray_int_or_ptr.
-      2: unfold gen_size; apply space_capacity__range.
+      2: {
+        unfold gen_size.
+        pose proof (space_remembered__order (nth_space t_info' to)).
+        lia.
+      }
       remember (WORD_SIZE * space_allocated sp_to)%Z as used_offset.
       remember (to_index + n)%nat as index.
       remember (WORD_SIZE * heapgraph_block_size_prev g' to index)%Z as index_offset.
@@ -155,34 +161,51 @@ Proof.
         apply generation_sh__writable. }
       assert (forall offset,
                  0 <= offset <= used_offset ->
-                 memory_block (heapgraph_generation_sh g' to) (WORD_SIZE * gen_size t_info' to)
+                 memory_block (heapgraph_generation_sh g' to) (WORD_SIZE * (gen_size t_info' to - space_remembered (nth_space t_info' to)))
                               (Vptr b i) * TT * FRZL FR |--
-        weak_valid_pointer (Vptr b (Ptrofs.add i (Ptrofs.repr offset)))). {
-        intros. change (Vptr b (Ptrofs.add i (Ptrofs.repr offset))) with
-            (offset_val offset (Vptr b i)).
-        sep_apply (memory_block_weak_valid_pointer
-                     (heapgraph_generation_sh g' to) (WORD_SIZE * gen_size t_info' to)
-                     (Vptr b i) offset); auto.
+        weak_valid_pointer (Vptr b (Ptrofs.add i (Ptrofs.repr offset)))).
+      {
+        intros.
+        change
+          (Vptr b (Ptrofs.add i (Ptrofs.repr offset)))
+          with (offset_val offset (Vptr b i)).
+        sep_apply (
+          memory_block_weak_valid_pointer
+            (heapgraph_generation_sh g' to)
+            (WORD_SIZE * (gen_size t_info' to - space_remembered (nth_space t_info' to)))
+            (Vptr b i) offset
+        ); auto.
         3: apply extend_weak_valid_pointer.
-        - subst. unfold gen_size. split. 1: apply (proj1 H34).
-          transitivity (WORD_SIZE * space_allocated (nth_space t_info' to))%Z.
-          + rewrite nth_space_Znth. apply (proj2 H34).
-          + apply Zmult_le_compat_l.
-            {
-              pose proof (space_remembered__lower_bound (nth_space t_info' to)).
-              pose proof (space__order (nth_space t_info' to)).
-              lia.
-            }
-            unfold WORD_SIZE.
-            lia.
-        - clear -H3 H7. destruct H7 as [? [? ?]].
-          rewrite <- H0. unfold WORD_SIZE. lia. }
-      apply andp_right; apply H34.
-      * subst. split.
+        - subst.
+          unfold gen_size.
+          rewrite <- nth_Znth' in H34.
+          change
+            (nth to (heap_spaces (ti_heap t_info')) default)
+            with (nth_space t_info' to)
+            in H34.
+          split ; try lia.
+          pose proof (space__order (nth_space t_info' to)).
+          pose proof (space_allocated__lower_bound (nth_space t_info' to)).
+          transitivity (WORD_SIZE * space_allocated (nth_space t_info' to))%Z ; try lia.
+          unfold WORD_SIZE.
+          lia.
+        - clear -H3 H7.
+          assert
+            (gen_size t_info' to > space_remembered (nth_space t_info' to))
+            as HH_FIXME (* TODO TIM *)
+            by admit.
+          unfold WORD_SIZE.
+          lia.
+      }
+      apply andp_right ; apply H34.
+      {
+        subst. split.
         1: pose proof (heapgraph_block_size_prev__nonneg g' to (to_index + n)%nat); unfold WORD_SIZE; lia.
         apply Zmult_le_compat_l. 2: unfold WORD_SIZE; lia. rewrite <- H20.
         apply heapgraph_block_size_prev__mono. assumption.
-      * split ; try lia.
+      }
+      {
+        split ; try lia.
         subst.
         apply Z.mul_nonneg_nonneg.
         {
@@ -190,6 +213,7 @@ Proof.
           lia.
         }
         apply space_allocated__lower_bound.
+      }
     + assert (index_offset < used_offset). {
         destruct (zlt index_offset used_offset); trivial.
         rewrite H24 in H25; unfold typed_true in H25. easy. }
@@ -474,4 +498,4 @@ Proof.
            ++ subst g''. split; [| apply svwl_add_tail_no_scan]; easy.
            ++ split; [|apply svwl_add_tail_scan with g']; easy.
   - Intros g' t_info'. Exists g' t_info'. entailer!.
-Qed.
+Admitted.

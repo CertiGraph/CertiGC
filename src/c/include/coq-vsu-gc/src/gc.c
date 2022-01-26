@@ -89,7 +89,7 @@ int in_heap(struct heap *h, value v) {
   for (i=0; i<MAX_SPACES; i++)
     if (h->spaces[i].start != NULL)
       if (h->spaces[i].start <= (value*)v &&
-	  (value *)v <= h->spaces[i].limit)
+	  (value *)v <= h->spaces[i].end)
 	return 1;
   return 0;
 }
@@ -369,7 +369,7 @@ void garbage_collect(fun_info fi, struct thread_info *ti)
 
     /* If the next generation does not yet exist, create it */
     if (h->spaces[i+1].start==NULL) {
-      intnat w = h->spaces[i].limit-h->spaces[i].start;
+      intnat w = h->spaces[i].end - h->spaces[i].start;
       create_space(h->spaces+(i+1), RATIO*w);
     }
     /* Copy all the objects in generation i, into generation i+1 */
@@ -378,8 +378,7 @@ void garbage_collect(fun_info fi, struct thread_info *ti)
     do_generation(h->spaces+i, h->spaces+(i+1), fi, ti);
     /* If there's enough space in gen i+1 to guarantee that the
        NEXT collection into i+1 will succeed, we can stop here */
-    if (h->spaces[i].limit - h->spaces[i].start
-        <= h->spaces[i+1].limit - h->spaces[i+1].next) {
+    if ( h->spaces[i].end - h->spaces[i].start <= h->spaces[i+1].limit - h->spaces[i+1].next) {
         resume(fi,ti);
         return;
     }

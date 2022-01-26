@@ -87,6 +87,13 @@ Proof.
     destruct sp ; simpl ; lia.
 Qed.
 
+Lemma space_rest__signed_range (sp: Space):
+    Ptrofs.min_signed <= WORD_SIZE * (space_capacity sp - space_allocated sp) <= Ptrofs.max_signed.
+Proof.
+    apply MSS_max_wordsize_signed_range.
+    destruct sp ; simpl ; lia.
+Qed.
+
 Lemma space_allocated__signed_range (sp: Space):
     Ptrofs.min_signed <= WORD_SIZE * space_allocated sp <= Ptrofs.max_signed.
 Proof.
@@ -119,7 +126,7 @@ Proof.
 Qed.
 
 Lemma space_remaining__repable_signed (sp: Space):
-    range_signed (space_capacity sp - space_allocated sp - space_remembered sp).
+    range_signed (space_capacity sp - space_remembered sp - space_allocated sp).
 Proof.
     rewrite <- signed_range_repable_signed.
     pose proof (space_remaining__signed_range sp) as H.

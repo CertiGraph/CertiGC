@@ -56,7 +56,7 @@ Proof.
       | H : Int.ltu _ _ = false |- _ => apply ltu_repr_false in H
       end.
       { pose proof (space_remembered__lower_bound h). lia. }
-      { apply word_size_range. }
+      { first [apply space_capacity__range | apply word_size_range]. }
       { apply space_limit__range. }
     + rewrite <- Heqv in *. red in H0. rewrite H0 in H5.
       unfold heapgraph_block_size_prev in H5. simpl in H5. unfold nth_space in H5.

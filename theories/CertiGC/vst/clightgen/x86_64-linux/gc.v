@@ -1726,7 +1726,7 @@ Definition f_garbage_collect := {|
                                 (tarray (Tstruct _space noattr) 12))
                               (Etempvar _i tint)
                               (tptr (Tstruct _space noattr)))
-                            (Tstruct _space noattr)) _limit
+                            (Tstruct _space noattr)) _end
                           (tptr (talignas 3%N (tptr tvoid)))))
                       (Ssequence
                         (Sset _t'8
@@ -1820,7 +1820,7 @@ Definition f_garbage_collect := {|
                               (tarray (Tstruct _space noattr) 12))
                             (Etempvar _i tint)
                             (tptr (Tstruct _space noattr)))
-                          (Tstruct _space noattr)) _limit
+                          (Tstruct _space noattr)) _end
                         (tptr (talignas 3%N (tptr tvoid)))))
                     (Ssequence
                       (Sset _t'2
@@ -1903,7 +1903,7 @@ Definition f_garbage_collect := {|
                                  tvoid cc_default))
           ((Evar ___stringlit_13 (tarray tschar 2)) ::
            (Evar ___stringlit_1 (tarray tschar 34)) ::
-           (Econst_int (Int.repr 391) tint) ::
+           (Econst_int (Int.repr 390) tint) ::
            (Evar ___func____3 (tarray tschar 16)) :: nil))))))
 |}.
 
@@ -2409,7 +2409,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\n37fa59b49f532375bc80607eae3f5b56fadfb3366ed08dec00eac30a64f7ab5b  src/c/include/coq-vsu-gc/src/gc.c
+(*\nInput hashes (sha256):\n\ne19637743aec7af81fa3ba9a1d46c70e520bf8ea9b3a6f159cc89d8d0eadcc68  src/c/include/coq-vsu-gc/src/gc.c
 60153f31e6db31a7c363199e3b84f3adbd1fc73fc3898a0ecdbbe2b43e6979fa  src/c/include/coq-vsu-gc/config.h
 9bef10c6cd654bdfcc03c36e4e3d5d27619302f21e2fbcb8b3b6cad30cf287ff  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

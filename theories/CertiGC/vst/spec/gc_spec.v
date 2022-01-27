@@ -235,6 +235,7 @@ Definition forward_spec :=
       ; forward_relation from to (Z.to_nat depth) (forward_p2forward_t forward_p roots g) g g'
       ; forward_condition g' t_info' from to
       ; thread_info_relation t_info t_info'
+      ; thread_info__remembered_invariant t_info t_info'
       )
     LOCAL ()
     SEP
@@ -287,6 +288,7 @@ Definition forward_roots_spec :=
       ; forward_roots_relation from to f_info roots g roots' g'
       ; forward_condition g' t_info' from to
       ; thread_info_relation t_info t_info'
+      ; thread_info__remembered_invariant t_info t_info'
       )
     LOCAL ()
     SEP
@@ -338,6 +340,7 @@ Definition do_scan_spec :=
       ; forward_condition g' t_info' from to
       ; do_scan_relation from to to_index g g'
       ; thread_info_relation t_info t_info'
+      ; thread_info__remembered_invariant t_info t_info'
       )
     LOCAL ()
     SEP

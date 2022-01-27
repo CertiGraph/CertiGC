@@ -244,6 +244,7 @@ Proof.
     (space_address t_info from)
     with (space_address t_info1 from)
     by (unfold space_address; now rewrite (thread_info_relation__ti_heap H26)).
+  rename H27 into HH27.
   assert
     (space_base (nth_space t_info1 from) = heapgraph_generation_base g1 from)
     as H27.
@@ -336,13 +337,13 @@ Proof.
     by (unfold space_address; now rewrite (thread_info_relation__ti_heap H37)).
   assert
     (space_base (nth_space t_info2 from) = heapgraph_generation_base g2 from)
-    as H38.
+    as HH38.
   {
     destruct H34 as [H34 _].
     destruct H35 as [_ [H35 _]].
-    destruct (gt_gs_compatible _ _ H34 _ H35) as [H38 _ _ _].
-    simpl in H38.
-    rewrite <- H38.
+    destruct (gt_gs_compatible _ _ H34 _ H35) as [HH38 _ _ _].
+    simpl in HH38.
+    rewrite <- HH38.
     unfold heapgraph_generation_base.
     now rewrite if_true.
   }
@@ -350,7 +351,7 @@ Proof.
     (isptr (space_base (nth_space t_info2 from)))
     as H39.
   {
-    rewrite H38.
+    rewrite HH38.
     unfold heapgraph_generation_base.
     destruct H35 as [_ [H35 _]].
     rewrite if_true by assumption.

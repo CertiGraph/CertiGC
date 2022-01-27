@@ -27,22 +27,29 @@ Proof.
   forward_for_simple_bound
     n
     (EX i: Z, EX g' : HeapGraph, EX t_info': thread_info, EX roots' : roots_t,
-     PROP (forward_roots_loop from to f_info (nat_inc_list (Z.to_nat i))
-                              roots g roots' g';
-           thread_info_relation t_info t_info';
-           super_compatible (g', t_info', roots') f_info outlier;
-           forward_condition g' t_info' from to)
-     LOCAL (temp _args (offset_val (if Archi.ptr64 then 24 else 12) ti);
-            temp _n (Z2val n);
-            temp _roots (offset_val (if Archi.ptr64 then 16 else 8) fi);
-            temp _from_start (heapgraph_generation_base g' from);
-            temp _from_limit (limit_address g' t_info' from);
-            temp _next (next_address t_info' to))
-     SEP (all_string_constants rsh gv;
-          fun_info_rep rsh f_info fi;
-          outlier_rep outlier;
-          graph_rep g';
-          thread_info_rep sh t_info' ti))%assert.
+     PROP
+      ( forward_roots_loop from to f_info (nat_inc_list (Z.to_nat i)) roots g roots' g'
+      ; thread_info_relation t_info t_info'
+      ; super_compatible (g', t_info', roots') f_info outlier
+      ; forward_condition g' t_info' from to
+      ; thread_info__remembered_invariant t_info t_info'
+      )
+     LOCAL
+      ( temp _args (offset_val (if Archi.ptr64 then 24 else 12) ti)
+      ; temp _n (Z2val n)
+      ; temp _roots (offset_val (if Archi.ptr64 then 16 else 8) fi)
+      ; temp _from_start (heapgraph_generation_base g' from)
+      ; temp _from_limit (limit_address g' t_info' from)
+      ; temp _next (next_address t_info' to)
+      )
+     SEP
+      ( all_string_constants rsh gv
+      ; fun_info_rep rsh f_info fi
+      ; outlier_rep outlier
+      ; graph_rep g'
+      ; thread_info_rep sh t_info' ti
+      )
+    )%assert.
   - pose proof lri_range f_info. unfold MAX_UINT in H6. subst n; lia.
   - Exists g t_info roots. destruct H as [? [? [? ?]]]. entailer!.
     split; [|split]; try easy. unfold nat_inc_list. simpl. constructor.
@@ -77,40 +84,51 @@ Proof.
         first [rewrite sem_add_pi_ptr_special' |
                rewrite sem_add_pl_ptr_special] ; auto. simpl. unfold field_address.
         rewrite if_true. 1: simpl; rewrite offset_offset_val; reflexivity.
-        unfold field_compatible in *. simpl. unfold in_members. simpl. intuition.
+        unfold field_compatible in *. simpl. unfold in_members. simpl.
+        intuition lia.
       }
       assert (Zlength roots' = Zlength roots) by (apply frl_roots_Zlength in H8; assumption).
       forward_call (rsh, sh, gv, fi, ti, g', t_info', f_info, roots', outlier, from, to, 0, (@inl _ (Addr*Z) i)).
       * simpl snd. apply prop_right.
-        change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with int_or_ptr_type.
-        change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with int_or_ptr_type.
-        change (tptr tvoid) with int_or_ptr_type.
-        simpl. cbv [Archi.ptr64] in H14. rewrite H14.
+      change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with int_or_ptr_type.
+      change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with int_or_ptr_type.
+      simpl. cbv [Archi.ptr64] in H15. rewrite H15.
         rewrite <- Heqz. clear. intuition.
-      * intuition. red. rewrite H15, H5. split; assumption.
+      * intuition. red. rewrite H16, H5. split; assumption.
       * Intros vret. destruct vret as [[g2 t_info2] roots2]. simpl fst in *.
         simpl snd in *. simpl forward_p2forward_t in H16. Exists g2 t_info2 roots2.
         assert (thread_info_relation t_info t_info2) by (eapply tir_trans; eauto).
+        assert
+          (thread_info__remembered_invariant t_info t_info2)
+          as HH24.
+        {
+          unfold thread_info__remembered_invariant in *.
+          intro m. congruence.
+        }
         assert (heapgraph_generation_base g' from = heapgraph_generation_base g2 from). {
           eapply fr_gen_start; eauto. destruct H11 as [_ [_ [? _]]].
           assumption. }
         assert (limit_address g2 t_info2 from = limit_address g' t_info' from).
         {
           unfold limit_address.
-          rewrite H22.
-          (* now rewrite (proj1 (proj2 H20)), (thread_info_relation__space_remembered _ _ _ H20). *)
-          admit. (* TIM TODO: we need to prove that space_remembered is unchanged *)
+          now rewrite H22, H24, (thread_info_relation__gen_size H21).
         }
         assert (next_address t_info2 to = next_address t_info' to) by
-            (unfold next_address; now rewrite (thread_info_relation__ti_heap H20)).
-        destruct H16 as [? [? [? ?]]]. entailer!.
-        replace (Z.to_nat (i + 1)) with (S (Z.to_nat i)) by
-            (rewrite Z2Nat.inj_add by lia; simpl; lia).
-        rewrite nat_inc_list_S. remember (Z.to_nat i) as n.
+            (unfold next_address; now rewrite (thread_info_relation__ti_heap H21)).
+        destruct H17 as [H17 [H27 [H28 H29]]].
+        entailer!.
+        replace
+          (Z.to_nat (i + 1))
+          with (S (Z.to_nat i))
+          by (rewrite Z2Nat.inj_add by lia; simpl; lia).
+        rewrite nat_inc_list_S.
+        remember (Z.to_nat i) as n.
         replace i with (Z.of_nat n) in * by (subst n;rewrite Z2Nat.id; lia).
-        simpl in H18. split; [apply frl_add_tail|]; easy.
-    + exfalso. try (rewrite !Int64.unsigned_repr in H13; [|rep_lia..]). rep_lia.
+        simpl in H19.
+        split; [apply frl_add_tail|split]; easy.
+    + exfalso. try (rewrite !Int64.unsigned_repr in H14; [|rep_lia..]). rep_lia.
   - Intros g' t_info' roots'. Exists g' t_info' roots'.
-    destruct H8 as [? [? [? ?]]]. entailer!. rewrite <- H5, ZtoNat_Zlength in H6.
-    easy.
-Admitted.
+    destruct H8 as [? [? [? ?]]].
+    entailer!.
+    now rewrite <- H5, ZtoNat_Zlength in H6.
+Qed.

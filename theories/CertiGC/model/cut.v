@@ -146,3 +146,18 @@ Proof.
   - subst i. rewrite cti_space_eq. simpl. rewrite nth_space_Znth. reflexivity.
   - rewrite cti_space_not_eq; [reflexivity | assumption].
 Qed.
+
+Lemma cti__remembered_invariant: forall t_info i s  n
+    (Hi : 0 <= i < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i (heap_spaces (ti_heap t_info))) s),
+    space_remembered (nth_space (cut_thread_info t_info i s Hi Hh) n) =
+    space_remembered (nth_space t_info n).
+Proof.
+  intros.
+  destruct (Z.eq_dec (Z.of_nat n) i).
+  - subst i.
+    rewrite cti_space_eq.
+    simpl.
+    now rewrite nth_space_Znth.
+  - now rewrite cti_space_not_eq.
+Qed.

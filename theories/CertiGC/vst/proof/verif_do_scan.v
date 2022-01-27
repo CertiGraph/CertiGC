@@ -403,10 +403,7 @@ Proof.
                  assert (limit_address g3 t_info3 from = limit_address g4 t_info4 from).
                 {
                    unfold limit_address.
-                   rewrite H45.
-                   do 2 f_equal.
-                   (* now rewrite (proj1 (proj2 H42)), (thread_info_relation__space_remembered _ _ _ H42). *)
-                   admit. (* TIM TODO: we need to prove that space_remembered is unchanged *)
+                   now rewrite H43, H46, (thread_info_relation__gen_size H42).
                 }
                  assert (next_address t_info3 to = next_address t_info4 to) by
                      (unfold next_address; f_equal; apply (thread_info_relation__ti_heap H42)). entailer!.
@@ -420,12 +417,16 @@ Proof.
                      rewrite (sublist_split 0 (i - 1) i) by lia.
                      rewrite (sublist_one (i - 1) i) by lia.
                      apply svfl_add_tail with roots g3; trivial.
-                     assert (Z.of_nat (Znth (i - 1) l) = i - 1). {
+                     assert (Z.of_nat (Znth (i - 1) l) = i - 1) as H54. {
                        rewrite <- nth_Znth by lia. subst l.
                        rewrite nat_inc_list_nth; [rewrite Z2Nat.id; lia|].
-                       rewrite <- ZtoNat_Zlength. rewrite Zlength_correct in H52.
-                       rewrite nat_inc_list_length in H52. rewrite Nat2Z.inj_lt.
-                       rewrite !Z2Nat.id; lia. } rewrite H53. assumption.
+                       rewrite <- ZtoNat_Zlength.
+                       rewrite Zlength_correct in H53.
+                       rewrite nat_inc_list_length in H53.
+                       rewrite Nat2Z.inj_lt.
+                       rewrite !Z2Nat.id; lia.
+                      }
+                      now rewrite H54.
                  --- apply tir_trans with t_info3; assumption.
                  --- f_equal. symmetry. eapply fr_heapgraph_block_ptr; eauto.
                      apply heapgraph_has_block_in_closure; assumption.

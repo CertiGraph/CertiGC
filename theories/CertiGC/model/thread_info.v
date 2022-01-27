@@ -87,8 +87,7 @@ Arguments thread_info_relation__ti_heap [_] [_].
 Arguments thread_info_relation__gen_size [_] [_].
 Arguments thread_info_relation__space_base [_] [_].
 
-
-(* thread_info_relation__space_remembered (n: nat): space_remembered (nth_space t n) = space_remembered (nth_space t' n); *)
+Definition thread_info__remembered_invariant t t' := forall (n: nat), space_remembered (nth_space t n) = space_remembered (nth_space t' n).
 
 
 Lemma tir_id: forall t, thread_info_relation t t.

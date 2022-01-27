@@ -165,6 +165,18 @@ Lemma utiacti_space_base: forall t_info i1 i2 s ad n
                  n) = space_base (nth_space t_info n).
 Proof. intros. unfold nth_space. rewrite utia_ti_heap. apply cti_space_base. Qed.
 
+Lemma utiacti__remembered_invariant t_info i1 i2 s ad
+    (Hi : 0 <= i1 < Zlength (heap_spaces (ti_heap t_info)))
+    (Hh : has_space (Znth i1 (heap_spaces (ti_heap t_info))) s)
+    (Hm : 0 <= i2 < MAX_ARGS):
+    thread_info__remembered_invariant t_info (update_thread_info_arg (cut_thread_info t_info i1 s Hi Hh) i2 ad Hm).
+Proof.
+  intro n.
+  unfold nth_space.
+  rewrite utia_ti_heap.
+  symmetry.
+  apply cti__remembered_invariant.
+Qed.
 
 Lemma forward_estc: forall
     g t_info v to index uv

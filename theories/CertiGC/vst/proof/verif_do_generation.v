@@ -107,6 +107,7 @@ Proof.
     entailer!.
   }
   {
+    exfalso.
     destruct from_p; try contradiction.
     inv_int i.
     rename H20 into H20.
@@ -114,7 +115,6 @@ Proof.
     inv_int i0.
     rename H21 into H21.
     simpl in H18; unfold sem_sub_pp in H18; destruct eq_block in H18; [|easy].
-    exfalso.
     rewrite !ptrofs_add_repr, !ptrofs_sub_repr, !if_true in H18 by easy.
     simpl in H18.
     replace
@@ -206,11 +206,10 @@ Proof.
   replace
     from_p
     with (heapgraph_generation_base g from)
-    by (subst; unfold heapgraph_generation_base; rewrite if_true; assumption).
-  replace
+    by (subst; unfold heapgraph_generation_base; now rewrite if_true).
+  change
     (offset_val (WORD_SIZE * (space_capacity (nth_space t_info from) - space_remembered (nth_space t_info from))) (heapgraph_generation_base g from))
-    with (limit_address g t_info from)
-    by (unfold limit_address, gen_size; reflexivity).
+    with (limit_address g t_info from).
   assert_PROP (isptr (space_address t_info to)).
   {
     unfold space_address, thread_info_rep, heap_struct_rep.
@@ -236,6 +235,7 @@ Proof.
   thaw FR.
   forward_call (rsh, sh, gv, fi, ti, g, t_info, f_info, roots, outlier, from, to).
   Intros vret.
+  rename H27 into HH27.
   destruct vret as [[g1 t_info1] roots1].
   simpl fst in *.
   simpl snd in *.
@@ -244,7 +244,6 @@ Proof.
     (space_address t_info from)
     with (space_address t_info1 from)
     by (unfold space_address; now rewrite (thread_info_relation__ti_heap H26)).
-  rename H27 into HH27.
   assert
     (space_base (nth_space t_info1 from) = heapgraph_generation_base g1 from)
     as H27.
@@ -320,8 +319,7 @@ Proof.
     (0 < gen_size t_info1 to - space_remembered (nth_space t_info1 to))
     as H32.
   {
-    rewrite <- (thread_info_relation__gen_size H26).
-    admit.
+    now rewrite <- HH27, <- (thread_info_relation__gen_size H26).
   }
   assert
     (heapgraph_generation_is_unmarked g1 to)
@@ -450,4 +448,4 @@ Proof.
   Exists g3 t_info3 roots1.
   destruct H34 as [H34 [H43 [H44 H45]]].
   now entailer!.
-Admitted.
+Qed.

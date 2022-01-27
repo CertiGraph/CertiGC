@@ -1908,51 +1908,76 @@ Definition f_reset_heap := {|
   fn_callconv := cc_default;
   fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
   fn_vars := nil;
-  fn_temps := ((_i, tint) :: (_t'2, (tptr (Tstruct __IO_FILE noattr))) ::
+  fn_temps := ((_i, tint) :: (_t'3, (tptr (Tstruct __IO_FILE noattr))) ::
+               (_t'2, (tptr (talignas 2%N (tptr tvoid)))) ::
                (_t'1, (tptr (talignas 2%N (tptr tvoid)))) :: nil);
   fn_body :=
 (Ssequence
   (Ssequence
-    (Sset _t'2 (Evar _stderr (tptr (Tstruct __IO_FILE noattr))))
+    (Sset _t'3 (Evar _stderr (tptr (Tstruct __IO_FILE noattr))))
     (Scall None
       (Evar _fprintf (Tfunction
                        (Tcons (tptr (Tstruct __IO_FILE noattr))
                          (Tcons (tptr tschar) Tnil)) tint
                        {|cc_vararg:=(Some 2); cc_unproto:=false; cc_structret:=false|}))
-      ((Etempvar _t'2 (tptr (Tstruct __IO_FILE noattr))) ::
+      ((Etempvar _t'3 (tptr (Tstruct __IO_FILE noattr))) ::
        (Evar ___stringlit_14 (tarray tschar 22)) :: nil)))
   (Ssequence
-    (Sset _i (Econst_int (Int.repr 0) tint))
-    (Sloop
-      (Ssequence
-        (Sifthenelse (Ebinop Olt (Etempvar _i tint)
-                       (Econst_int (Int.repr 12) tint) tint)
-          Sskip
-          Sbreak)
+    (Ssequence
+      (Sset _i (Econst_int (Int.repr 0) tint))
+      (Sloop
         (Ssequence
-          (Sset _t'1
-            (Efield
-              (Ederef
-                (Ebinop Oadd
-                  (Efield
-                    (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
-                      (Tstruct _heap noattr)) _spaces
-                    (tarray (Tstruct _space noattr) 12)) (Etempvar _i tint)
-                  (tptr (Tstruct _space noattr))) (Tstruct _space noattr))
-              _start (tptr (talignas 2%N (tptr tvoid)))))
-          (Sassign
-            (Efield
-              (Ederef
-                (Ebinop Oadd
-                  (Efield
-                    (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
-                      (Tstruct _heap noattr)) _spaces
-                    (tarray (Tstruct _space noattr) 12)) (Etempvar _i tint)
-                  (tptr (Tstruct _space noattr))) (Tstruct _space noattr))
-              _next (tptr (talignas 2%N (tptr tvoid))))
-            (Etempvar _t'1 (tptr (talignas 2%N (tptr tvoid)))))))
-      (Sset _i
-        (Ebinop Oadd (Etempvar _i tint) (Econst_int (Int.repr 1) tint) tint)))))
+          (Sifthenelse (Ebinop Olt (Etempvar _i tint)
+                         (Econst_int (Int.repr 12) tint) tint)
+            Sskip
+            Sbreak)
+          (Ssequence
+            (Sset _t'2
+              (Efield
+                (Ederef
+                  (Ebinop Oadd
+                    (Efield
+                      (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
+                        (Tstruct _heap noattr)) _spaces
+                      (tarray (Tstruct _space noattr) 12)) (Etempvar _i tint)
+                    (tptr (Tstruct _space noattr))) (Tstruct _space noattr))
+                _start (tptr (talignas 2%N (tptr tvoid)))))
+            (Sassign
+              (Efield
+                (Ederef
+                  (Ebinop Oadd
+                    (Efield
+                      (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
+                        (Tstruct _heap noattr)) _spaces
+                      (tarray (Tstruct _space noattr) 12)) (Etempvar _i tint)
+                    (tptr (Tstruct _space noattr))) (Tstruct _space noattr))
+                _next (tptr (talignas 2%N (tptr tvoid))))
+              (Etempvar _t'2 (tptr (talignas 2%N (tptr tvoid)))))))
+        (Sset _i
+          (Ebinop Oadd (Etempvar _i tint) (Econst_int (Int.repr 1) tint)
+            tint))))
+    (Ssequence
+      (Sset _t'1
+        (Efield
+          (Ederef
+            (Ebinop Oadd
+              (Efield
+                (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
+                  (Tstruct _heap noattr)) _spaces
+                (tarray (Tstruct _space noattr) 12)) (Etempvar _i tint)
+              (tptr (Tstruct _space noattr))) (Tstruct _space noattr)) _end
+          (tptr (talignas 2%N (tptr tvoid)))))
+      (Sassign
+        (Efield
+          (Ederef
+            (Ebinop Oadd
+              (Efield
+                (Ederef (Etempvar _h (tptr (Tstruct _heap noattr)))
+                  (Tstruct _heap noattr)) _spaces
+                (tarray (Tstruct _space noattr) 12)) (Etempvar _i tint)
+              (tptr (Tstruct _space noattr))) (Tstruct _space noattr)) _limit
+          (tptr (talignas 2%N (tptr tvoid))))
+        (Etempvar _t'1 (tptr (talignas 2%N (tptr tvoid))))))))
 |}.
 
 Definition f_free_heap := {|
@@ -2405,7 +2430,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\ne19637743aec7af81fa3ba9a1d46c70e520bf8ea9b3a6f159cc89d8d0eadcc68  src/c/include/coq-vsu-gc/src/gc.c
+(*\nInput hashes (sha256):\n\n60ee611bebb5d82fb93b803fc775738deec9a24eb65cb895cecf2a1aac723f20  src/c/include/coq-vsu-gc/src/gc.c
 60153f31e6db31a7c363199e3b84f3adbd1fc73fc3898a0ecdbbe2b43e6979fa  src/c/include/coq-vsu-gc/config.h
 9bef10c6cd654bdfcc03c36e4e3d5d27619302f21e2fbcb8b3b6cad30cf287ff  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

@@ -782,6 +782,18 @@ Proof.
     remember
       (space_remembered (nth_space t_info gen))
       as rem.
+    replace
+      cap
+      with ((cap - rem) + rem)
+      at 1
+      by lia.
+    (*
+    rewrite <- memory_block_data_at_ by admit.
+    rewrite <- memory_block_data_at_ by admit.
+    remember (heapgraph_generation_base g gen) as base eqn:Heqbase.
+    destruct base ; try contradiction.
+    rewrite memory_block_split.
+    *)
     admit.
   - unfold heapgraph_generation_size.
     pose proof (generation__space__compatible__allocated (gt_gs_compatible _ _ H0 _ H)) as Hallocated.

@@ -13,6 +13,7 @@ From CertiGraph Require Import lib.List_ext.
 From CertiGC Require Import model.compatible.
 From CertiGC Require Import model.forward.
 From CertiGC Require Import model.graph.
+From CertiGC Require Import model.heap.
 From CertiGC Require Import model.reset.
 From CertiGC Require Import model.scan.
 From CertiGC Require Import model.thread_info.
@@ -21,15 +22,20 @@ From CertiGC Require Import model.thread_info.
 Definition do_generation_condition g t_info roots f_info from to: Prop :=
   enough_space_to_have_g g t_info from to /\ heapgraph_has_gen g from /\
   heapgraph_has_gen g to /\ copy_compatible g /\ no_dangling_dst g /\
-  0 < gen_size t_info to /\ heapgraph_generation_is_unmarked g to /\ roots_fi_compatible roots f_info.
+  0 < gen_size t_info to - space_remembered (nth_space t_info to) /\
+  heapgraph_generation_is_unmarked g to /\ roots_fi_compatible roots f_info.
 
 Lemma dgc_imply_fc: forall g t_info roots f_info from to,
     do_generation_condition g t_info roots f_info from to ->
-    forward_condition g t_info from to /\ 0 < gen_size t_info to /\
+    forward_condition g t_info from to /\ 0 < gen_size t_info to - space_remembered (nth_space t_info to) /\
     heapgraph_generation_is_unmarked g to /\ roots_fi_compatible roots f_info.
 Proof.
-  intros. destruct H. do 2 (split; [|intuition]). clear H0. red in H |-* .
-  transitivity (heapgraph_generation_size g from); [apply unmarked_gen_size_le | assumption].
+  intros.
+  destruct H.
+  refine (conj (conj _ (conj _ (conj _ (conj _ _)))) (conj _ (conj _ _))) ; intuition idtac.
+  red in H |-* .
+  pose proof (unmarked_gen_size_le g from).
+  lia.
 Qed.
 
 Definition do_generation_relation (from to: nat) (f_info: fun_info)

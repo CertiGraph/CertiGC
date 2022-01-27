@@ -167,7 +167,8 @@ Proof.
            heapgraph_can_copy_except g' (Z.to_nat i);
            firstn_gen_clear g' (Z.to_nat i);
            garbage_collect_loop f_info (nat_inc_list (Z.to_nat i)) roots g roots' g';
-           heapgraph_has_gen g' (Z.to_nat i))
+           heapgraph_has_gen g' (Z.to_nat i)
+           )
      LOCAL (temp _h (ti_heap_p t_info'); temp _fi fi; temp _ti ti;
             gvars gv)
      SEP (thread_info_rep sh t_info' ti;
@@ -212,7 +213,8 @@ Proof.
              heapgraph_can_copy_except g1 (Z.to_nat i);
              firstn_gen_clear g1 (Z.to_nat i);
              new_gen_relation (Z.to_nat (i + 1)) g' g1;
-             heapgraph_has_gen g1 (Z.to_nat (i + 1)))
+             heapgraph_has_gen g1 (Z.to_nat (i + 1))
+        )
        LOCAL (temp _h (ti_heap_p t_info1); temp _fi fi; temp _ti ti;
               gvars gv; temp _i (Vint (Int.repr i)))
        SEP (thread_info_rep sh t_info1 ti;
@@ -229,7 +231,8 @@ Proof.
       Transparent denote_tc_test_eq.
       destruct v0; try contradiction.
       - simpl in H15.
-        subst i0. simpl.
+        subst i0.
+        simpl.
         entailer!.
       - simpl.
         entailer!.
@@ -239,18 +242,23 @@ Proof.
         pull_left (graph_rep g').
         destruct H8 as [H8 H24].
         rewrite <- (space_base_isptr_iff g') in H23 by assumption.
-        assert
-          (gen_size t_info' (Z.to_nat (i + 1)) > space_remembered (nth_space t_info' (Z.to_nat (i + 1))))
-          as HH_FIXME (* TODO TIM *)
-          by admit.
-        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' _ HH_FIXME H23).
+        sep_apply (graph_and_heap_rest_valid_ptr g' t_info' (Z.to_nat (i + 1))).
+        {
+          replace
+            (Z.to_nat (i + 1))
+            with (S (Z.to_nat i))
+            in *
+            by lia.
+          apply (gc_cond_implies_do_gen_cons _ _ _ _ (Z.to_nat i)) in H9 ; try easy.
+          destruct H9.
+          lia.
+        }
         {
           now destruct H9 as [? [? [? [? ?]]]].
         }
         rewrite nth_space_Znth, Z2Nat.id by lia.
         sep_apply (valid_pointer_weak (space_base (Znth (i + 1) (heap_spaces (ti_heap t_info'))))).
         apply extend_weak_valid_pointer.
-        Opaque denote_tc_test_eq.
     }
     {
       assert (0 <= i < Zlength (heap_spaces (ti_heap t_info'))) as H17 by lia.
@@ -716,4 +724,4 @@ Proof.
   Intros.
   forward_call ((gv ___stringlit_12), (map init_data2byte (gvar_init v___stringlit_12)), rsh).
   now exfalso.
-Admitted.
+Qed.

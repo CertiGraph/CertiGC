@@ -77,7 +77,8 @@ Proof.
   destruct H2 as [? [? [? [? ?]]]].
   assert (heapgraph_has_gen g i) by (unfold heapgraph_has_gen in H0 |-*; lia).
   split; [|split; [|split; [|split; [|split; [|split; [|split]]]]]]; auto.
-  - unfold heapgraph_can_copy_except, heapgraph_generation_can_copy in H. red.
+  - unfold heapgraph_can_copy_except, heapgraph_generation_can_copy in H.
+    red.
     unfold rest_gen_size.
     specialize (H (S i) ltac:(lia) ltac:(lia) H0) ; simpl in H.
     pose proof (generation__space__compatible__remembered (gt_gs_compatible _ _ H1 _ H0)) as HSi_remembered.
@@ -99,9 +100,39 @@ Proof.
     rewrite HSi_allocated in H ; clear HSi_allocated.
     rewrite HSi_remembered in H ; clear HSi_remembered.
     assumption.
-  - apply graph_unmarked_copy_compatible; assumption.
-  - rewrite (ti_size_gen _ _ _ H1 H0 H6). apply ngs_0_lt.
-  - rewrite graph_heapgraph_generation_is_unmarked_iff in H2. apply H2.
+  - now apply graph_unmarked_copy_compatible.
+  - unfold heapgraph_can_copy_except, heapgraph_generation_can_copy in H.
+    specialize (H (S i) ltac:(lia) ltac:(lia) ltac:(easy)).
+    replace
+      (Init.Nat.pred (S i))
+      with i
+      in H
+      by lia.
+    pose proof (ngs_0_lt i) as H8.
+    pose proof (ngs_0_lt (S i)) as H9.
+    rewrite (ti_size_gen _ _ _ H1 H0 H6).
+    replace
+      (heapgraph_generation_size g (S i))
+      with (space_allocated (nth_space t_info (S i)))
+      in H.
+    2: {
+      pose proof (gt_gs_compatible _ _ H1 _ H0) as H10.
+      apply generation__space__compatible__allocated in H10.
+      now simpl in H10.
+    }
+    replace
+      (heapgraph_remember_size g (S i))
+      with (space_remembered (nth_space t_info (S i)))
+      in H.
+    2: {
+      pose proof (gt_gs_compatible _ _ H1 _ H0) as H10.
+      apply generation__space__compatible__remembered in H10.
+      now simpl in H10.
+    }
+    pose proof (space_allocated__order (nth_space t_info (S i))) as H10.
+    lia.
+  - rewrite graph_heapgraph_generation_is_unmarked_iff in H2.
+    apply H2.
 Qed.
 
 Lemma do_gen_gcc: forall g1 t_info1 roots1 g2 t_info2 roots2 f_info i out,

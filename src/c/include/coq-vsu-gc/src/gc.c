@@ -404,6 +404,7 @@ void reset_heap (struct heap *h) {
   int i;
   for (i=0; i<MAX_SPACES; i++)
     h->spaces[i].next = h->spaces[i].start;
+    h->spaces[i].limit = h->spaces[i].end;
 }
 
 void free_heap (struct heap *h) {

@@ -54,6 +54,7 @@ Proof.
                 PROP (super_compatible (g', t_info', roots) f_info outlier;
                       forward_condition g' t_info' from to;
                       thread_info_relation t_info t_info';
+                      thread_info__remembered_invariant t_info t_info';
                       closure_has_index g' to (to_index + n);
                       scan_vertex_while_loop from to (nat_seq to_index n) g g')
                 LOCAL
@@ -68,17 +69,28 @@ Proof.
           PROP (super_compatible (g', t_info', roots) f_info outlier;
                 forward_condition g' t_info' from to;
                 do_scan_relation from to to_index g g';
-                thread_info_relation t_info t_info')
+                thread_info_relation t_info t_info';
+                thread_info__remembered_invariant t_info t_info')
           LOCAL ()
           SEP (all_string_constants rsh gv; fun_info_rep rsh f_info fi;
                outlier_rep outlier; graph_rep g'; thread_info_rep sh t_info' ti)).
-  - Exists O g t_info. destruct H as [? [? [? ?]]].
-    replace (to_index + 0)%nat with to_index by lia. entailer!.
-    split; [|split]; [red; auto | apply tir_id | constructor].
-  - Intros n g' t_info'. remember (to_index + n)%nat as index.
+  - Exists O g t_info.
+    destruct H as [? [? [? ?]]].
+    replace (to_index + 0)%nat with to_index by lia.
+    entailer!.
+    split ; try easy.
+    split ; try easy.
+    split ; try easy.
+    constructor.
+  - Intros n g' t_info'.
+    rename H8 into HH8.
+    rename H9 into H8.
+    rename H10 into H9.
+    remember (to_index + n)%nat as index.
     unfold next_address, thread_info_rep. Intros.
-    unfold heap_struct_rep. destruct H5 as [? [? [? ?]]].
-    destruct H6 as [? [? [? [? ?]]]].
+    unfold heap_struct_rep.
+    destruct H5 as [H5 [H10 [H11 H12]]].
+    destruct H6 as [H6 [H13 [H14 [H15 H16]]]].
     assert (0 <= Z.of_nat to < 12). {
       clear -H5 H14. destruct H5 as [_ [_ ?]]. red in H14.
       pose proof (heap_spaces__size (ti_heap t_info')).
@@ -119,7 +131,8 @@ Proof.
                    (sem_cmp_pp Clt (offset_val index_offset (space_base sp_to))
                                (offset_val used_offset (space_base sp_to))) =
                  Vint (if if zlt index_offset used_offset then true else false
-                       then Int.one else Int.zero)). {
+                       then Int.one else Int.zero)).
+    {
       remember (space_base sp_to). destruct v; try contradiction. inv_int i.
       specialize (H23 b (Ptrofs.repr ofs) eq_refl).
       rewrite Ptrofs.unsigned_repr in H23 by rep_lia. sep_apply H23. Intros.
@@ -138,7 +151,8 @@ Proof.
       rewrite force_sem_cmp_pp; [|rewrite isptr_offset_val; assumption..].
       simpl. rewrite !ptrofs_add_repr, if_true. 2: reflexivity.
       unfold Ptrofs.ltu. rewrite !Ptrofs.unsigned_repr; auto. f_equal.
-      if_tac; if_tac; try reflexivity; lia. }
+      if_tac; if_tac; try reflexivity; lia.
+    }
     forward_if (heapgraph_generation_has_index g' to index).
     + remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info'))) as sp_to.
       sep_apply (graph_and_heap_rest_data_at_ _ _ _ H14 H5).
@@ -189,12 +203,12 @@ Proof.
           transitivity (WORD_SIZE * space_allocated (nth_space t_info' to))%Z ; try lia.
           unfold WORD_SIZE.
           lia.
-        - clear -H3 H7.
-          assert
-            (gen_size t_info' to > space_remembered (nth_space t_info' to))
-            as HH_FIXME (* TODO TIM *)
-            by admit.
-          unfold WORD_SIZE.
+        - clear -H3 H7 HH8.
+          rewrite <- (HH8 to).
+          rewrite <- (thread_info_relation__gen_size H7).
+          rewrite <- nth_Znth' in H3.
+          unfold WORD_SIZE, nth_space.
+          change default with null_space in H3.
           lia.
       }
       apply andp_right ; apply H34.
@@ -270,7 +284,8 @@ Proof.
                (~ heapgraph_block_is_no_scan g' {| addr_gen := to ; addr_block := index |} /\
                 scan_vertex_for_loop
                   from to {| addr_gen := to ; addr_block := index |}
-                  (nat_inc_list (length (heapgraph_block g' {| addr_gen := to ; addr_block := index |}).(block_fields))) g' g''))
+                  (nat_inc_list (length (heapgraph_block g' {| addr_gen := to ; addr_block := index |}).(block_fields))) g' g'');
+                thread_info__remembered_invariant t_info t_info'')
          LOCAL (temp _tag (vint (block_tag (heapgraph_block g' {| addr_gen := to ; addr_block := index |})));
                 temp _sz
                      (if Archi.ptr64 then
@@ -303,7 +318,8 @@ Proof.
                 super_compatible (g3, t_info3, roots) f_info outlier;
                 forward_condition g3 t_info3 from to;
                 thread_info_relation t_info t_info3;
-                1 <= i <= z + 1)
+                1 <= i <= z + 1;
+                thread_info__remembered_invariant t_info t_info3)
            LOCAL (temp _tag (vint (block_tag (heapgraph_block g' {| addr_gen := to ; addr_block := index |})));
                   temp _j (if Archi.ptr64 then (Vlong (Int64.repr i)) else vint i);
                   temp _sz (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
@@ -325,7 +341,8 @@ Proof.
                 super_compatible (g3, t_info3, roots) f_info outlier;
                 forward_condition g3 t_info3 from to;
                 thread_info_relation t_info t_info3;
-                1 <= i + 1 <= z + 1)
+                1 <= i + 1 <= z + 1;
+                thread_info__remembered_invariant t_info t_info3)
            LOCAL (temp _tag (vint (block_tag (heapgraph_block g' {| addr_gen := to ; addr_block := index |})));
                   temp _j (if Archi.ptr64 then (Vlong (Int64.repr i)) else vint i);
                   temp _sz (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
@@ -344,7 +361,9 @@ Proof.
                 [| pose proof (block_tag__range (heapgraph_block g' {| addr_gen := to ; addr_block := to_index + n |}));
                    rep_lia]).
            split; [apply svfl_nil | unfold super_compatible; auto].
-        -- Intros i g3 t_info3. forward_if (i <= z).
+        -- Intros i g3 t_info3.
+          rename H34 into HH34.
+           forward_if (i <= z).
            ++ forward. entailer!.
               first [rewrite !Int.unsigned_repr in H34 |
                      apply ltu64_repr_false in H34]; try lia.
@@ -407,7 +426,7 @@ Proof.
                 }
                  assert (next_address t_info3 to = next_address t_info4 to) by
                      (unfold next_address; f_equal; apply (thread_info_relation__ti_heap H42)). entailer!.
-                 split; [|split; [|split]]; try easy.
+                 split; [|split; [|split ; [|split]]]; try easy.
                  --- remember (nat_inc_list
                                  (Datatypes.length
                                     (block_fields (heapgraph_block g' {| addr_gen := to ; addr_block := to_index + n |})))).
@@ -428,9 +447,13 @@ Proof.
                       }
                       now rewrite H54.
                  --- apply tir_trans with t_info3; assumption.
+                 --- intro m.
+                     now rewrite <- H43, <- HH34.
                  --- f_equal. symmetry. eapply fr_heapgraph_block_ptr; eauto.
                      apply heapgraph_has_block_in_closure; assumption.
-        -- Intros i g3 t_info3. cbv [Archi.ptr64]. forward.
+        -- Intros i g3 t_info3.
+          rename H34 into HH34.
+          cbv [Archi.ptr64]. forward.
            ++ entailer!. clear -H28 H33. simpl in H28.
               first [rewrite !Int.signed_repr | rewrite Int64.signed_repr]; rep_lia.
            ++ Exists (i + 1) g3 t_info3. replace (i + 1 - 1) with i by lia. entailer!.
@@ -441,7 +464,9 @@ Proof.
         try (rewrite Int64.unsigned_repr;
              [|pose proof (block_tag__range (heapgraph_block g' {| addr_gen := to ; addr_block := to_index + n |}));
                rep_lia]). easy.
-      * Intros g'' t_info''. assert (isptr (heapgraph_block_ptr g'' {| addr_gen := to ; addr_block := index |})). {
+      * Intros g'' t_info''.
+        rename H31 into HH31.
+        assert (isptr (heapgraph_block_ptr g'' {| addr_gen := to ; addr_block := index |})). {
           assert (isptr (heapgraph_block_ptr g' {| addr_gen := to ; addr_block := index |})). {
             unfold heapgraph_block_ptr. rewrite isptr_offset_val. unfold heapgraph_generation_base.
             rewrite <- H18 in H21. rewrite if_true; assumption. }
@@ -494,10 +519,18 @@ Proof.
              destruct H30 as [[? ?] | [? ?]].
              - subst g''. destruct H23. assumption.
              - eapply svfl_heapgraph_has_block in H33; eauto. destruct H33. assumption. }
-           Exists (n + 1)%nat g'' t_info''. destruct H27 as [? [? [? ?]]]. entailer!.
-           clear H37 H38 H39 H40. replace (n + 1)%nat with (S n) by lia.
-           rewrite nat_seq_S, Nat.add_comm. destruct H30 as [[? ?] | [? ?]].
-           ++ subst g''. split; [| apply svwl_add_tail_no_scan]; easy.
+           Exists (n + 1)%nat g'' t_info''.
+           destruct H27 as [? [? [? ?]]].
+           entailer!.
+           clear H37 H38 H39 H40.
+           replace (n + 1)%nat with (S n) by lia.
+           rewrite nat_seq_S, Nat.add_comm.
+           destruct H30 as [[? ?] | [? ?]].
+           ++ subst g''.
+            split ; try easy.
+            now apply svwl_add_tail_no_scan.
            ++ split; [|apply svwl_add_tail_scan with g']; easy.
-  - Intros g' t_info'. Exists g' t_info'. entailer!.
-Admitted.
+  - Intros g' t_info'.
+    Exists g' t_info'.
+    entailer!.
+Qed.

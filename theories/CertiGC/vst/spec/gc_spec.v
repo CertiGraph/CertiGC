@@ -316,7 +316,8 @@ Definition do_scan_spec :=
       ; super_compatible (g, t_info, roots) f_info outlier
       ; forward_condition g t_info from to
       ; from <> to; closure_has_index g to to_index
-      ; 0 < gen_size t_info to; heapgraph_generation_is_unmarked g to
+      ; 0 < gen_size t_info to - space_remembered (nth_space t_info to)
+      ; heapgraph_generation_is_unmarked g to
       )
     PARAMS
       ( heapgraph_generation_base g from

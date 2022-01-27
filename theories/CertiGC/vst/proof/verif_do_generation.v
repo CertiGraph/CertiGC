@@ -317,9 +317,12 @@ Proof.
   destruct H30 as [H30 H31].
   simpl in H30, H31.
   assert
-    (0 < gen_size t_info1 to)
-    as H32
-    by (now rewrite <- (thread_info_relation__gen_size H26)).
+    (0 < gen_size t_info1 to - space_remembered (nth_space t_info1 to))
+    as H32.
+  {
+    rewrite <- (thread_info_relation__gen_size H26).
+    admit.
+  }
   assert
     (heapgraph_generation_is_unmarked g1 to)
     as H33
@@ -447,4 +450,4 @@ Proof.
   Exists g3 t_info3 roots1.
   destruct H34 as [H34 [H43 [H44 H45]]].
   now entailer!.
-Qed.
+Admitted.

@@ -1095,7 +1095,9 @@ Qed.
 Lemma lcv_edge_valid: forall g v to,
     edge_valid g -> heapgraph_has_gen g to -> edge_valid (lgraph_copy_v g v to).
 Proof.
-  intros. unfold edge_valid in *. intros. simpl.
+  intros.
+  unfold edge_valid in *.
+  intros ; simpl.
   split ; intro He.
   - rewrite pcv_evalid_iff in He.
     destruct He as [He|He].
@@ -1113,36 +1115,32 @@ Proof.
       constructor.
       * rewrite lcv_heapgraph_has_block_iff ; try easy.
         now right.
-      * rewrite
+      * now rewrite
           heapgraph_block_fields_map_map,
           lcv_lacv_heapgraph_block_fields,
           Hto,
           lacv_heapgraph_block_fields_new,
           map_map.
-        easy.
-  - destruct He as [He Hin].
+  - rewrite pcv_evalid_iff, H.
+    destruct He as [He Hin].
     apply lcv_heapgraph_has_block_iff in He ; try easy.
-    rewrite pcv_evalid_iff, H.
     destruct He as [He|Ee].
     {
       left.
       split ; try easy.
       now rewrite lcv_heapgraph_block_fields_old in Hin.
     }
-    right.
-    apply in_map_iff.
-    exists e.
-    split.
     {
-      destruct e.
-      simpl in *.
-      congruence.
+      right.
+      rewrite Ee in Hin.
+      now rewrite
+        heapgraph_block_fields_map_map,
+        lcv_lacv_heapgraph_block_fields,
+        lacv_heapgraph_block_fields_new,
+        map_map
+      in Hin.
     }
-    unfold lgraph_copy_v in Hin.
-    rewrite <- Ee in *.
-    clear Ee.
-    admit.
-Admitted.
+Qed.
 
 Lemma fr_O_edge_valid (g g' : HeapGraph) (from to : nat) (p : forward_t)
     (Hg: edge_valid g)

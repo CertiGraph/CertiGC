@@ -157,9 +157,14 @@ Proof.
     + remember (Znth (Z.of_nat to) (heap_spaces (ti_heap t_info'))) as sp_to.
       sep_apply (graph_and_heap_rest_data_at_ _ _ _ H14 H5).
       unfold generation_data_at_.
-      assert (heapgraph_generation_base g' to = space_base sp_to) by
-          (subst; unfold heapgraph_generation_base; rewrite if_true; assumption). rewrite H31.
-      rewrite data_at__memory_block. Intros. rewrite sizeof_tarray_int_or_ptr.
+      assert
+        (heapgraph_generation_base g' to = space_base sp_to)
+        as H31
+        by (subst; unfold heapgraph_generation_base; rewrite if_true; assumption).
+      rewrite H31.
+      rewrite data_at__memory_block.
+      Intros.
+      rewrite sizeof_tarray_int_or_ptr.
       2: {
         unfold gen_size.
         pose proof (space_remembered__order (nth_space t_info' to)).
@@ -175,9 +180,10 @@ Proof.
         apply generation_sh__writable. }
       assert (forall offset,
                  0 <= offset <= used_offset ->
-                 memory_block (heapgraph_generation_sh g' to) (WORD_SIZE * (gen_size t_info' to - space_remembered (nth_space t_info' to)))
-                              (Vptr b i) * TT * FRZL FR |--
-        weak_valid_pointer (Vptr b (Ptrofs.add i (Ptrofs.repr offset)))).
+                 memory_block (heapgraph_generation_sh g' to) (WORD_SIZE * (gen_size t_info' to - space_remembered (nth_space t_info' to))) (Vptr b i)
+                * generation_remembered_data_at_ g' t_info' to
+                * TT * FRZL FR
+                |-- weak_valid_pointer (Vptr b (Ptrofs.add i (Ptrofs.repr offset)))).
       {
         intros.
         change

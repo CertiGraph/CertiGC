@@ -400,12 +400,12 @@ Proof.
   sep_apply (generation_rep_align_compatible g gen H0). entailer!.
 Qed.
 
-Lemma generation_rep_data_at_: forall g gen,
-    heapgraph_has_gen g gen ->
-    generation_rep g gen |--
-                   data_at_ (heapgraph_generation_sh g gen)
-                   (tarray int_or_ptr_type (heapgraph_generation_size g gen))
-                   (heapgraph_generation_base g gen).
+Lemma generation_rep_data_at_ g gen (H: heapgraph_has_gen g gen):
+  generation_rep g gen
+  |-- data_at_
+        (heapgraph_generation_sh g gen)
+        (tarray int_or_ptr_type (heapgraph_generation_size g gen))
+        (heapgraph_generation_base g gen).
 Proof.
   intros. sep_apply (generation_rep_field_compatible g gen H). Intros.
   sep_apply (generation_rep_memory_block g gen H).
@@ -528,6 +528,123 @@ Proof.
     [assumption | unfold default_val; simpl; autorewrite with sublist..];
     [lia | reflexivity..].
 Qed.
+
+(*
+Lemma field_compatible_tarray_join':
+  forall (n n1 : Z) (p : val) (t: type),
+    0 <= n1 <= n -> complete_legal_cosu_type t = true ->
+    field_compatible (tarray t (n - n1)) [] p ->
+    field_compatible (tarray t n1) [] (offset_val (sizeof t * (n - n1)) p) ->
+    field_compatible (tarray t n) [] p.
+Proof.
+  intros. unfold field_compatible. simpl. destruct H1 as [? [_ [? [? _]]]].
+  destruct H2 as [_ [_ [? [? _]]]]. destruct p; try contradiction. clear H1.
+  simpl isptr. inv_int i. unfold size_compatible in *. simpl in H2.
+  simpl sizeof in *. rewrite Z.max_r in * by lia. pose proof (Ctypes.sizeof_pos t).
+  unfold sizeof in H2. remember (Ctypes.sizeof t) as S. rewrite ptrofs_add_repr in H2.
+  rewrite Ptrofs.unsigned_repr in * by rep_lia.
+  assert (0 <= ofs + S * n1 <= Ptrofs.max_unsigned). {
+    destruct H, H6. split. 2: rep_lia. apply Z.add_nonneg_nonneg. 1: lia.
+    apply Z.mul_nonneg_nonneg; lia. }
+  rewrite Ptrofs.unsigned_repr in * by assumption.
+  assert (forall i, ofs + S * n1 + S * (i - n1) = ofs + S * i). {
+    intros. rewrite <- Z.add_assoc. rewrite <- Z.mul_add_distr_l.
+    do 2 f_equal. lia. } rewrite H8 in H2. do 4 (split; auto). constructor. intros.
+  unfold tarray in *. inversion H4; subst. 1: simpl in H10; inversion H10.
+  inversion H5; subst. 1: simpl in H10; inversion H10. unfold sizeof in *.
+  remember (Ctypes.sizeof t) as S. rewrite ptrofs_add_repr in H15.
+  rewrite Ptrofs.unsigned_repr in * by rep_lia.
+  assert (0 <= i < n1 \/ n1 <= i < n) by lia. destruct H10.
+  1: apply H14; assumption. assert (0 <= i - n1 < n - n1) by lia.
+  specialize (H15 _ H11). rewrite H8 in H15. assumption.
+Qed.
+
+Lemma data_at_tarray_fold': forall sh n n1 p t (v v' v1 v2: list (reptype t)),
+    0 <= n1 <= n ->
+    n <= Zlength v' ->
+    v = sublist 0 n v' ->
+    v1 = sublist 0 (n - n1) v' ->
+    v2 = sublist (n - n1) n v' ->
+    complete_legal_cosu_type t = true ->
+    data_at sh (tarray t (n - n1)) v1 p *
+    data_at sh (tarray t n1) v2 (offset_val (sizeof t * (n - n1)) p) |--
+            data_at sh (tarray t n) v p.
+Proof.
+  intros.
+  rewrite (split2_data_at_Tarray sh t n (n - n1) v v' v1 v2) ; try easy ; try lia.
+  entailer!.
+  unfold field_address0.
+  rewrite if_true.
+  - simpl nested_field_offset.
+    replace
+      (n - (n - Zlength v2))
+      with (Zlength v2)
+      by lia.
+    entailer!.
+  - pose proof (field_compatible_tarray_join' n _ p _ H H4 H5 H7).
+    clear -H1 H.
+    red in H1. red. simpl in *. intuition.
+Qed.
+
+Lemma data_at_tarray_unfold': forall sh n n1 p t (v v' v1 v2: list (reptype t)),
+    0 <= n1 <= n ->
+    n <= Zlength v' ->
+    v = sublist 0 n v' ->
+    v1 = sublist 0 (n - n1) v' ->
+    v2 = sublist (n - n1) n v' ->
+    data_at sh (tarray t n) v p |--
+            data_at sh (tarray t n1) v1 p *
+    data_at sh (tarray t (n - n1)) v2 (offset_val (sizeof t * n1) p).
+Proof.
+  intros. sep_apply (data_at_local_facts sh (tarray t n) v p).
+  Intros. rewrite (split2_data_at_Tarray sh t n n1 v v' v1 v2);
+            [|assumption..]. cancel. unfold field_address0. rewrite if_true.
+  - simpl nested_field_offset. entailer!.
+  - clear -H H4. red. red in H4. simpl in *. intuition.
+Qed.
+
+Lemma data_at_tarray_split': forall sh n n1 p t (v v' v1 v2: list (reptype t)),
+    0 <= n1 <= n ->
+    n <= Zlength v' ->
+    v = sublist 0 n v' ->
+    v1 = sublist 0 (n - n1) v' ->
+    v2 = sublist (n - n1) n v' ->
+    complete_legal_cosu_type t = true ->
+    data_at sh (tarray t n) v p =
+    data_at sh (tarray t (n - n1)) v1 p *
+    data_at sh (tarray t n1) v2 (offset_val (sizeof t * (n - n1)) p).
+Proof.
+  intros. apply pred_ext.
+  - now apply data_at_tarray_unfold' with v'.
+  - now apply data_at_tarray_fold' with v'.
+Qed.
+
+Lemma data_at_tarray_value': forall sh n n1 p (v v' v1 v2: list val),
+    0 <= n1 <= n ->
+    n <= Zlength v' ->
+    v = sublist 0 n v' ->
+    v1 = sublist 0 (n - n1) v' ->
+    v2 = sublist (n - n1) n v' ->
+    data_at sh (tarray int_or_ptr_type n) v p =
+    data_at sh (tarray int_or_ptr_type (n - n1)) v1 p *
+    data_at sh (tarray int_or_ptr_type n1) v2 (offset_val (WORD_SIZE * (n - n1)) p).
+Proof.
+  intros.
+  eapply data_at_tarray_split'; eauto.
+Qed.
+
+Lemma data_at__tarray_value': forall sh n n1 p,
+    0 <= n1 <= n ->
+    data_at_ sh (tarray int_or_ptr_type n) p =
+    data_at_ sh (tarray int_or_ptr_type (n - n1)) p *
+    data_at_ sh (tarray int_or_ptr_type n1) (offset_val (WORD_SIZE * (n - n1)) p).
+Proof.
+  intros. rewrite !data_at__eq.
+  apply data_at_tarray_value' with (default_val (tarray int_or_ptr_type n));
+    [assumption | unfold default_val; simpl; autorewrite with sublist..];
+    [lia | reflexivity..].
+Qed.
+*)
 
 Definition valid_int_or_ptr (x: val) :=
   match x with
@@ -698,8 +815,7 @@ Qed.
 
 Definition heap_rest_gen_data_at_ (g: HeapGraph) (t_info: thread_info) (gen: nat) :=
   data_at_ (heapgraph_generation_sh g gen)
-           (tarray int_or_ptr_type
-                   (space_capacity (nth_space t_info gen) - heapgraph_generation_size g gen))
+           (tarray int_or_ptr_type (space_capacity (nth_space t_info gen) - heapgraph_generation_size g gen))
            (offset_val (WORD_SIZE * heapgraph_generation_size g gen) (heapgraph_generation_base g gen)).
 
 Lemma heap_rest_rep_iter_sepcon: forall g t_info,
@@ -764,49 +880,45 @@ Definition generation_data_at_ g t_info gen :=
     (tarray int_or_ptr_type (gen_size t_info gen - space_remembered (nth_space t_info gen)))
     (heapgraph_generation_base g gen).
 
-Lemma gr_hrgda_data_at_: forall g t_info gen,
-    heapgraph_has_gen g gen ->
-    graph_thread_info_compatible g t_info ->
-    generation_rep g gen *
-    heap_rest_gen_data_at_ g t_info gen |-- generation_data_at_ g t_info gen.
+Definition generation_remembered_data_at_ (g: HeapGraph) (t_info: thread_info) (gen: nat) :=
+  data_at_ (heapgraph_generation_sh g gen)
+           (tarray int_or_ptr_type (space_remembered (nth_space t_info gen)))
+           (offset_val (WORD_SIZE * (gen_size t_info gen - space_remembered (nth_space t_info gen))) (heapgraph_generation_base g gen)).
+
+Lemma gr_hrgda_data_at_ g t_info gen (H: heapgraph_has_gen g gen) (H0: graph_thread_info_compatible g t_info):
+    generation_rep g gen * heap_rest_gen_data_at_ g t_info gen
+    |-- generation_data_at_ g t_info gen * generation_remembered_data_at_ g t_info gen.
 Proof.
-  intros.
   sep_apply (generation_rep_data_at_ g gen H).
-  unfold heap_rest_gen_data_at_, generation_data_at_.
+  unfold heap_rest_gen_data_at_, generation_data_at_, generation_remembered_data_at_, gen_size.
+  remember (nth_space t_info gen) as sp.
+  pose proof (space_allocated__order sp) as Hsp_alloc.
+  pose proof (space_remembered__order sp) as Hsp_rem.
   remember (heapgraph_generation_sh g gen) as sh.
-  rewrite <- (data_at__tarray_value sh _ _ (heapgraph_generation_base g gen)).
-  - unfold gen_size.
-    remember
-      (space_capacity (nth_space t_info gen))
-      as cap.
-    remember
-      (space_remembered (nth_space t_info gen))
-      as rem.
-    replace
-      cap
-      with ((cap - rem) + rem)
-      at 1
-      by lia.
-    (*
-    rewrite <- memory_block_data_at_ by admit.
-    rewrite <- memory_block_data_at_ by admit.
-    remember (heapgraph_generation_base g gen) as base eqn:Heqbase.
-    destruct base ; try contradiction.
-    rewrite memory_block_split.
-    *)
-    admit.
-  - unfold heapgraph_generation_size.
-    pose proof (generation__space__compatible__allocated (gt_gs_compatible _ _ H0 _ H)) as Hallocated.
-    simpl in Hallocated.
-    rewrite Hallocated.
-    apply (space_allocated__order (nth_space t_info gen)).
-Admitted.
+  pose proof (generation__space__compatible__allocated (gt_gs_compatible _ _ H0 _ H)) as Hallocated.
+  simpl in Hallocated.
+  unfold heapgraph_generation_size.
+  repeat rewrite Hallocated.
+  clear Hallocated.
+  rewrite <- (data_at__tarray_value sh _ _ (heapgraph_generation_base g gen)) by (now subst sp).
+  remember
+    (space_capacity sp) as n.
+  remember
+    (n - space_remembered sp)
+    as n1.
+  replace
+    (space_remembered sp)
+    with (n - n1)
+    by lia.
+  rewrite <- (data_at__tarray_value sh _ _ (heapgraph_generation_base g gen)) by (subst ; lia).
+  cancel.
+Qed.
 
 Lemma graph_heap_rest_iter_sepcon: forall g t_info,
     graph_thread_info_compatible g t_info ->
-    graph_rep g * heap_rest_rep (ti_heap t_info) |--
-                                iter_sepcon (nat_inc_list (length (generations (heapgraph_generations g))))
-                                (generation_data_at_ g t_info).
+    graph_rep g * heap_rest_rep (ti_heap t_info)
+    |-- iter_sepcon (nat_inc_list (length (generations (heapgraph_generations g)))) (generation_data_at_ g t_info)
+      * iter_sepcon (nat_inc_list (length (generations (heapgraph_generations g)))) (generation_remembered_data_at_ g t_info).
 Proof.
   intros.
   unfold graph_rep.
@@ -815,12 +927,12 @@ Proof.
     (forall gen, In gen (nat_inc_list (length (generations (heapgraph_generations g)))) -> heapgraph_has_gen g gen)
     as H0
     by (intros; rewrite nat_inc_list_In_iff in H0; assumption).
-  remember (length (generations (heapgraph_generations g))).
+  remember (length (generations (heapgraph_generations g))) as n eqn:Heqn.
   clear Heqn.
   revert H0.
   induction n; intros.
   - simpl. rewrite emp_sepcon. apply derives_refl.
-  - rewrite nat_inc_list_S. rewrite !iter_sepcon_app_sepcon. simpl.
+  - rewrite nat_inc_list_S, !iter_sepcon_app_sepcon. simpl.
     rewrite !sepcon_emp. pull_left (generation_rep g n). rewrite <- sepcon_assoc.
     rewrite (sepcon_assoc (generation_rep g n)). sep_apply IHn.
     + intros. apply H0. rewrite nat_inc_list_S, in_app_iff. left; assumption.
@@ -831,12 +943,19 @@ Qed.
 Lemma graph_and_heap_rest_data_at_: forall (g: HeapGraph) (t_info: thread_info) gen,
     heapgraph_has_gen g gen ->
     graph_thread_info_compatible g t_info ->
-    graph_rep g * heap_rest_rep (ti_heap t_info) |-- generation_data_at_ g t_info gen * TT.
+    graph_rep g * heap_rest_rep (ti_heap t_info)
+    |-- generation_data_at_ g t_info gen * generation_remembered_data_at_ g t_info gen * TT.
 Proof.
   intros. sep_apply (graph_heap_rest_iter_sepcon _ _ H0).
-  sep_apply (iter_sepcon_in_true (generation_data_at_ g t_info)
-                                 (nat_inc_list (length (generations (heapgraph_generations g)))) gen);
-    [rewrite nat_inc_list_In_iff; assumption | apply derives_refl].
+  sep_apply (iter_sepcon_in_true (generation_data_at_ g t_info) (nat_inc_list (length (generations (heapgraph_generations g)))) gen).
+  {
+    now rewrite nat_inc_list_In_iff.
+  }
+  sep_apply (iter_sepcon_in_true (generation_remembered_data_at_ g t_info) (nat_inc_list (length (generations (heapgraph_generations g)))) gen).
+  {
+    now rewrite nat_inc_list_In_iff.
+  }
+  entailer!.
 Qed.
 
 Lemma graph_and_heap_rest_valid_ptr: forall (g: HeapGraph) (t_info: thread_info) gen

@@ -98,6 +98,7 @@ Proof.
     rewrite (ti_size_gen _ _ _ H1 H7 H6), (ti_size_gen _ _ _ H1 H0 H6).
     unfold heapgraph_generation_size in H.
     rewrite HSi_allocated in H ; clear HSi_allocated.
+    unfold heapgraph_remember_size in H.
     rewrite HSi_remembered in H ; clear HSi_remembered.
     assumption.
   - now apply graph_unmarked_copy_compatible.
@@ -167,7 +168,8 @@ Proof.
   - subst. red. unfold heapgraph_generation_size, heapgraph_generation. simpl.
     rewrite reset_heapgraph_generation_info_same. simpl. unfold heapgraph_block_size_prev.
     simpl. destruct i. 1: contradiction. simpl. rewrite Z.sub_0_r.
-    apply generation_size_le_S.
+    pose proof (generation_size_le_S i).
+    now rewrite reset_graph_remember_size_zero.
   - subst g2. apply reset_stct; auto. destruct H5 as [m [? ?]].
     rewrite graph_has_gen_reset in H4.
     assert (heapgraph_has_gen g3 (S i)) by (erewrite <- frr_graph_has_gen; eauto).

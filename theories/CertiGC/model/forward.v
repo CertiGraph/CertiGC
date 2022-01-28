@@ -306,6 +306,16 @@ Proof.
   now apply (fr_heapgraph_block_size O from to p g1 g2).
 Qed.
 
+Lemma fr_O_graph_remember_size_unchanged: forall from to p g1 g2,
+    heapgraph_has_gen g1 to -> forward_relation from to O p g1 g2 ->
+    forall gen, heapgraph_has_gen g1 gen -> gen <> to ->
+                heapgraph_remember_size g1 gen = heapgraph_remember_size g2 gen.
+Proof.
+  intros.
+  unfold heapgraph_remember_size.
+  erewrite <- (fr_O_heapgraph_generation_unchanged from to _ g1 g2); eauto.
+Qed.
+
 
 Definition forward_p_compatible
            (p: forward_p_type) (roots: roots_t) (g: HeapGraph) (from: nat): Prop :=
@@ -1141,6 +1151,7 @@ Lemma fr_O_stcg: forall from to p g1 g2,
 Proof.
   intros. unfold heapgraph_generation_can_copy in *.
   erewrite <- (fr_O_graph_gen_size_unchanged from to); eauto.
+  erewrite <- (fr_O_graph_remember_size_unchanged from to); eauto.
 Qed.
 
 Lemma frr_stcg: forall from to f_info roots1 g1 roots2 g2,

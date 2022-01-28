@@ -109,6 +109,7 @@ Record Generation : Type :=
  {
   generation_base  : val;
   generation_block_count  : nat;
+  generation_remember_count  : nat;
   generation_sh  : share;
   generation_base__isptr  : isptr generation_base;
   generation_sh__writable  : writable_share generation_sh
@@ -118,6 +119,7 @@ Definition null_generation : Generation :=
   {|
     generation_base := Vptr xH Ptrofs.zero;
     generation_block_count := O;
+    generation_remember_count := O;
     generation_sh := Tsh;
     generation_base__isptr := I;
     generation_sh__writable := writable_share_top
@@ -346,20 +348,12 @@ Definition heapgraph_block_offset
 
 Definition heapgraph_remember_size
   (g : HeapGraph) (gen : nat) : Z :=
-  0.
-
-Lemma heapgraph_remember_size__is_zero (g : HeapGraph) (gen : nat):
-  heapgraph_remember_size g gen = 0.
-Proof.
-  easy.
-Qed.
-
-#[global]Opaque heapgraph_remember_size.
+  Z.of_nat (generation_remember_count (heapgraph_generation g gen)).
 
 Lemma heapgraph_remember_size__nonneg (g : HeapGraph) (gen : nat):
   0 <= heapgraph_remember_size g gen.
 Proof.
-  rewrite heapgraph_remember_size__is_zero.
+  unfold heapgraph_remember_size.
   lia.
 Qed.
 
@@ -418,7 +412,11 @@ Lemma heapgraph_remember_size__heapgraph_generations_append__old
   (gen : nat) (Hgen : heapgraph_has_gen g gen) :
   heapgraph_remember_size (heapgraph_generations_append g gi) gen = heapgraph_remember_size g gen.
 Proof.
-  now rewrite heapgraph_remember_size__is_zero.
+  unfold heapgraph_remember_size.
+  f_equal.
+  unfold heapgraph_generations_append, heapgraph_generation.
+  simpl.
+  now rewrite app_nth1.
 Qed.
 
 Lemma heapgraph_generation__heapgraph_generations_append__old 
@@ -1350,28 +1348,47 @@ Qed.
 Lemma stcte_add :
   forall g gi i,
   generation_block_count gi = O ->
+  generation_remember_count gi = O ->
   heapgraph_can_copy_except g i -> heapgraph_can_copy_except (heapgraph_generations_append g gi) i.
 Proof.
   (intros).
+  rename H0 into HH.
+  rename H1 into H0.
   (unfold heapgraph_can_copy_except in *).
   (intros).
   (rewrite heapgraph_has_gen__heapgraph_generations_append in H3).
   (destruct H3).
   - specialize (H0 _ H1 H2 H3).
     (unfold heapgraph_generation_can_copy in *).
-    (rewrite <- ang_graph_gen_size_old; assumption).
+    rewrite heapgraph_remember_size__heapgraph_generations_append__old ; try easy.
+    now rewrite <- ang_graph_gen_size_old.
   - (unfold heapgraph_generation_can_copy).
     (simpl).
-    (unfold heapgraph_generation_size).
+    (unfold heapgraph_generation_size, heapgraph_remember_size).
     (rewrite H3  at 4).
     (rewrite heapgraph_generation__heapgraph_generations_append__new, H).
+    unfold heapgraph_generations_append at 2.
+    unfold heapgraph_generation at 1.
+    simpl.
+    rewrite app_nth2 ; try lia.
+    replace
+      (n - Datatypes.length (generations (heapgraph_generations g)))%nat
+      with O
+      by (subst n ; lia).
+    simpl.
+    rewrite HH.
+    simpl.
+    (rewrite Z.sub_0_r).
     (unfold heapgraph_block_size_prev).
     (simpl).
     (destruct n).
     1: contradiction.
     (simpl).
     (rewrite Z.sub_0_r).
-    (apply generation_size_le_S).
+    pose proof (ngs_0_lt (S n)).
+    pose proof (generation_size_le_S n).
+    pose proof (heapgraph_remember_size__nonneg (heapgraph_generations_append g gi) (S n)).
+    lia.
 Qed.
 
 Lemma graph_unmarked_add :

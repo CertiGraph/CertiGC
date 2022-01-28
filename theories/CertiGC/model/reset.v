@@ -20,6 +20,7 @@ From CertiGC Require Import model.util.
 Definition reset_gen_info (gi: Generation) : Generation := {|
     generation_base := generation_base gi;
     generation_block_count := O;
+    generation_remember_count := O;
     generation_sh := generation_sh gi;
     generation_base__isptr := generation_base__isptr gi;
     generation_sh__writable := generation_sh__writable gi;
@@ -351,6 +352,29 @@ Proof.
   rewrite pvs_reset_unchanged, reset_heapgraph_generation_diff; auto.
 Qed.
 
+Lemma reset_graph_remember_size_eq: forall g i j,
+    i <> j -> heapgraph_remember_size (reset_graph i g) j = heapgraph_remember_size g j.
+Proof.
+  intros.
+  unfold heapgraph_remember_size.
+  unfold heapgraph_generation at 1.
+  unfold reset_graph.
+  simpl.
+  rewrite reset_heapgraph_generation_info_diff by congruence.
+  now rewrite remove_ve_glabel_unchanged.
+Qed.
+
+Lemma reset_graph_remember_size_zero: forall g i,
+    heapgraph_remember_size (reset_graph i g) i = 0.
+Proof.
+  intros.
+  unfold heapgraph_remember_size.
+  unfold heapgraph_generation at 1.
+  unfold reset_graph.
+  simpl.
+  now rewrite reset_heapgraph_generation_info_same.
+Qed.
+
 
 Lemma graph_thread_info_compatible_reset: forall g t_info gen,
     graph_thread_info_compatible g t_info ->
@@ -575,7 +599,10 @@ Lemma reset_stct: forall g i gen1 gen2,
     i <> gen2 -> heapgraph_generation_can_copy g gen1 gen2 ->
     heapgraph_generation_can_copy (reset_graph i g) gen1 gen2.
 Proof.
-  intros. unfold heapgraph_generation_can_copy in *. rewrite reset_graph_gen_size_eq; auto.
+  intros.
+  unfold heapgraph_generation_can_copy in *.
+  rewrite reset_graph_gen_size_eq; auto.
+  now rewrite reset_graph_remember_size_eq.
 Qed.
 
 Lemma no_dangling_dst_reset: forall g gen,

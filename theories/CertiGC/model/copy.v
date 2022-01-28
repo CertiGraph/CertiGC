@@ -133,6 +133,7 @@ Definition update_copied_old_vlabel (g: HeapGraph) (old_v new_v: Addr) :=
 Definition copy_v_mod_gen_info (gi: Generation) : Generation := {|
   generation_base := generation_base gi;
   generation_block_count := generation_block_count gi + 1;
+  generation_remember_count := generation_remember_count gi;
   generation_sh := generation_sh gi;
   generation_base__isptr := generation_base__isptr gi;
   generation_sh__writable := generation_sh__writable gi;
@@ -507,7 +508,22 @@ Lemma lcv__heapgraph_remember_size: forall g v to,
     heapgraph_remember_size g to.
 Proof.
   intros.
-  now repeat rewrite heapgraph_remember_size__is_zero.
+  unfold heapgraph_remember_size, lgraph_copy_v, lgraph_mark_copied, heapgraph_generation.
+  simpl.
+  f_equal.
+  unfold copy_v_mod_gen_info_list.
+  pose proof (firstn_le_length to (generations (heapgraph_generations g))).
+  rewrite app_nth2 by lia.
+  assert
+    (Datatypes.length (firstn to (generations (heapgraph_generations g))) = to)
+    as E.
+  {
+    unfold heapgraph_has_gen in H.
+    rewrite firstn_length.
+    lia.
+  }
+  rewrite E.
+  now replace (to - to)%nat with O by lia.
 Qed.
 
 Lemma lcv_pvs_old: forall g v to gen,
@@ -958,12 +974,15 @@ Proof.
           rewrite upd_Znth_Zlength ; lia.
         }
         destruct (Nat.eq_dec gen to).
-        -- subst gen. rewrite upd_Znth_same by assumption. simpl.
-           rewrite lcv__heapgraph_remember_size by easy.
-           now rewrite generation__space__compatible__remembered, nth_space_Znth.
-        -- assert (Z.of_nat gen <> Z.of_nat to) by
+        -- subst gen. rewrite upd_Znth_same by assumption.
+          simpl.
+          rewrite <- nth_space_Znth.
+          rewrite <- generation__space__compatible__remembered.
+          now apply lcv__heapgraph_remember_size.
+        -- rewrite lcv_heapgraph_generation ; try easy.
+           assert (Z.of_nat gen <> Z.of_nat to) by
               (intro; apply n, Nat2Z.inj; assumption).
-           now rewrite upd_Znth_diff, <- nth_space_Znth.
+           rewrite upd_Znth_diff, <- nth_space_Znth ; try easy.
     + rewrite cvmgil_length, <- !ZtoNat_Zlength, upd_Znth_Zlength, !ZtoNat_Zlength;
         assumption.
   - intros. rewrite <- H3. assumption.

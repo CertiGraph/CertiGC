@@ -368,6 +368,7 @@ Proof.
       remember ({|
           generation_base := p;
           generation_block_count := O;
+          generation_remember_count := O;
           generation_sh := Ews;
           generation_base__isptr := Pp;
           generation_sh__writable := writable_Ews;
@@ -380,6 +381,7 @@ Proof.
         red.
         subst sp gi.
         constructor ; simpl ; dintuition idtac.
+        
       }
       remember (heapgraph_generations_append g' gi) as g1.
       remember (ti_add_new_space t_info' sp _ H20) as t_info1.
@@ -693,6 +695,7 @@ Proof.
         destruct (gt_gs_compatible _ _ H27 _ H30) as [_ _ H41 H42].
         simpl in H41, H42.
         pose proof (space_remembered__lower_bound (Znth (i + 1) (heap_spaces (ti_heap t_info2)))) as H43.
+        unfold heapgraph_remember_size.
         rewrite H41, H42, !nth_space_Znth, !Z2Nat.id ; try lia.
       }
       assert

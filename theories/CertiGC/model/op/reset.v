@@ -16,7 +16,6 @@ From CertiGC Require Import model.heapgraph.block.block.
 From CertiGC Require Import model.heapgraph.block.block_rep.
 From CertiGC Require Import model.heapgraph.block.cell.
 From CertiGC Require Import model.heapgraph.block.field.
-From CertiGC Require Import model.heapgraph.can_copy.
 From CertiGC Require Import model.heapgraph.generation.generation.
 From CertiGC Require Import model.heapgraph.graph.
 From CertiGC Require Import model.heapgraph.has_block.

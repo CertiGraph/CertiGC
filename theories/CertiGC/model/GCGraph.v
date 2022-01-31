@@ -7,7 +7,6 @@ From CertiGC Require Export model.heapgraph.block.block.
 From CertiGC Require Export model.heapgraph.block.block_rep.
 From CertiGC Require Export model.heapgraph.block.cell.
 From CertiGC Require Export model.heapgraph.block.field.
-From CertiGC Require Export model.heapgraph.can_copy.
 From CertiGC Require Export model.heapgraph.field_pairs.
 From CertiGC Require Export model.heapgraph.generation.generation.
 From CertiGC Require Export model.heapgraph.graph.

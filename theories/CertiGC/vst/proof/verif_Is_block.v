@@ -1,8 +1,8 @@
 From VST Require Import floyd.proofauto.
 
-From CertiGC Require Import ast.env_graph_gc.
-From CertiGC Require Import CertiGC.vst.clightgen.gc.
-From CertiGC Require Import CertiGC.vst.spec.gc_spec.
+From CertiGC Require Import vst.ast.env_graph_gc.
+From CertiGC Require Import vst.clightgen.gc.
+From CertiGC Require Import vst.spec.gc_spec.
 
 Ltac hif_tac H :=
   match type of H with context [if ?a then _ else _] => destruct a eqn: ?H end.

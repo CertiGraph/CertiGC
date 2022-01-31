@@ -7,6 +7,7 @@ From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import lib.List_ext.
 
+Definition v_in_range (v : val) (start : val) (n : Z) : Prop := exists i, 0 <= i < n /\ v = offset_val i start.
 
 Lemma isptr_is_pointer_or_integer: forall p, isptr p -> is_pointer_or_integer p.
 Proof. intros. destruct p; try contradiction. exact I. Qed.

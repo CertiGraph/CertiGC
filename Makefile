@@ -104,6 +104,8 @@ _CoqProject: theories/$(PROJECT)/vst/clightgen/$(TARGET)/gc.v
 	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/clightgen/$(TARGET)    $(PUBLISHER).$(PROJECT).vst.clightgen"  >> $@
 	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort                       >> $@
+	echo "-Q theories/$(PROJECT)/vst/model                  $(PUBLISHER).$(PROJECT).vst.model"      >> $@
+	find     theories/$(PROJECT)/vst/model                 -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/proof                  $(PUBLISHER).$(PROJECT).vst.proof"      >> $@
 	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort                       >> $@
 	echo "-Q theories/$(PROJECT)/vst/spec                   $(PUBLISHER).$(PROJECT).vst.spec"       >> $@
@@ -138,6 +140,7 @@ COQ_SOURCES= \
 	$(shell find theories/$(PROJECT)/model                      -name "*.v" | sort | cut -d'/' -f3-) \
 	$(shell find theories/$(PROJECT)/vst/ast                    -name "*.v" | sort | cut -d'/' -f3-) \
 	$(shell find theories/$(PROJECT)/vst/clightgen/$(TARGET)    -name "*.v" | sort | cut -d'/' -f3-) \
+	$(shell find theories/$(PROJECT)/vst/model                  -name "*.v" | sort | cut -d'/' -f3-) \
 	$(shell find theories/$(PROJECT)/vst/proof                  -name "*.v" | sort | cut -d'/' -f3-) \
 	$(shell find theories/$(PROJECT)/vst/spec                   -name "*.v" | sort | cut -d'/' -f3-)
 

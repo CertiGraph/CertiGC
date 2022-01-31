@@ -10,11 +10,12 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
-From CertiGC Require Import model.compatible.
-From CertiGC Require Import model.cut.
-From CertiGC Require Import model.graph.
-From CertiGC Require Import model.heap.
-From CertiGC Require Import model.thread_info.
+From CertiGC Require Import model.compatible.compatible.
+From CertiGC Require Import model.heap.heap.
+From CertiGC Require Import model.heapgraph.graph.
+From CertiGC Require Import model.heapgraph.more.
+From CertiGC Require Import model.op.cut.
+From CertiGC Require Import model.thread_info.thread_info.
 From CertiGC Require Import model.util.
 
 

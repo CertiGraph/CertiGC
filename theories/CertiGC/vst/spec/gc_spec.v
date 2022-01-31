@@ -7,9 +7,9 @@ From CertiGraph Require Import graph.graph_model.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.GCGraph.
-From CertiGC Require Import model.spatial_gcgraph.
-From CertiGC Require Import CertiGC.vst.ast.env_graph_gc.
-From CertiGC Require Import CertiGC.vst.clightgen.gc.
+From CertiGC Require Import vst.ast.env_graph_gc.
+From CertiGC Require Import vst.clightgen.gc.
+From CertiGC Require Import vst.model.spatial_gcgraph.
 
 Local Open Scope logic.
 

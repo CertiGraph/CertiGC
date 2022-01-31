@@ -8,8 +8,9 @@ From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import graph.graph_model.
 
 From CertiGC Require Import model.constants.
-From CertiGC Require Import model.graph.
-From CertiGC Require Import model.heap.
+From CertiGC Require Import model.heap.heap.
+From CertiGC Require Import model.heapgraph.graph.
+From CertiGC Require Import model.heapgraph.more.
 From CertiGC Require Import model.util.
 
 

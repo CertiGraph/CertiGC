@@ -1,8 +1,8 @@
 From VST Require Import floyd.proofauto.
 
-From CertiGC Require Import ast.env_graph_gc.
-From CertiGC Require Import CertiGC.vst.clightgen.gc.
-From CertiGC Require Import CertiGC.vst.spec.gc_spec.
+From CertiGC Require Import vst.ast.env_graph_gc.
+From CertiGC Require Import vst.clightgen.gc.
+From CertiGC Require Import vst.spec.gc_spec.
 
 Lemma body_make_tinfo: semax_body Vprog Gprog f_make_tinfo make_tinfo_spec.
 Proof.

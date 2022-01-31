@@ -9,11 +9,12 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
-From CertiGC Require Import model.compatible.
+From CertiGC Require Import model.compatible.compatible.
 From CertiGC Require Import model.constants.
-From CertiGC Require Import model.graph.
-From CertiGC Require Import model.heap.
-From CertiGC Require Import model.thread_info.
+From CertiGC Require Import model.heap.heap.
+From CertiGC Require Import model.heapgraph.graph.
+From CertiGC Require Import model.heapgraph.more.
+From CertiGC Require Import model.thread_info.thread_info.
 From CertiGC Require Import model.util.
 
 
@@ -548,9 +549,8 @@ Proof.
 Qed.
 
 Lemma reset_graph__heapgraph_has_field (g: HeapGraph) (gen: nat) (e: Field):
-    heapgraph_has_field (reset_graph gen g) e <-> heapgraph_has_field g e /\ gen <> egeneration e.
+    heapgraph_has_field (reset_graph gen g) e <-> heapgraph_has_field g e /\ gen <> addr_gen (field_addr e).
 Proof.
-    unfold egeneration.
     destruct e as [v idx].
     simpl.
     split ; intro H.
@@ -574,7 +574,7 @@ Lemma gen2gen_no_edge_reset_inv: forall g gen1 gen2 gen3,
 Proof.
   intros. unfold gen2gen_no_edge. intros. red in H0. simpl in H0.
   specialize (H0 vidx eidx). rewrite remove_ve_dst_unchanged in H0. apply H0.
-  rewrite reset_graph__heapgraph_has_field. unfold egeneration. simpl. split; assumption.
+  rewrite reset_graph__heapgraph_has_field. simpl. split; assumption.
 Qed.
 
 Lemma gen2gen_no_edge_reset: forall g gen1 gen2 gen3,

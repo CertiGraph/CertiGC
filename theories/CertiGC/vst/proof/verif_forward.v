@@ -6,11 +6,11 @@ From VST Require Import floyd.proofauto.
 From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.List_ext.
 
-From CertiGC Require Import CertiGC.model.GCGraph.
-From CertiGC Require Import CertiGC.model.spatial_gcgraph.
-From CertiGC Require Import CertiGC.vst.ast.env_graph_gc.
-From CertiGC Require Import CertiGC.vst.clightgen.gc.
-From CertiGC Require Import CertiGC.vst.spec.gc_spec.
+From CertiGC Require Import model.GCGraph.
+From CertiGC Require Import vst.ast.env_graph_gc.
+From CertiGC Require Import vst.clightgen.gc.
+From CertiGC Require Import vst.model.spatial_gcgraph.
+From CertiGC Require Import vst.spec.gc_spec.
 
 Local Open Scope logic.
 

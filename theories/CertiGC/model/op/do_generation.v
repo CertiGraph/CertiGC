@@ -10,13 +10,14 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 From CertiGraph Require Import lib.List_ext.
 
-From CertiGC Require Import model.compatible.
-From CertiGC Require Import model.forward.
-From CertiGC Require Import model.graph.
-From CertiGC Require Import model.heap.
-From CertiGC Require Import model.reset.
-From CertiGC Require Import model.scan.
-From CertiGC Require Import model.thread_info.
+From CertiGC Require Import model.compatible.compatible.
+From CertiGC Require Import model.heap.heap.
+From CertiGC Require Import model.heapgraph.graph.
+From CertiGC Require Import model.heapgraph.more.
+From CertiGC Require Import model.op.forward.
+From CertiGC Require Import model.op.reset.
+From CertiGC Require Import model.op.scan.
+From CertiGC Require Import model.thread_info.thread_info.
 
 
 Definition do_generation_condition g t_info roots f_info from to: Prop :=

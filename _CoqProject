@@ -3,27 +3,42 @@
 
 
 -Q theories/CertiGC/model                      CertiGC.CertiGC.model
-theories/CertiGC/model/compatible.v
+theories/CertiGC/model/compatible/compatible.v
 theories/CertiGC/model/constants.v
-theories/CertiGC/model/copy.v
-theories/CertiGC/model/cut.v
-theories/CertiGC/model/do_generation.v
-theories/CertiGC/model/forward.v
-theories/CertiGC/model/garbage_collect.v
 theories/CertiGC/model/gc_correct.v
 theories/CertiGC/model/GCGraph.v
-theories/CertiGC/model/graph.v
-theories/CertiGC/model/heap.v
-theories/CertiGC/model/reset.v
-theories/CertiGC/model/scan.v
-theories/CertiGC/model/spatial_gcgraph.v
-theories/CertiGC/model/thread_info.v
-theories/CertiGC/model/update.v
+theories/CertiGC/model/heapgraph/backward_edge.v
+theories/CertiGC/model/heapgraph/block/block_rep.v
+theories/CertiGC/model/heapgraph/block/block.v
+theories/CertiGC/model/heapgraph/block/cell.v
+theories/CertiGC/model/heapgraph/block/field.v
+theories/CertiGC/model/heapgraph/can_copy.v
+theories/CertiGC/model/heapgraph/field_pairs.v
+theories/CertiGC/model/heapgraph/generation/empty.v
+theories/CertiGC/model/heapgraph/generation/generation.v
+theories/CertiGC/model/heapgraph/graph.v
+theories/CertiGC/model/heapgraph/has_block.v
+theories/CertiGC/model/heapgraph/has_field.v
+theories/CertiGC/model/heapgraph/more.v
+theories/CertiGC/model/heapgraph/remset/remset.v
+theories/CertiGC/model/heapgraph/roots.v
+theories/CertiGC/model/heap/heap.v
+theories/CertiGC/model/op/copy.v
+theories/CertiGC/model/op/cut.v
+theories/CertiGC/model/op/do_generation.v
+theories/CertiGC/model/op/forward.v
+theories/CertiGC/model/op/garbage_collect.v
+theories/CertiGC/model/op/reset.v
+theories/CertiGC/model/op/scan.v
+theories/CertiGC/model/op/update.v
+theories/CertiGC/model/thread_info/thread_info.v
 theories/CertiGC/model/util.v
 -Q theories/CertiGC/vst/ast                    CertiGC.CertiGC.vst.ast
 theories/CertiGC/vst/ast/env_graph_gc.v
 -Q theories/CertiGC/vst/clightgen/x86_64-linux    CertiGC.CertiGC.vst.clightgen
 theories/CertiGC/vst/clightgen/x86_64-linux/gc.v
+-Q theories/CertiGC/vst/model                  CertiGC.CertiGC.vst.model
+theories/CertiGC/vst/model/spatial_gcgraph.v
 -Q theories/CertiGC/vst/proof                  CertiGC.CertiGC.vst.proof
 theories/CertiGC/vst/proof/verif_conversion.v
 theories/CertiGC/vst/proof/verif_create_heap.v

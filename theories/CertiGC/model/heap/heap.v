@@ -8,7 +8,7 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.EquivDec_ext.
 
 From CertiGC Require Import model.constants.
-From CertiGC Require Import util.
+From CertiGC Require Import model.util.
 
 
 Record Space: Type := {

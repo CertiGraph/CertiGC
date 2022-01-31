@@ -126,7 +126,7 @@ Lemma edge_valid_reset: forall g gen, edge_valid g -> edge_valid (reset_graph ge
 Proof.
   intros. unfold edge_valid in *. intros. rewrite reset_graph__heapgraph_has_field. simpl.
   unfold remove_heapgraph_generation_ve. rewrite fold_left_lrvae_evalid, H. intuition.
-  - unfold egeneration in H0. simpl in H0. apply (H2 (field_addr e)).
+  - simpl in H0. apply (H2 (field_addr e)).
     2: now destruct H1.
     destruct e as [e_addr e_index].
     destruct e_addr as [e_gen e_block].
@@ -134,7 +134,7 @@ Proof.
     apply in_map.
     rewrite nat_inc_list_In_iff; now destruct H1 as [[_ ?] _]. 
   - destruct H2. apply heapgraph_block_fields_fst in H3. destruct e. simpl in *. subst.
-    unfold egeneration. simpl. apply list_in_map_inv in H0.
+    simpl. apply list_in_map_inv in H0.
     destruct H0 as [x [? _]]; now subst v. 
 Qed.
 
@@ -560,7 +560,6 @@ Proof.
     - specialize (H13 _ H21 i) as [k [v [? [? ?]]]]. subst k.
       pose proof (gepl_key _ _ _ _ H25 H13).
       destruct (DoubleNoDup_list_bi_map _ _ _ Hn H26) as [? _]. rewrite H28.
-      unfold egeneration.
       split ; try refine {|
         heapgraph_has_field__has_block := _;
         heapgraph_has_field__in := _;
@@ -578,7 +577,7 @@ Proof.
         congruence.
     - rewrite list_bi_map_not_In, <- H17.
       2: intro; apply n; apply gepl_InEither in H26; auto. split.
-      1: destruct H as [_ [? _]]; apply H; auto. unfold egeneration. intro.
+      1: destruct H as [_ [? _]]; apply H; auto. intro.
       apply n. red. rewrite Heqp, in_app_iff, <- H8. left. symmetry in H26.
       rewrite H20 in H22. split; assumption. }
   assert (Hv: forall x,
@@ -668,7 +667,7 @@ Proof.
     intros. rewrite H15, reset_graph__heapgraph_has_field in H21.
     destruct H21 as [[H21 H22] H23].
     rewrite Heqemap. destruct (InEither_dec (field_addr e) vpl).
-    - unfold egeneration in H23. specialize (Nv _ H23 i).
+    - specialize (Nv _ H23 i).
       destruct Nv as [k [v [? [? ?]]]]; subst v. destruct (H6 _ _ H24) as [? _].
       eapply gepl_value in H25; eauto.
       destruct (DoubleNoDup_list_bi_map _ _ _ Hn H25) as [_ ?].
@@ -692,7 +691,7 @@ Proof.
                          vmap (src g2 e) = src g1 (emap e)). {
     intros. rewrite H15, reset_graph__heapgraph_has_field in H21.
     destruct H21 as [[H21 H22] H23].
-    rewrite H18. subst vmap emap. unfold egeneration in H23.
+    rewrite H18. subst vmap emap.
     destruct (InEither_dec (field_addr e) vpl).
     - specialize (Nv _ H23 i). destruct Nv as [k [v [? [? ?]]]]. rewrite <- H25 in *.
       destruct (H6 _ _ H24) as [? _]. eapply gepl_value in H27; eauto.
@@ -711,7 +710,7 @@ Proof.
     rewrite H14, reset_graph__heapgraph_has_block in H23. destruct H23.
     assert (~ In (dst g2 e) from_l) by
         (intro; rewrite <- H8 in H27; destruct H27 as [_ ?]; auto).
-    subst vmap emap. unfold egeneration in H25. destruct (InEither_dec (field_addr e) vpl).
+    subst vmap emap. destruct (InEither_dec (field_addr e) vpl).
     - specialize (Nv _ H25 i). destruct Nv as [k [v [? [? ?]]]]. rewrite <- H29 in *.
       destruct (H6 _ _ H28) as [? ?]. pose proof H31. eapply gepl_value in H31; eauto.
       destruct (DoubleNoDup_list_bi_map _ _ _ Hn H31) as [_ ?]. rewrite H34.

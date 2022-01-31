@@ -6,8 +6,8 @@ From CertiGraph Require Import graph.graph_model.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.constants.
-From CertiGC Require Import model.heap.
-From CertiGC Require Import model.thread_info.
+From CertiGC Require Import model.heap.heap.
+From CertiGC Require Import model.thread_info.thread_info.
 
 
 Lemma cut_space__order: forall (sp : Space) (s : Z),

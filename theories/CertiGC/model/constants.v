@@ -5,12 +5,12 @@ Local Open Scope Z.
 
 Definition MAX_SPACES: Z := 12.
 Definition MAX_SPACES_eq: MAX_SPACES = 12 := eq_refl.
-#[global]Hint Rewrite MAX_SPACES_eq: rep_lia.
+Hint Rewrite MAX_SPACES_eq: rep_lia.
 Global Opaque MAX_SPACES.
 
 Definition NURSERY_SIZE: Z := Z.shiftl 1 16.
 Definition NURSERY_SIZE_eq: NURSERY_SIZE = Z.shiftl 1 16 := eq_refl.
-#[global]Hint Rewrite NURSERY_SIZE_eq: rep_lia.
+Hint Rewrite NURSERY_SIZE_eq: rep_lia.
 Global Opaque NURSERY_SIZE.
 
 Definition generation_size (n: nat) := (NURSERY_SIZE * two_p (Z.of_nat n))%Z.
@@ -53,10 +53,10 @@ Qed.
 
 Definition MAX_ARGS: Z := 1024.
 Definition MAX_ARGS_eq: MAX_ARGS = 1024 := eq_refl.
-#[global]Hint Rewrite MAX_ARGS_eq: rep_lia.
+Hint Rewrite MAX_ARGS_eq: rep_lia.
 Global Opaque MAX_ARGS.
 
 Definition NO_SCAN_TAG: Z := 251.
 Definition NO_SCAN_TAG_eq: NO_SCAN_TAG = 251 := eq_refl.
-#[global]Hint Rewrite NO_SCAN_TAG_eq: rep_lia.
+Hint Rewrite NO_SCAN_TAG_eq: rep_lia.
 Global Opaque NO_SCAN_TAG.

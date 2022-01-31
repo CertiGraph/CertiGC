@@ -49,6 +49,12 @@ Proof.
   now pose proof (generations__not_nil (heapgraph_generations g)).
 Qed.
 
+Lemma lgd_graph_has_gen : forall g e v x, heapgraph_has_gen (labeledgraph_gen_dst g e v) x <-> heapgraph_has_gen g x.
+Proof.
+  (intros; unfold heapgraph_has_gen; intuition idtac).
+Qed.
+
+
 Definition heapgraph_generation_has_index 
   (g : HeapGraph) (gen index : nat) : Prop := 
   (index < generation_block_count (heapgraph_generation g gen))%nat.

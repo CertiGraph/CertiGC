@@ -4,6 +4,7 @@ From VST Require Import floyd.library.
 From CertiGC Require Import model.GCGraph.
 From CertiGC Require Import vst.ast.env_graph_gc.
 From CertiGC Require Import vst.clightgen.gc.
+From CertiGC Require Import vst.model.c_constants.
 From CertiGC Require Import vst.model.spatial_gcgraph.
 From CertiGC Require Import vst.spec.gc_spec.
 

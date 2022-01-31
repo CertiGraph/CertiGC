@@ -27,9 +27,7 @@ From CertiGraph Require Import graph.graph_relation.
 From CertiGraph Require Import graph.graph_isomorphism.
 From CertiGraph Require Import graph.reachable_ind.
 
-From CertiGC Require Import model.constants.
 From CertiGC Require Import model.GCGraph.
-
 
 Import ListNotations.
 
@@ -3018,14 +3016,6 @@ Proof.
   - eapply fr_copy_compatible; eauto.
   - erewrite <- fr_block_fields; eauto. intros. apply H11. now right.
   - eapply fr_O_backward_edge_prop with (f_info := f_info) in H16; eauto. now simpl.
-Qed.
-
-Definition null_fun_info: fun_info.
-Proof.
-  apply (Build_fun_info 0 nil).
-  - intros. inversion H.
-  - rewrite Zlength_nil. unfold MAX_UINT. rep_lia.
-  - unfold MAX_UINT. rep_lia.
 Qed.
 
 Lemma svfl_roots_graph_compatible: forall from to roots v l g1 g2,

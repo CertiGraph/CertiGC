@@ -17,6 +17,7 @@ From CertiGC Require Import model.constants.
 From CertiGC Require Import model.GCGraph.
 From CertiGC Require Import vst.ast.env_graph_gc.
 From CertiGC Require Import vst.clightgen.gc.
+From CertiGC Require Import vst.model.c_constants.
 
 
 Local Open Scope logic.

@@ -4,7 +4,7 @@ From VST Require Import floyd.proofauto.
 
 From CertiGraph Require Import lib.List_ext.
 
-From CertiGC Require Import model.heapgraph.block.block_rep.
+From CertiGC Require Import model.heapgraph.block.ptr.
 From CertiGC Require Import model.heapgraph.graph.
 From CertiGC Require Import model.util.
 

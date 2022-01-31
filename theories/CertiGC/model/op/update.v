@@ -9,7 +9,7 @@ From CertiGC Require Import model.compatible.compatible.
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.heap.heap.
 From CertiGC Require Import model.heapgraph.block.block.
-From CertiGC Require Import model.heapgraph.block.block_rep.
+From CertiGC Require Import model.heapgraph.block.ptr.
 From CertiGC Require Import model.heapgraph.generation.generation.
 From CertiGC Require Import model.heapgraph.graph.
 From CertiGC Require Import model.heapgraph.has_block.

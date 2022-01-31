@@ -4,9 +4,10 @@ From CertiGC Require Export model.compatible.compatible.
 From CertiGC Require Export model.constants.
 From CertiGC Require Export model.heap.heap.
 From CertiGC Require Export model.heapgraph.block.block.
-From CertiGC Require Export model.heapgraph.block.block_rep.
 From CertiGC Require Export model.heapgraph.block.cell.
 From CertiGC Require Export model.heapgraph.block.field.
+From CertiGC Require Export model.heapgraph.block.header.
+From CertiGC Require Export model.heapgraph.block.ptr.
 From CertiGC Require Export model.heapgraph.field_pairs.
 From CertiGC Require Export model.heapgraph.generation.generation.
 From CertiGC Require Export model.heapgraph.graph.

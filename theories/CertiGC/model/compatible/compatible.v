@@ -9,7 +9,7 @@ From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.heapgraph.block.block.
-From CertiGC Require Import model.heapgraph.block.block_rep.
+From CertiGC Require Import model.heapgraph.block.ptr.
 From CertiGC Require Import model.heapgraph.block.cell.
 From CertiGC Require Import model.heapgraph.generation.generation.
 From CertiGC Require Import model.heapgraph.graph.
@@ -18,6 +18,7 @@ From CertiGC Require Import model.heapgraph.has_block.
 From CertiGC Require Import model.heap.heap.
 From CertiGC Require Import model.thread_info.thread_info.
 From CertiGC Require Import model.util.
+From CertiGC Require Import vst.model.c_constants. (* uses WORD_SIZE *)
 
 
 Definition roots_outlier_compatible (roots: roots_t) (outlier: outlier_t): Prop :=

@@ -9,7 +9,7 @@ From CertiGraph Require Import lib.List_ext.
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.heapgraph.block.cell.
 From CertiGC Require Import model.heapgraph.block.block.
-From CertiGC Require Import model.heapgraph.block.block_rep.
+From CertiGC Require Import model.heapgraph.block.ptr.
 From CertiGC Require Import model.heapgraph.block.field.
 From CertiGC Require Import model.heapgraph.generation.generation.
 From CertiGC Require Import model.heapgraph.graph.

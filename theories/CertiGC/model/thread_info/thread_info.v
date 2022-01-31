@@ -14,6 +14,7 @@ From CertiGC Require Import model.heapgraph.graph.
 From CertiGC Require Import model.heapgraph.mark.
 From CertiGC Require Import model.heapgraph.roots.
 From CertiGC Require Import model.util.
+From CertiGC Require Import vst.model.c_constants. (* uses WORD_SIZE *)
 
 
 Record thread_info: Type := {
@@ -187,6 +188,14 @@ Record fun_info : Type := {
     word_size_range: (0 <= fun_word_size <= MAX_UINT)%Z;
 }.
 
+Definition null_fun_info: fun_info.
+Proof.
+  apply (Build_fun_info 0 nil).
+  - intros. inversion H.
+  - rewrite Zlength_nil.
+    unfold MAX_UINT. rep_lia.
+  - unfold MAX_UINT. rep_lia.
+Qed.
 
 Definition np_roots_rel from f_info (roots roots': roots_t) (l: list Z) : Prop :=
   let lri := live_roots_indices f_info in

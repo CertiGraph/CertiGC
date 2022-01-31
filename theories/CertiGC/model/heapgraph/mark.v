@@ -8,7 +8,7 @@ From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.heapgraph.block.block.
-From CertiGC Require Import model.heapgraph.block.block_rep.
+From CertiGC Require Export model.heapgraph.block.header.
 From CertiGC Require Import model.heapgraph.predicates.
 From CertiGC Require Import model.heapgraph.generation.generation.
 From CertiGC Require Import model.heapgraph.graph.

@@ -7,7 +7,6 @@ all: theories
 # meta
 #
 
-PUBLISHER=CertiGC
 PROJECT=CertiGC
 
 
@@ -38,7 +37,7 @@ CERTIGRAPH_PACKAGE=coq-certigraph
 COQLIB=$(shell $(COQC) -where | tr -d '\r' | tr '\\' '/')
 
 COQLIBINSTALL=$(COQLIB)/user-contrib
-COQ_INSTALL_DIR?=$(COQLIBINSTALL)/$(PUBLISHER)/$(PROJECT)
+COQ_INSTALL_DIR?=$(COQLIBINSTALL)/$(PROJECT)
 
 ifeq ($(BITSIZE),64) # This is an alias for BITSIZE=opam
 else ifeq ($(BITSIZE),32)
@@ -47,7 +46,7 @@ else ifeq ($(BITSIZE),32)
 	VST_PACKAGE=coq-vst-32
 	CERTIGRAPH_PACKAGE=coq-certigraph-32
 	COQLIBINSTALL=$(COQLIB)/../coq-variant
-	COQ_INSTALL_DIR=$(COQLIBINSTALL)/$(PUBLISHER)/32/$(PROJECT)
+	COQ_INSTALL_DIR=$(COQLIBINSTALL)/$(PROJECT)/32/
 endif
 
 
@@ -98,18 +97,18 @@ _CoqProject: theories/$(PROJECT)/vst/clightgen/$(TARGET)/gc.v
 	echo `$(VSUTOOL) -Q $(COMPCERT_PACKAGE)`    >> $@
 	echo `$(VSUTOOL) -Q $(VST_PACKAGE)`         >> $@
 	echo `$(VSUTOOL) -Q $(CERTIGRAPH_PACKAGE)`  >> $@
-	echo "-Q theories/$(PROJECT)/model                      $(PUBLISHER).$(PROJECT).model"          >> $@
-	find     theories/$(PROJECT)/model                     -name "*.v" | sort                       >> $@
-	echo "-Q theories/$(PROJECT)/vst/ast                    $(PUBLISHER).$(PROJECT).vst.ast"        >> $@
-	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | sort                       >> $@
-	echo "-Q theories/$(PROJECT)/vst/clightgen/$(TARGET)    $(PUBLISHER).$(PROJECT).vst.clightgen"  >> $@
-	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort                       >> $@
-	echo "-Q theories/$(PROJECT)/vst/model                  $(PUBLISHER).$(PROJECT).vst.model"      >> $@
-	find     theories/$(PROJECT)/vst/model                 -name "*.v" | sort                       >> $@
-	echo "-Q theories/$(PROJECT)/vst/proof                  $(PUBLISHER).$(PROJECT).vst.proof"      >> $@
-	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort                       >> $@
-	echo "-Q theories/$(PROJECT)/vst/spec                   $(PUBLISHER).$(PROJECT).vst.spec"       >> $@
-	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | sort                       >> $@
+	echo "-Q theories/$(PROJECT)/model                      $(PROJECT).model"           >> $@
+	find     theories/$(PROJECT)/model                     -name "*.v" | sort           >> $@
+	echo "-Q theories/$(PROJECT)/vst/ast                    $(PROJECT).vst.ast"         >> $@
+	find     theories/$(PROJECT)/vst/ast                   -name "*.v" | sort           >> $@
+	echo "-Q theories/$(PROJECT)/vst/clightgen/$(TARGET)    $(PROJECT).vst.clightgen"   >> $@
+	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort           >> $@
+	echo "-Q theories/$(PROJECT)/vst/model                  $(PROJECT).vst.model"       >> $@
+	find     theories/$(PROJECT)/vst/model                 -name "*.v" | sort           >> $@
+	echo "-Q theories/$(PROJECT)/vst/proof                  $(PROJECT).vst.proof"       >> $@
+	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort           >> $@
+	echo "-Q theories/$(PROJECT)/vst/spec                   $(PROJECT).vst.spec"        >> $@
+	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | sort           >> $@
 
 
 Makefile.coq: Makefile _CoqProject

@@ -31,7 +31,7 @@ From CertiGC Require Import model.util.
 Definition reset_gen_info (gi: Generation) : Generation := {|
     generation_base := generation_base gi;
     generation_block_count := O;
-    generation_remember_count := O;
+    generation_remember := nil;
     generation_sh := generation_sh gi;
     generation_base__isptr := generation_base__isptr gi;
     generation_sh__writable := generation_sh__writable gi;

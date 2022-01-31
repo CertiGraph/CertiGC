@@ -22,7 +22,6 @@ jobs:
           - 'coq-vsu-gc.opam'
         image:
           - 'tcarstens/coq-vst-certigraph:8.14.1-ocaml-4.12.0-flambda--compcert-3.9--vst-2.8'
-          - 'tcarstens/coq-vst-certigraph:8.13.2-ocaml-4.11.2-flambda--compcert-3.9--vst-2.8'
       fail-fast: false  # don't stop jobs if one fails
     steps:
       - uses: actions/checkout@v2

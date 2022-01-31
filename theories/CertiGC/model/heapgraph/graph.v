@@ -106,21 +106,28 @@ Proof.
 Qed.
 
 
+Record Remember :=
+{
+  remember_addr_block: nat;
+  remember_field_index: nat;
+}.
+
 Record Generation : Type :=
  {
   generation_base  : val;
   generation_block_count  : nat;
-  generation_remember_count  : nat;
+  generation_remember : list Remember;
   generation_sh  : share;
   generation_base__isptr  : isptr generation_base;
   generation_sh__writable  : writable_share generation_sh
  }.
 
+
 Definition null_generation : Generation :=
   {|
     generation_base := Vptr xH Ptrofs.zero;
     generation_block_count := O;
-    generation_remember_count := O;
+    generation_remember := nil;
     generation_sh := Tsh;
     generation_base__isptr := I;
     generation_sh__writable := writable_share_top

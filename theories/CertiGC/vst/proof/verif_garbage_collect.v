@@ -369,7 +369,7 @@ Proof.
       remember ({|
           generation_base := p;
           generation_block_count := O;
-          generation_remember_count := O;
+          generation_remember := nil;
           generation_sh := Ews;
           generation_base__isptr := Pp;
           generation_sh__writable := writable_Ews;

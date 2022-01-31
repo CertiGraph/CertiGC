@@ -9,13 +9,12 @@ Local Open Scope Z.
 
 Definition heapgraph_remember_size
   (g : HeapGraph) (gen : nat) : Z :=
-  Z.of_nat (generation_remember_count (heapgraph_generation g gen)).
+  Zlength (generation_remember (heapgraph_generation g gen)).
 
 Lemma heapgraph_remember_size__nonneg (g : HeapGraph) (gen : nat):
   0 <= heapgraph_remember_size g gen.
 Proof.
-  unfold heapgraph_remember_size.
-  lia.
+  apply sublist.Zlength_nonneg.
 Qed.
 
 Lemma heapgraph_remember_size__heapgraph_generations_append__old 

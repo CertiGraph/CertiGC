@@ -61,7 +61,7 @@ Qed.
 Lemma stcte_add :
   forall g gi i,
   generation_block_count gi = O ->
-  generation_remember_count gi = O ->
+  generation_remember gi = nil ->
   heapgraph_can_copy_except g i ->
   heapgraph_can_copy_except (heapgraph_generations_append g gi) i.
 Proof.

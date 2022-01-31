@@ -57,7 +57,7 @@ Record generation__space__compatible (g: HeapGraph) (gen: nat) (gi: Generation) 
   generation__space__compatible__base: generation_base gi = sp.(space_base);
   generation__space__compatible__sh: generation_sh gi = sp.(space_sh);
   generation__space__compatible__allocated: heapgraph_block_size_prev g gen gi.(generation_block_count) = sp.(space_allocated);
-  generation__space__compatible__remembered: Z.of_nat (generation_remember_count gi) = sp.(space_remembered);
+  generation__space__compatible__remembered: Zlength (generation_remember gi) = sp.(space_remembered);
 }.
 
 Arguments generation__space__compatible__base [_] [_] [_] [_].

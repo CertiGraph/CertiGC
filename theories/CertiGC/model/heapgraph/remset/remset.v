@@ -10,10 +10,7 @@ From CertiGC Require Import model.heapgraph.graph.
 Local Open Scope Z.
 
 Definition heapgraph_remember_upto (g : HeapGraph) (gen : nat): list Remember :=
-  fold_left
-    (fun rr g => rr ++ generation_remember g)
-    (firstn (S gen) (generations (heapgraph_generations g)))
-    nil.
+  concat (map generation_remember (firstn (S gen) (generations (heapgraph_generations g)))).
 
 Lemma heapgraph_remember_upto__heapgraph_generations_append__old 
   (g : HeapGraph) (gi : Generation) 
@@ -32,6 +29,22 @@ Proof.
     with O
     by lia.
   now rewrite app_nil_r.
+Qed.
+
+Definition heapgraph_remember_range (g : HeapGraph) (gen1 gen2 : nat): list Remember :=
+  concat (map generation_remember (firstn (gen2 - gen1) (skipn (S gen1) (generations (heapgraph_generations g))))).
+
+Lemma heapgraph_remember_upto__heapgraph_remember_range g gen1 gen2 (Hgen: (gen1 <= gen2)%nat):
+  heapgraph_remember_upto g gen2 = heapgraph_remember_upto g gen1 ++ heapgraph_remember_range g gen1 gen2.
+Proof.
+  unfold heapgraph_remember_upto, heapgraph_remember_range.
+  rewrite <- concat_app.
+  rewrite <- map_app.
+  rewrite sublist.firstn_app.
+  now replace
+    (S gen1 + (gen2 - gen1))%nat
+    with (S gen2)%nat
+    by lia.
 Qed.
 
 

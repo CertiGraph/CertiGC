@@ -133,6 +133,7 @@ Proof.
   - destruct H as [g3 [g4 [? [? ?]]]].
     subst g2.
     apply gen2gen_no_edge_reset.
+    { admit. }
     assert (gen2gen_no_edge g3 gen1 gen2) by (eapply frr_gen2gen_no_edge; eauto).
     destruct H6 as [m [? ?]].
     eapply (svwl_gen2gen_no_edge i _ _ g3); eauto.

@@ -378,6 +378,12 @@ Inductive forward_roots_loop (from to: nat) (f_info: fun_info):
 Definition forward_roots_relation from to f_info roots1 g1 roots2 g2 :=
   forward_roots_loop from to f_info (nat_inc_list (length roots1)) roots1 g1 roots2 g2.
 
+Lemma frr__heapgraph_remember_upto from to f_info roots1 g1 roots2 g2 gen
+  (H: forward_roots_relation from to f_info roots1 g1 roots2 g2):
+  heapgraph_remember_upto g2 gen = heapgraph_remember_upto g1 gen.
+Proof.
+  admit.
+Admitted.
 
 Definition forward_condition g t_info from to: Prop :=
   enough_space_to_copy g t_info from to /\

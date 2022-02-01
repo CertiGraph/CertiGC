@@ -582,6 +582,22 @@ Lemma reset_graph__heapgraph_remember_upto (g: HeapGraph) (g1 g2: nat) (r: Remem
   (Hr: In r (heapgraph_remember_upto (reset_graph g1 g) g2)):
   In r (heapgraph_remember_upto g g2).
 Proof.
+  apply in_concat in Hr.
+  destruct Hr as [x [Hge Hx]].
+  apply in_concat.
+  exists x ; split ; try easy.
+  apply in_map_iff in Hge.
+  destruct Hge as [ge [Ex Hge]].
+  apply in_map_iff.
+  exists ge ; split ; try easy.
+  admit.
+Admitted.
+
+Lemma heapgraph_remember_range__reset_graph g g1 g2 (Hg1: heapgraph_remember_upto g g1 = []):
+  heapgraph_remember_range (reset_graph g1 g) g1 g2 = heapgraph_remember_range g g1 g2.
+Proof.
+  unfold heapgraph_remember_range.
+  unfold heapgraph_remember_upto in Hg1.
   admit.
 Admitted.
 
@@ -610,9 +626,10 @@ Proof.
   now apply reset_graph__heapgraph_remember_upto in H0.
 Qed.
 
-Lemma gen2gen_no_edge_reset: forall g gen1 gen2 gen3,
-    gen2gen_no_edge g gen2 gen3 ->
-    gen2gen_no_edge (reset_graph gen1 g) gen2 gen3.
+Lemma gen2gen_no_edge_reset g gen1 gen2 gen3
+  (Hgen1: heapgraph_remember_upto g gen1 = nil):
+  gen2gen_no_edge g gen2 gen3 ->
+  gen2gen_no_edge (reset_graph gen1 g) gen2 gen3.
 Proof.
   intros.
   unfold gen2gen_no_edge.
@@ -623,8 +640,24 @@ Proof.
   destruct H0 as [He Hgen1gen2].
   simpl in Hgen1gen2.
   specialize (H vidx eidx He H1).
-  admit. (* not true as stated; need to relate gen1 and gen3 *)
-Admitted.
+  assert (gen1 < gen3)%nat as H2.
+  {
+    destruct (le_lt_dec gen3 gen1) ; try easy.
+    exfalso.
+    rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen3 gen1) in Hgen1 by easy.
+    apply app_eq_nil in Hgen1.
+    destruct Hgen1 as [Hgen3 Hgen1].
+    now rewrite Hgen3 in H.
+  }
+  rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen1 gen3 ltac:(lia)) in H.
+  rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen1 gen3 ltac:(lia)) by easy.
+  apply in_app.
+  right.
+  rewrite Hgen1 in H.
+  apply in_app in H.
+  destruct H as [H|H] ; try contradiction.
+  now rewrite heapgraph_remember_range__reset_graph by easy.
+Qed.
 
 Lemma firstn_gen_clear_reset: forall g i,
     firstn_gen_clear g i -> firstn_gen_clear (reset_graph i g) (S i).

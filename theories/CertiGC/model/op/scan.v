@@ -336,14 +336,15 @@ Lemma svwl_gen2gen_no_edge (from to: nat) (l: list nat) (g1 g2: HeapGraph)
     gen2gen_no_edge g2 gen1 gen2.
 Proof.
     unfold gen2gen_no_edge in *.
-    intros vidx eidx Hg2.
+    intros vidx eidx Hg2 E.
     pose proof (heapgraph_has_field__has_block Hg2) as Hblock.
     simpl in Hblock.
     eapply svwl_heapgraph_has_block_inv in Hblock; eauto.
     simpl in Hblock.
     destruct Hblock as [Hblock | [Eto Hblock]] ; try easy.
-    erewrite <- svwl_dst_unchanged; eauto.
-    apply Hgen1gen2.
+    erewrite <- svwl_dst_unchanged in E; eauto.
+    admit.
+    (* apply Hgen1gen2.
     refine {|
       heapgraph_has_field__has_block := _;
       heapgraph_has_field__in := _;
@@ -354,8 +355,8 @@ Proof.
       intro Eg1g2.
       now rewrite Eg1g2.
     + unfold heapgraph_block_fields, heapgraph_block_cells.
-      erewrite svwl_block_fields; eauto.
-Qed.
+      erewrite svwl_block_fields; eauto. *)
+Admitted.
 
 
 Lemma svfl_dst_changed: forall from to v l g1 g2,
@@ -587,7 +588,8 @@ Proof.
         - erewrite svwl_block_fields; eauto.
       }
       pose proof (heapgraph_has_field__in H10) as Hfield. simpl in Hfield.
-      rewrite <- H14 in Hfield.
+      admit.
+      (* rewrite <- H14 in Hfield.
       assert (heapgraph_has_field g {| field_addr := {| addr_gen := to ; addr_block := vidx |} ; field_index := eidx |}) as Hg' by (split; simpl; assumption).
       specialize (H8 _ _ Hg').
       erewrite (frr_dst_unchanged _ _ _ _ _ _ g1) in H8; eauto.
@@ -598,9 +600,10 @@ Proof.
         destruct H16 as [? _].
         pose proof (heapgraph_has_block__has_index Hg) as HH.
         red in HH. simpl in HH.
-        lia.
+        lia. *)
     + pose proof (heapgraph_has_field__in H10) as Hin.
-      eapply svwl_no_edge2from ; eauto.
+      admit.
+      (* eapply svwl_no_edge2from ; eauto.
       * eapply (frr_heapgraph_generation_is_unmarked _ _ _ _ g); eauto.
       * eapply (frr_copy_compatible from to _ _ g); eauto.
       * eapply (frr_no_dangling_dst _ _ _ _ g); eauto.
@@ -619,5 +622,5 @@ Proof.
   - eapply (frr_gen2gen_no_edge _ _ _ _ g _ g1) in H8; eauto.
     destruct H7 as [m [? ?]]. eapply (svwl_gen2gen_no_edge from to _ g1 g2); eauto.
     + erewrite <- frr_graph_has_gen; eauto.
-    + eapply frr_heapgraph_generation_is_unmarked; eauto.
-Qed.
+    + eapply frr_heapgraph_generation_is_unmarked; eauto. *)
+Admitted.

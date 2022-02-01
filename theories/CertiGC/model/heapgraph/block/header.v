@@ -9,7 +9,7 @@ From CertiGC Require Import model.heapgraph.block.block.
 From CertiGC Require Import model.heapgraph.generation.generation.
 From CertiGC Require Import model.heapgraph.graph.
 From CertiGC Require Import model.heapgraph.has_block.
-From CertiGC Require Import vst.model.c_constants. (* uses WORD_SIZE *)
+From CertiGC Require Import vst.cmodel.constants. (* uses WORD_SIZE *)
 
 Local Open Scope Z.
 

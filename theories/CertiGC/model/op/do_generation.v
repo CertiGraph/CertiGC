@@ -125,12 +125,17 @@ Proof.
     subst.
     specialize (H0 _ (heapgraph_has_field__has_block H6) _ (heapgraph_has_field__in H6)).
     pose proof (heapgraph_has_block__has_index H0) as Hindex.
-    red in Hindex. intro Egen2. rewrite Egen2 in Hindex.
-    red in H3. assert (gen2 < S i)%nat as Hgen2 by lia. specialize (H3 _ Hgen2). red in H3.
-    rewrite H3 in Hindex. lia.
-  - destruct H as [g3 [g4 [? [? ?]]]]. subst g2. apply gen2gen_no_edge_reset.
+    red in Hindex.
+    admit.
+    (* intro Egen2. rewrite Egen2 in Hindex. *)
+    (* red in H3. assert (gen2 < S i)%nat as Hgen2 by lia. specialize (H3 _ Hgen2). red in H3. *)
+    (* rewrite H3 in Hindex. lia. *)
+  - destruct H as [g3 [g4 [? [? ?]]]].
+    subst g2.
+    apply gen2gen_no_edge_reset.
     assert (gen2gen_no_edge g3 gen1 gen2) by (eapply frr_gen2gen_no_edge; eauto).
-    destruct H6 as [m [? ?]]. eapply (svwl_gen2gen_no_edge i _ _ g3); eauto.
+    destruct H6 as [m [? ?]].
+    eapply (svwl_gen2gen_no_edge i _ _ g3); eauto.
     + rewrite <- frr_graph_has_gen; eauto.
     + eapply frr_heapgraph_generation_is_unmarked; eauto.
-Qed.
+Admitted.

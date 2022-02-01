@@ -578,22 +578,53 @@ Proof.
       - now rewrite heapgraph_block_fields_reset.
 Qed.
 
+Lemma reset_graph__heapgraph_remember_upto (g: HeapGraph) (g1 g2: nat) (r: Remember)
+  (Hr: In r (heapgraph_remember_upto (reset_graph g1 g) g2)):
+  In r (heapgraph_remember_upto g g2).
+Proof.
+  admit.
+Admitted.
+
 Lemma gen2gen_no_edge_reset_inv: forall g gen1 gen2 gen3,
     gen1 <> gen2 -> gen2gen_no_edge (reset_graph gen1 g) gen2 gen3 ->
     gen2gen_no_edge g gen2 gen3.
 Proof.
-  intros. unfold gen2gen_no_edge. intros. red in H0. simpl in H0.
-  specialize (H0 vidx eidx). rewrite remove_ve_dst_unchanged in H0. apply H0.
-  rewrite reset_graph__heapgraph_has_field. simpl. split; assumption.
+  intros.
+  unfold gen2gen_no_edge.
+  intros.
+  red in H0.
+  simpl in H0.
+  specialize (H0 vidx eidx).
+  remember
+    {| field_addr := {| addr_gen := gen2; addr_block := vidx |}; field_index := eidx |}
+    as e eqn:Heqe.
+  assert
+    (heapgraph_has_field (reset_graph gen1 g) e)
+    as Hgen1.
+  {
+    subst e.
+    now apply reset_graph__heapgraph_has_field.
+  }
+  rewrite remove_ve_dst_unchanged in H0.
+  specialize (H0 Hgen1 H2).
+  now apply reset_graph__heapgraph_remember_upto in H0.
 Qed.
 
 Lemma gen2gen_no_edge_reset: forall g gen1 gen2 gen3,
     gen2gen_no_edge g gen2 gen3 ->
     gen2gen_no_edge (reset_graph gen1 g) gen2 gen3.
 Proof.
-  intros. unfold gen2gen_no_edge. intros. simpl. rewrite remove_ve_dst_unchanged.
-  apply H. rewrite reset_graph__heapgraph_has_field in H0. destruct H0. assumption.
-Qed.
+  intros.
+  unfold gen2gen_no_edge.
+  intros.
+  simpl in H1.
+  rewrite remove_ve_dst_unchanged in H1.
+  apply reset_graph__heapgraph_has_field in H0.
+  destruct H0 as [He Hgen1gen2].
+  simpl in Hgen1gen2.
+  specialize (H vidx eidx He H1).
+  admit. (* not true as stated; need to relate gen1 and gen3 *)
+Admitted.
 
 Lemma firstn_gen_clear_reset: forall g i,
     firstn_gen_clear g i -> firstn_gen_clear (reset_graph i g) (S i).
@@ -619,11 +650,36 @@ Lemma no_dangling_dst_reset: forall g gen,
     no_dangling_dst g -> no_edge2gen g gen ->
     no_dangling_dst (reset_graph gen g).
 Proof.
-  intros. unfold no_dangling_dst in *. red in H0. simpl. intros.
-  rewrite reset_graph__heapgraph_has_block in *. destruct H1. rewrite heapgraph_block_fields_reset in H2.
-  rewrite remove_ve_dst_unchanged. split.
-  - apply (H v); assumption.
-  - cut (addr_gen (dst g e) <> gen). 1: intuition. unfold gen2gen_no_edge in H0.
-    destruct e as [[vgen vidx] eidx]. pose proof H2. apply heapgraph_block_fields_fst in H2.
-    simpl in H2. subst v. simpl in *. apply H0; intuition. split; simpl; assumption.
-Qed.
+  intros.
+  unfold no_dangling_dst in *.
+  red in H0.
+  simpl.
+  intros.
+  rewrite reset_graph__heapgraph_has_block in *.
+  destruct H1.
+  rewrite heapgraph_block_fields_reset in H2.
+  rewrite remove_ve_dst_unchanged.
+  split.
+  - now apply (H v).
+  - cut (addr_gen (dst g e) <> gen).
+    { intuition. }
+    unfold gen2gen_no_edge in H0.
+    destruct e as [[vgen vidx] eidx].
+    pose proof H2.
+    apply heapgraph_block_fields_fst in H2.
+    simpl in H2.
+    subst v.
+    simpl in *.
+    intro E.
+    assert
+      (heapgraph_has_field g {|
+        field_addr := {| addr_gen := vgen; addr_block := vidx |};
+        field_index := eidx
+      |})
+      as Hf.
+    {
+      dintuition idtac.
+    }
+    specialize (H0 vgen ltac:(lia) vidx eidx Hf E).
+    admit. (* needs a stronger spec *)
+Admitted.

@@ -36,9 +36,9 @@ theories/CertiGC/model/util.v
 theories/CertiGC/vst/ast/env_graph_gc.v
 -Q theories/CertiGC/vst/clightgen/x86_64-linux    CertiGC.vst.clightgen
 theories/CertiGC/vst/clightgen/x86_64-linux/gc.v
--Q theories/CertiGC/vst/model                  CertiGC.vst.model
-theories/CertiGC/vst/model/c_constants.v
-theories/CertiGC/vst/model/spatial_gcgraph.v
+-Q theories/CertiGC/vst/cmodel                 CertiGC.vst.cmodel
+theories/CertiGC/vst/cmodel/constants.v
+theories/CertiGC/vst/cmodel/spatial_gcgraph.v
 -Q theories/CertiGC/vst/proof                  CertiGC.vst.proof
 theories/CertiGC/vst/proof/verif_conversion.v
 theories/CertiGC/vst/proof/verif_create_heap.v

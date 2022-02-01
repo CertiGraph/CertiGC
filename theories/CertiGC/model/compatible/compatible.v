@@ -18,7 +18,7 @@ From CertiGC Require Import model.heapgraph.has_block.
 From CertiGC Require Import model.heap.heap.
 From CertiGC Require Import model.thread_info.thread_info.
 From CertiGC Require Import model.util.
-From CertiGC Require Import vst.model.c_constants. (* uses WORD_SIZE *)
+From CertiGC Require Import vst.cmodel.constants. (* uses WORD_SIZE *)
 
 
 Definition roots_outlier_compatible (roots: roots_t) (outlier: outlier_t): Prop :=

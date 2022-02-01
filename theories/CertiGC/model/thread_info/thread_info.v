@@ -14,7 +14,7 @@ From CertiGC Require Import model.heapgraph.graph.
 From CertiGC Require Import model.heapgraph.mark.
 From CertiGC Require Import model.heapgraph.roots.
 From CertiGC Require Import model.util.
-From CertiGC Require Import vst.model.c_constants. (* uses WORD_SIZE *)
+From CertiGC Require Import vst.cmodel.constants. (* uses WORD_SIZE *)
 
 
 Record thread_info: Type := {

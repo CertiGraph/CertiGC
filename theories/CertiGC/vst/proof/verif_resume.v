@@ -3,8 +3,8 @@ From VST Require Import floyd.proofauto.
 From CertiGC Require Import model.GCGraph.
 From CertiGC Require Import vst.ast.env_graph_gc.
 From CertiGC Require Import vst.clightgen.gc.
-From CertiGC Require Import vst.model.c_constants.
-From CertiGC Require Import vst.model.spatial_gcgraph.
+From CertiGC Require Import vst.cmodel.constants.
+From CertiGC Require Import vst.cmodel.spatial_gcgraph.
 From CertiGC Require Import vst.spec.gc_spec.
 
 Lemma body_resume: semax_body Vprog Gprog f_resume resume_spec.

@@ -9,7 +9,7 @@ From CertiGraph Require Import lib.EquivDec_ext.
 
 From CertiGC Require Import model.constants.
 From CertiGC Require Import model.util.
-From CertiGC Require Import vst.model.c_constants. (* uses WORD_SIZE *)
+From CertiGC Require Import vst.cmodel.constants. (* uses WORD_SIZE *)
 
 
 Record Space: Type := {

@@ -59,7 +59,7 @@ Definition heapgraph_generation_has_index
   (g : HeapGraph) (gen index : nat) : Prop := 
   (index < generation_block_count (heapgraph_generation g gen))%nat.
 
-  Definition heapgraph_generation_size 
+Definition heapgraph_generation_size 
   (g : HeapGraph) (gen : nat) : Z :=
   heapgraph_block_size_prev g gen (generation_block_count (heapgraph_generation g gen)).
 

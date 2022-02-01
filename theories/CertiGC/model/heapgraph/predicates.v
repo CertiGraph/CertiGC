@@ -131,7 +131,9 @@ Definition gen2gen_no_edge
   (g : HeapGraph) (gen1 gen2 : nat) : Prop :=
   forall vidx eidx,
   let e := {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |} in
-  heapgraph_has_field g e -> addr_gen (dst g e) <> gen2.
+  heapgraph_has_field g e ->
+  addr_gen (dst g e) = gen2 ->
+  In {| remember_addr_block := vidx; remember_field_index := eidx |} (heapgraph_remember_upto g gen2).
 
 Definition no_edge2gen 
   (g : HeapGraph) (gen : nat) : Prop := 
@@ -150,9 +152,10 @@ Lemma fgc_nbe_no_edge2gen
 Proof.
   (intros m Hm).
   (destruct (lt_eq_lt_dec m n) as [[Hmn| Hmn]| Hmn]; try easy).
-  + (intros vidx eidx f Hf En).
-    subst f.
-    (pose proof (heapgraph_has_block__has_index (heapgraph_has_field__has_block Hf)) as F).
+  + intros vidx eidx e He En.
+    exfalso.
+    subst e.
+    (pose proof (heapgraph_has_block__has_index (heapgraph_has_field__has_block He)) as F).
     specialize (Hn _ Hmn).
     (red in Hn, F).
     (simpl in F).
@@ -171,13 +174,22 @@ Proof.
   (intros).
   (unfold no_backward_edge, gen2gen_no_edge in *).
   (intros).
-  (simpl).
   (pose proof (heapgraph_has_field__in H2) as Hfield).
   (rewrite <- ang_heapgraph_block_fields in Hfield).
   (pose proof (heapgraph_has_field__has_block H2) as Hblock).
   (apply heapgraph_generations_append__heapgraph_has_block_inv in Hblock; auto).
-  (apply H0; auto).
-  (split; simpl; auto).
+  simpl in *.
+  assert
+    (heapgraph_has_gen g gen2)
+    as Hgen2.
+  {
+    apply heapgraph_has_block__has_gen in Hblock.
+    unfold heapgraph_has_gen in *.
+    simpl in Hblock.
+    lia.
+  }
+  rewrite heapgraph_remember_upto__heapgraph_generations_append__old by easy.
+  now apply (H0 _ _ H1).
 Qed.
 
 

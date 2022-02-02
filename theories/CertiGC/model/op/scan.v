@@ -395,8 +395,7 @@ Proof.
   {
     intro F.
     apply H0.
-    (* true because the no_scan tag is an invariant of forward_relation *)
-    admit.
+    now apply (fr__heapgraph_block_is_no_scan _ _ _ _ _ _ H1).
   }
   rewrite IHscan_vertex_for_loop by easy.
   clear IHscan_vertex_for_loop H2.
@@ -405,7 +404,7 @@ Proof.
   - subst new_g.
     rewrite heapgraph_remember_upto__labeledgraph_gen_dst.
     now apply lcv__heapgraph_remember_upto.
-Admitted.
+Qed.
 
 Lemma svwl_gen2gen_no_edge (from to: nat) (l: list nat) (g1 g2: HeapGraph)
     (Hto: heapgraph_has_gen g1 to)

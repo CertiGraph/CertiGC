@@ -149,6 +149,13 @@ Proof.
   - apply lcv_graph_has_gen. assumption.
 Qed.
 
+Lemma fr__heapgraph_block_is_no_scan from to depth x g1 g2
+  (H: forward_relation from to depth x g1 g2):
+  forall v, heapgraph_block_is_no_scan g1 v <-> heapgraph_block_is_no_scan g2 v.
+Proof.
+  admit.
+Admitted.
+
 Lemma fl_graph_has_gen: forall from to depth l g g',
     heapgraph_has_gen g to -> forward_loop from to depth l g g' ->
     forall x, heapgraph_has_gen g x <-> heapgraph_has_gen g' x.

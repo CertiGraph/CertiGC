@@ -2,6 +2,9 @@ From Coq Require Import Lists.List.
 From Coq Require Import micromega.Lia.
 From Coq Require Import ZArith.ZArith.
 
+From compcert Require Import common.Values.
+
+From CertiGraph Require Import graph.graph_gen.
 From CertiGraph Require Import lib.List_ext.
 
 From CertiGC Require Import model.heapgraph.generation.generation.
@@ -9,7 +12,7 @@ From CertiGC Require Import model.heapgraph.graph.
 
 Local Open Scope Z.
 
-Definition heapgraph_remember_upto (g : HeapGraph) (gen : nat): list Remember :=
+Definition heapgraph_remember_upto (g : HeapGraph) (gen : nat): list val :=
   concat (map generation_remember (firstn (S gen) (generations (heapgraph_generations g)))).
 
 Lemma heapgraph_remember_upto__heapgraph_generations_append__old 
@@ -31,7 +34,13 @@ Proof.
   now rewrite app_nil_r.
 Qed.
 
-Definition heapgraph_remember_range (g : HeapGraph) (gen1 gen2 : nat): list Remember :=
+Lemma heapgraph_remember_upto__labeledgraph_gen_dst g e v gen:
+  heapgraph_remember_upto (labeledgraph_gen_dst g e v) gen = heapgraph_remember_upto g gen.
+Proof.
+  reflexivity.
+Qed.
+
+Definition heapgraph_remember_range (g : HeapGraph) (gen1 gen2 : nat): list val :=
   concat (map generation_remember (firstn (gen2 - gen1) (skipn (S gen1) (generations (heapgraph_generations g))))).
 
 Lemma heapgraph_remember_upto__heapgraph_remember_range g gen1 gen2 (Hgen: (gen1 <= gen2)%nat):

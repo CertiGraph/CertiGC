@@ -106,17 +106,11 @@ Proof.
 Qed.
 
 
-Record Remember :=
-{
-  remember_addr_block: nat;
-  remember_field_index: nat;
-}.
-
 Record Generation : Type :=
  {
   generation_base  : val;
   generation_block_count  : nat;
-  generation_remember : list Remember;
+  generation_remember : list val;
   generation_sh  : share;
   generation_base__isptr  : isptr generation_base;
   generation_sh__writable  : writable_share generation_sh

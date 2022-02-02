@@ -511,6 +511,14 @@ Proof.
     apply lcv_heapgraph_block_size_new.
 Qed.
 
+Lemma lcv__heapgraph_remember_upto: forall g v to gen,
+  heapgraph_has_gen g to ->
+  heapgraph_remember_upto (lgraph_copy_v g v to) gen = heapgraph_remember_upto g gen.
+Proof.
+  intros g v to gen Hto.
+  admit.
+Admitted.
+
 Lemma lcv__heapgraph_remember_size: forall g v to,
     heapgraph_has_gen g to ->
     heapgraph_remember_size (lgraph_copy_v g v to) to =

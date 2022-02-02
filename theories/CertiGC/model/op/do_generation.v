@@ -119,7 +119,7 @@ Lemma do_gen_no_backward_edge: forall g1 g2 roots1 roots2 f_info i,
     no_dangling_dst g2 -> heapgraph_has_gen g1 (S i) -> heapgraph_generation_is_unmarked g1 (S i) ->
     firstn_gen_clear g1 i -> no_backward_edge g1 -> no_backward_edge g2.
 Proof.
-  intros. unfold no_backward_edge in *. intros. destruct (Nat.eq_dec gen1 (S i)).
+  intros. unfold no_backward_edge in *. intros gen1 gen2. intros. destruct (Nat.eq_dec gen1 (S i)).
   - red. intros.
     eapply do_gen_firstn_gen_clear in H3; eauto.
     subst.

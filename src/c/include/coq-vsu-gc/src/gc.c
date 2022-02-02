@@ -212,6 +212,20 @@ void forward_roots (value *from_start,  /* beginning of from-space */
    }
 }
 
+void forward_remset (struct space *from,  /* descriptor of from-space */
+                     struct space *to,    /* descriptor of to-space */
+                     value **next)        /* next available spot in to-space */
+{
+  value *q = from->limit;
+  while (q != from->end) {
+    if (!(from->start <= (value *)*q && (value *)*q < from->limit)) {
+      forward(from->start, from->limit, next, (value *)*q, DEPTH);
+      *(--to->limit) = (value)q;
+    }
+    q++;
+  }
+}
+
 #define No_scan_tag 251
 #define No_scan(t) ((t) >= No_scan_tag)
 
@@ -249,6 +263,7 @@ void do_generation (struct space *from,  /* descriptor of from-space */
 {
   value *p = to->next;
   assert(from->next-from->start <= to->limit-to->next);
+  // forward_remset(from, to, &to->next);
   forward_roots(from->start, from->limit, &to->next, fi, ti);
   do_scan(from->start, from->limit, p, &to->next);
   if(0)  fprintf(stderr,"%5.3f%% occupancy\n",
@@ -389,6 +404,23 @@ void garbage_collect(fun_info fi, struct thread_info *ti)
   /* Can't reach this point */
   assert(0);
 }
+
+/* mutable write barrier */
+/*
+void cell_modify(struct thread_info *ti, value *p_cell, value p_val) {
+  *p_cell = p_val;
+  if (Is_block(p_val)) {
+    if(ti->alloc == ti->limit) {
+      garbage_collect(ti);
+      if(ti->alloc == ti->limit) {
+        abort_with("no space left to allocate modify\n");
+      }
+    }
+    *(value **)(--ti->limit) = p_cell;
+    --ti->heap->spaces[0].limit;
+  }
+}
+*/
 
 /* REMARK.  The generation-management policy in the garbage_collect function
    has a potential flaw.  Whenever a record is copied, it is promoted to

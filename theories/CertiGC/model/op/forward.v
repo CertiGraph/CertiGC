@@ -378,12 +378,43 @@ Inductive forward_roots_loop (from to: nat) (f_info: fun_info):
 Definition forward_roots_relation from to f_info roots1 g1 roots2 g2 :=
   forward_roots_loop from to f_info (nat_inc_list (length roots1)) roots1 g1 roots2 g2.
 
-Lemma frr__heapgraph_remember_upto from to f_info roots1 g1 roots2 g2 gen
-  (H: forward_roots_relation from to f_info roots1 g1 roots2 g2):
+Lemma fl__heapgraph_remember_upto from to depth l g1 g2 gen
+  (H: forward_loop from to depth l g1 g2)
+  (Hto: heapgraph_has_gen g1 to)
+  (Edepth: depth = O):
   heapgraph_remember_upto g2 gen = heapgraph_remember_upto g1 gen.
 Proof.
-  admit.
-Admitted.
+  induction H ; try easy.
+  assert
+    (heapgraph_has_gen g2 to)
+    as Hto_g2
+    by now rewrite <- (fr_graph_has_gen _ _ _ _ _ _ Hto H to).
+  rewrite IHforward_loop by easy.
+  inversion H ; subst ; try easy.
+  - now apply lcv__heapgraph_remember_upto.
+  - rewrite <- (lcv__heapgraph_remember_upto _ (dst g1 e) to gen Hto).
+    subst new_g.
+    apply heapgraph_remember_upto__labeledgraph_gen_dst.
+Qed.
+
+Lemma frr__heapgraph_remember_upto from to f_info roots1 g1 roots2 g2 gen
+  (H: forward_roots_relation from to f_info roots1 g1 roots2 g2)
+  (Hto: heapgraph_has_gen g1 to):
+  heapgraph_remember_upto g2 gen = heapgraph_remember_upto g1 gen.
+Proof.
+  red in H.
+  induction H ; try easy.
+  rewrite
+    IHforward_roots_loop
+    by now rewrite <- (fr_graph_has_gen _ _ _ _ _ _ Hto H to).
+  clear IHforward_roots_loop H0.
+  remember O as depth eqn:Edepth.
+  inversion H ; subst ; try easy.
+  - now apply lcv__heapgraph_remember_upto.
+  - subst new_g.
+    rewrite heapgraph_remember_upto__labeledgraph_gen_dst.
+    now apply lcv__heapgraph_remember_upto.
+Qed.
 
 Definition forward_condition g t_info from to: Prop :=
   enough_space_to_copy g t_info from to /\
@@ -1016,6 +1047,17 @@ Proof.
   - eapply fr_heapgraph_has_block; eauto.
 Qed.
 
+
+Lemma frr_heapgraph_generation_unchanged: forall from to f_info roots1 g1 roots2 g2,
+    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
+    forall gen, gen <> to -> heapgraph_generation g1 gen = heapgraph_generation g2 gen.
+Proof.
+  intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
+  - eapply fr_O_heapgraph_generation_unchanged; eauto.
+  - rewrite <- fr_graph_has_gen; eauto.
+Qed.
+
+
 Lemma frr_gen2gen_no_edge (from to: nat) (f_info: fun_info) (roots1: list root_t) (g1: HeapGraph) (roots2: roots_t) (g2: HeapGraph)
     (Hto: heapgraph_has_gen g1 to)
     (Hg1g2: forward_roots_relation from to f_info roots1 g1 roots2 g2)
@@ -1028,9 +1070,20 @@ Proof.
     intros vidx eidx Hg2.
     cut (heapgraph_has_field g1 {| field_addr := {| addr_gen := gen1; addr_block := vidx |} ; field_index := eidx |}).
     + intros.
-      admit.
-      (* erewrite <- frr_dst_unchanged in Hgen1gen2; eauto. *)
-      (* apply (heapgraph_has_field__has_block H). *)
+      specialize (Hgen1gen2 vidx eidx H).
+      apply heapgraph_has_field__has_block in H.
+      erewrite (frr_dst_unchanged from to _ _ g1 _ g2) in Hgen1gen2; eauto.
+      apply Hgen1gen2.
+      intro F.
+      apply H0.
+      pose proof (fun gk => frr__heapgraph_remember_upto _ _ _ _ _ _ _ gk Hg1g2 Hto) as H1.
+      rewrite H1.
+      assert
+        (closure_has_v g1 {| addr_gen := gen1; addr_block := vidx |})
+        as Hg1_closure
+        by now apply heapgraph_has_block_in_closure.
+      simpl in F |-*.
+      now rewrite <- (frr_heapgraph_block_ptr _ _ _ _ _ _ _ Hto Hg1g2 _ Hg1_closure).
     + pose proof (heapgraph_has_field__has_block Hg2) as Hblock.
       eapply frr_heapgraph_has_block_inv in Hblock ; eauto.
       destruct Hblock as [Hblock | [Eto Hblock]] ; try easy.
@@ -1045,7 +1098,7 @@ Proof.
         now rewrite Eg1g2.
       - unfold heapgraph_block_fields, heapgraph_block_cells.
         erewrite frr_block_fields; eauto.
-Admitted.
+Qed.
 
 Lemma fr_O_dst_unchanged_field (from to: nat) (v: Addr) (n: nat) (g g': HeapGraph)
     (Hfrom: forward_p_compatible (inr (v, Z.of_nat n)) [] g from)
@@ -1146,14 +1199,6 @@ Proof.
       rewrite heapgraph_block_cells_eq_length. assumption.
 Qed.
 
-Lemma frr_heapgraph_generation_unchanged: forall from to f_info roots1 g1 roots2 g2,
-    heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->
-    forall gen, gen <> to -> heapgraph_generation g1 gen = heapgraph_generation g2 gen.
-Proof.
-  intros. induction H0. 1: reflexivity. rewrite <- IHforward_roots_loop.
-  - eapply fr_O_heapgraph_generation_unchanged; eauto.
-  - rewrite <- fr_graph_has_gen; eauto.
-Qed.
 
 Lemma frr_firstn_gen_clear: forall from to f_info roots1 g1 roots2 g2,
     heapgraph_has_gen g1 to -> forward_roots_relation from to f_info roots1 g1 roots2 g2 ->

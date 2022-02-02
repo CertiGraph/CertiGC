@@ -91,6 +91,7 @@ Proof.
   - eapply svfl_heapgraph_generation_is_unmarked; eauto.
 Qed.
 
+
 Lemma svfl_heapgraph_block_ptr: forall from to v l g g',
     heapgraph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
     forall x, closure_has_v g x -> heapgraph_block_ptr g x = heapgraph_block_ptr g' x.
@@ -103,6 +104,7 @@ Proof.
   eapply fr_heapgraph_block_ptr; eauto.
 Qed.
 
+
 Lemma svfl_heapgraph_has_block: forall from to v l g g',
     heapgraph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
     forall x, heapgraph_has_block g x -> heapgraph_has_block g' x.
@@ -113,6 +115,42 @@ Proof.
   assert (heapgraph_has_block g2 x) by (eapply fr_heapgraph_has_block in H4; eauto).
   eapply (IHl from to _ g2) in H7; eauto.
 Qed.
+
+Lemma svwl_heapgraph_block_ptr: forall from to l g g',
+  heapgraph_has_gen g to -> scan_vertex_while_loop from to l g g' ->
+  forall x, heapgraph_has_block g x -> heapgraph_block_ptr g x = heapgraph_block_ptr g' x.
+Proof.
+  intros.
+  induction H0 ; try easy.
+  {
+    now apply IHscan_vertex_while_loop.
+  }
+  assert
+    (heapgraph_has_gen g1 to)
+    as Hg1_to.
+  {
+    unfold heapgraph_generation_has_index, heapgraph_generation in H0.
+    unfold heapgraph_has_gen.
+    destruct (le_lt_dec (Datatypes.length (generations (heapgraph_generations g1))) to) as [Hle|Hlt] ; try lia.
+    now rewrite nth_overflow in H0.
+  }
+  assert
+    (heapgraph_has_gen g2 to)
+    as Hg2_to.
+  {
+    now rewrite <- (svfl_graph_has_gen _ _ _ _ _ _ Hg1_to H3 to).
+  }
+  assert
+    (heapgraph_has_block g2 x)
+    as Hg2_block.
+  {
+    now apply (svfl_heapgraph_has_block _ _ _ _ _ _ Hg1_to H3).
+  }
+  rewrite <- (IHscan_vertex_while_loop Hg2_to Hg2_block).
+  apply (svfl_heapgraph_block_ptr _ _ _ _ _ _ Hg1_to H3 x).
+  now apply heapgraph_has_block_in_closure.
+Qed.
+
 
 Lemma svfl_block_fields: forall from to v l g g',
     heapgraph_has_gen g to -> scan_vertex_for_loop from to v l g g' ->
@@ -329,7 +367,44 @@ Lemma svwl__heapgraph_remember_upto from to l (g1 g2: HeapGraph) (gen: nat)
   (H: scan_vertex_while_loop from to l g1 g2):
   heapgraph_remember_upto g2 gen = heapgraph_remember_upto g1 gen.
 Proof.
-  admit.
+  induction H ; try easy.
+  rewrite IHscan_vertex_while_loop.
+  clear IHscan_vertex_while_loop H2.
+  induction H1 ; try easy.
+  assert
+    (heapgraph_has_gen g1 to)
+    as Hg1_to.
+  {
+    unfold heapgraph_generation_has_index, heapgraph_generation in H.
+    unfold heapgraph_has_gen.
+    destruct (le_lt_dec (Datatypes.length (generations (heapgraph_generations g1))) to) as [Hle|Hlt] ; try lia.
+    now rewrite nth_overflow in H by easy.
+  }
+  assert
+    (heapgraph_generation_has_index g2 to i)
+    as Hg2_i.
+  {
+    unfold heapgraph_generation_has_index in *.
+    pose proof (fr_O_gen_v_num_to from to _ _ _ Hg1_to H1) as H3.
+    unfold heapgraph_generation_block_count in H3.
+    lia.
+  }
+  assert
+    (~ heapgraph_block_is_no_scan g2 {| addr_gen := to; addr_block := i |})
+    as Hg2_noscan.
+  {
+    intro F.
+    apply H0.
+    (* true because the no_scan tag is an invariant of forward_relation *)
+    admit.
+  }
+  rewrite IHscan_vertex_for_loop by easy.
+  clear IHscan_vertex_for_loop H2.
+  inversion H1 ; subst ; try easy.
+  - now apply lcv__heapgraph_remember_upto.
+  - subst new_g.
+    rewrite heapgraph_remember_upto__labeledgraph_gen_dst.
+    now apply lcv__heapgraph_remember_upto.
 Admitted.
 
 Lemma svwl_gen2gen_no_edge (from to: nat) (l: list nat) (g1 g2: HeapGraph)
@@ -349,7 +424,7 @@ Proof.
     eapply svwl_heapgraph_has_block_inv in Hblock; eauto.
     simpl in Hblock.
     destruct Hblock as [Hblock | [Eto Hblock]] ; try easy.
-    erewrite <- svwl_dst_unchanged in E; eauto.
+    erewrite <- svwl_dst_unchanged; eauto.
     assert
       (heapgraph_has_field g1
         {|
@@ -367,8 +442,18 @@ Proof.
       - unfold heapgraph_block_fields, heapgraph_block_cells.
         erewrite svwl_block_fields; eauto.
     }
-    specialize (Hgen1gen2 vidx eidx Hg1_field E).
-    now rewrite (svwl__heapgraph_remember_upto from to l g1 g2) by easy.
+    apply (Hgen1gen2 vidx eidx Hg1_field).
+    intro F.
+    apply E.
+    rewrite (svwl__heapgraph_remember_upto from to l g1 g2) by easy.
+    pose proof (svwl_heapgraph_block_ptr _ _ _ _ _ Hto Hg1g2) as H.
+    assert
+      (heapgraph_has_block g1 {| addr_gen := gen1; addr_block := vidx |})
+      as Hg1_block
+      by now apply heapgraph_has_field__has_block in Hg1_field.
+    specialize (H {| addr_gen := gen1; addr_block := vidx |} Hg1_block).
+    simpl in F |-*.
+    now rewrite H in F.
 Qed.
 
 
@@ -572,7 +657,7 @@ Lemma frr_dsr_no_edge2gen: forall from to f_info roots roots' g g1 g2,
     do_scan_relation from to (generation_block_count (heapgraph_generation g to)) g1 g2 ->
     no_edge2gen g from -> no_edge2gen g2 from.
 Proof.
-  intros. unfold no_edge2gen in *. intros. specialize (H8 _ H9).
+  intros. unfold no_edge2gen in *. intro another. intros. specialize (H8 _ H9).
   destruct (Nat.eq_dec another to).
   - subst. unfold gen2gen_no_edge in *. intros.
     simpl fst in *. destruct H7 as [m [? ?]].
@@ -609,9 +694,19 @@ Proof.
       specialize (H8 _ _ Hg').
       erewrite (frr_dst_unchanged _ _ _ _ _ _ g1) in H8; eauto.
       erewrite (svwl_dst_unchanged) in H8 ; eauto ; simpl.
-      * specialize (H8 H11).
+      * apply H8.
+        intro F.
+        apply H11.
         rewrite (svwl__heapgraph_remember_upto from to _ g1 g2 from H7).
-        now rewrite (frr__heapgraph_remember_upto from to _ _ g _ g1 from H6).
+        rewrite (frr__heapgraph_remember_upto from to _ _ g _ g1 from H6) by easy.
+        simpl in F |-*.
+        assert
+          (closure_has_v g {| addr_gen := to; addr_block := vidx |})
+          as Hg_closure
+          by now apply heapgraph_has_block_in_closure.
+        pose proof (frr_heapgraph_block_ptr _ _ _ _ _ _ _ H H6 {| addr_gen := to; addr_block := vidx |} Hg_closure) as H16.
+        pose proof (svwl_heapgraph_block_ptr _ _ _ _ _ H13 H7 {| addr_gen := to; addr_block := vidx |} H14) as H17.
+        now rewrite H16, H17 in F.
       * eapply (frr_heapgraph_generation_is_unmarked _ _ _ _ g); eauto.
       * intros H16 H17.
         rewrite nat_seq_In_iff in H17.
@@ -620,8 +715,7 @@ Proof.
         red in HH.
         simpl in HH.
         lia.
-    + exfalso.
-      assert
+    + assert
         (heapgraph_generation_is_unmarked g1 to)
         as Hg1_unmarked
         by now apply (fun HH => frr_heapgraph_generation_is_unmarked _ _ _ _ _ _ _ HH H6).
@@ -653,8 +747,7 @@ Proof.
       }
       apply heapgraph_has_field__in in H10.
       rewrite nat_seq_In_iff in H14.
-      specialize (H14 Hg_vidx_gm H10).
-      easy.
+      apply (H14 Hg_vidx_gm H10).
   - eapply (frr_gen2gen_no_edge _ _ _ _ g _ g1) in H8; eauto.
     destruct H7 as [m [? ?]].
     eapply (svwl_gen2gen_no_edge from to _ g1 g2); eauto.

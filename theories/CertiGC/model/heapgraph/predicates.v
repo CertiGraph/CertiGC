@@ -17,6 +17,7 @@ From CertiGC Require Import model.heapgraph.has_block.
 From CertiGC Require Import model.heapgraph.has_field.
 From CertiGC Require Import model.heapgraph.remset.remset.
 From CertiGC Require Import model.util.
+From CertiGC Require Import vst.cmodel.constants. (* uses WORD_SIZE *)
 
 
 Definition heapgraph_generation_can_copy 
@@ -128,20 +129,23 @@ Qed.
 
 
 Definition gen2gen_no_edge 
-  (g : HeapGraph) (gen1 gen2 : nat) : Prop :=
+  (g : HeapGraph) (old_gen new_gen : nat) : Prop :=
   forall vidx eidx,
-  let e := {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |} in
+  let e := {| field_addr := {| addr_gen := old_gen; addr_block := vidx |}; field_index := eidx |} in
   heapgraph_has_field g e ->
-  addr_gen (dst g e) = gen2 ->
-  In {| remember_addr_block := vidx; remember_field_index := eidx |} (heapgraph_remember_upto g gen2).
+  ~ In
+    (offset_val (WORD_SIZE * (Z.of_nat eidx)) (heapgraph_block_ptr g (field_addr e)))
+    (heapgraph_remember_upto g new_gen)
+  ->
+  addr_gen (dst g e) <> new_gen.
 
 Definition no_edge2gen 
-  (g : HeapGraph) (gen : nat) : Prop := 
-  forall another, another <> gen -> gen2gen_no_edge g another gen.
+  (g : HeapGraph) (new_gen : nat) : Prop := 
+  forall old_gen, old_gen <> new_gen -> gen2gen_no_edge g old_gen new_gen.
 
 Definition no_backward_edge 
   (g : HeapGraph) : Prop := 
-  forall gen1 gen2, (gen1 > gen2)%nat -> gen2gen_no_edge g gen1 gen2.
+  forall old_gen new_gen, (old_gen > new_gen)%nat -> gen2gen_no_edge g old_gen new_gen.
 
 
 Lemma fgc_nbe_no_edge2gen 
@@ -173,23 +177,38 @@ Lemma no_backward_edge_add :
 Proof.
   (intros).
   (unfold no_backward_edge, gen2gen_no_edge in *).
-  (intros).
-  (pose proof (heapgraph_has_field__in H2) as Hfield).
-  (rewrite <- ang_heapgraph_block_fields in Hfield).
-  (pose proof (heapgraph_has_field__has_block H2) as Hblock).
-  (apply heapgraph_generations_append__heapgraph_has_block_inv in Hblock; auto).
-  simpl in *.
+  (intros gen1 gen2).
+  intros.
+  assert
+    (heapgraph_has_field g {| field_addr := {| addr_gen := gen1; addr_block := vidx |}; field_index := eidx |})
+    as Hfield.
+  {
+    constructor.
+    - apply heapgraph_has_field__has_block in H2.
+      now apply heapgraph_generations_append__heapgraph_has_block_inv in H2.
+    - apply heapgraph_has_field__in in H2.
+      now rewrite <- ang_heapgraph_block_fields in H2.
+  }
   assert
     (heapgraph_has_gen g gen2)
     as Hgen2.
   {
-    apply heapgraph_has_block__has_gen in Hblock.
-    unfold heapgraph_has_gen in *.
-    simpl in Hblock.
+    apply heapgraph_has_field__has_block in Hfield.
+    apply heapgraph_has_block__has_gen in Hfield.
+    unfold heapgraph_has_gen in Hfield |-*.
+    simpl in Hfield.
     lia.
   }
-  rewrite heapgraph_remember_upto__heapgraph_generations_append__old by easy.
-  now apply (H0 _ _ H1).
+  apply (H0 _ _ H1 _ _ Hfield).
+  intro F.
+  apply H3.
+  apply heapgraph_has_field__has_block in Hfield.
+  rewrite
+    heapgraph_remember_upto__heapgraph_generations_append__old
+    ; try easy.
+  rewrite
+    heapgraph_generations_append__heapgraph_block_ptr
+    ; try easy.
 Qed.
 
 
@@ -357,6 +376,16 @@ Proof.
   (destruct Hv).
   (unfold closure_has_v, closure_has_index).
   intuition.
+Qed.
+
+Lemma in_closure__heapgraph_has_block (g : HeapGraph) (v : Addr) (Hv : closure_has_v g v)
+  (Hblock: addr_block v <> generation_block_count (heapgraph_generation g (addr_gen v))):
+  heapgraph_has_block g v.
+Proof.
+  destruct Hv as [Hgen Hindex].
+  apply le_lt_or_eq in Hindex.
+  destruct Hindex as [Hindex|Hindex] ; try contradiction.
+  dintuition idtac.
 Qed.
 
 

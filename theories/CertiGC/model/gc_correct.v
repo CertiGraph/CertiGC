@@ -508,7 +508,7 @@ Proof.
       rename Hvpl into H33.
       rewrite <- H8 in H33.
       destruct H33 as [_ ?].
-      exfalso.
+
       assert (heapgraph_has_field g2 {| field_addr := v ; field_index := idx |}). {
         split; simpl.
         - rewrite <- H12 in H13. apply in_combine_r in H13.
@@ -523,13 +523,24 @@ Proof.
       }
       subst vgen.
       assert (to <> from) as Hto__from by lia.
+
+      intro F.
+      unfold InEither in F.
+      rewrite Heqp in F.
+      apply in_app in F.
+      destruct F as [F|F] ; try contradiction.
+      specialize (H8 (dst g1 e)).
+      apply proj2 in H8.
+      specialize (H8 F).
+      apply proj2 in H8.
+
       specialize (H3 _ Hto__from vidx (field_index e)).
-      simpl in *.
       rewrite Ee in H3.
+      specialize (H3 H30).
+      simpl in H3.
+      rewrite H28 in H3.
+      apply H3 ; try easy.
       admit.
-      (* apply H3 ; try easy. *)
-      (* simpl. *)
-      (* congruence. *)
     - assert (~ InEither (dst g1 e) vpl). {
         intro. unfold InEither in H26. rewrite Heqp, in_app_iff in H26.
         destruct H26; auto. rewrite <- H8 in H26. destruct H26 as [_ ?].
@@ -541,11 +552,16 @@ Proof.
         simpl in H27.
         specialize (H2 _ H27 vidx eidx).
         simpl in H2.
+        rewrite <- Heqf in *.
+        apply H2 ; try easy.
         admit.
-        (* now specialize (H2 H21). *)
       }
       rewrite !list_bi_map_not_In; auto.
-      2: intro F; apply n; apply gepl_InEither in F; auto.
+      2: {
+        intro F.
+        apply n.
+        now apply gepl_InEither in F.
+      }
       destruct H as [_ [_ [_ ?]]].
       apply H; auto.
       apply reachable_through_set_foot_valid in H23.
@@ -2634,10 +2650,18 @@ Lemma no_edge2gen_bep: forall g roots from to,
     sound_gc_graph g -> gen2gen_no_edge g to from ->
     backward_edge_prop g roots from to.
 Proof.
-  intros. red in H0 |-* . intros. destruct e as [[gen vidx] eidx]. simpl in *.
-  subst gen. destruct H as [_ [? _]]. red in H. rewrite H in H1. apply H0 in H1.
+  intros.
+  red in H0 |-* .
+  intros.
+  destruct e as [[gen vidx] eidx].
+  simpl in *.
+  subst gen.
+  destruct H as [_ [? _]].
+  red in H.
+  rewrite H in H1.
+  specialize (H0 _ _ H1).
+  rewrite H3 in H0.
   admit.
-  (* now rewrite H3 in H1. *)
 Admitted.
 
 Lemma fr_O_backward_edge_prop: forall from to p g1 g2 roots f_info,
@@ -3215,8 +3239,8 @@ Proof.
       destruct H4 as [_ [? _]]. rewrite valid_path_cons_iff in H4.
       destruct H4 as [? [[? _] _]]. destruct H as [? [? ?]]. red in H, H8, H9.
       rewrite H9 in *. destruct e as [[gen vidx] eidx]. simpl in *. subst r.
+      simpl in *. rewrite H8 in H7. apply H0 ; try easy.
       admit.
-      (* simpl in *. rewrite H8 in H7. apply H0; auto. *)
 Admitted.
 
 Lemma frr_sound: forall (g1 g2 : HeapGraph) from to f_info roots1 roots2,
@@ -3361,10 +3385,16 @@ Proof.
   intros. red in H0. destruct (heapgraph_has_gen_dec g1 gen).
   - subst; auto.
   - destruct H0 as [gen_i [? ?]]. subst g2. unfold no_edge2gen, gen2gen_no_edge in *.
+    intros.
+    destruct H2 as [H2 H4].
+    simpl in *.
+    apply heapgraph_generations_append__heapgraph_has_block_inv in H2; auto.
+    rewrite <- ang_heapgraph_block_fields in H4.
+    apply H ; try easy.
+    intro F.
+    apply H3.
+    rewrite heapgraph_remember_upto__heapgraph_generations_append__old ; try easy.
     admit.
-    (* intros. simpl in *. destruct H2 as [H2 H3]. *)
-    (* simpl in *. apply heapgraph_generations_append__heapgraph_has_block_inv in H2; auto. *)
-    (* rewrite <- ang_heapgraph_block_fields in H3. apply H; auto. split; auto. *)
 Admitted.
 
 Lemma ngr_iso: forall g1 g2 roots gen,

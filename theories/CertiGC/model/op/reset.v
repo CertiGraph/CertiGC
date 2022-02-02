@@ -578,7 +578,7 @@ Proof.
       - now rewrite heapgraph_block_fields_reset.
 Qed.
 
-Lemma reset_graph__heapgraph_remember_upto (g: HeapGraph) (g1 g2: nat) (r: Remember)
+Lemma reset_graph__heapgraph_remember_upto (g: HeapGraph) (g1 g2: nat) (r: val)
   (Hr: In r (heapgraph_remember_upto (reset_graph g1 g) g2)):
   In r (heapgraph_remember_upto g g2).
 Proof.
@@ -622,8 +622,12 @@ Proof.
     now apply reset_graph__heapgraph_has_field.
   }
   rewrite remove_ve_dst_unchanged in H0.
-  specialize (H0 Hgen1 H2).
-  now apply reset_graph__heapgraph_remember_upto in H0.
+  apply (H0 Hgen1).
+  intro F.
+  apply H2.
+  apply reset_graph__heapgraph_remember_upto in F.
+  rewrite heapgraph_block_ptr_reset in F.
+  now subst e.
 Qed.
 
 Lemma gen2gen_no_edge_reset g gen1 gen2 gen3
@@ -634,12 +638,15 @@ Proof.
   intros.
   unfold gen2gen_no_edge.
   intros.
-  simpl in H1.
-  rewrite remove_ve_dst_unchanged in H1.
+  intro E.
+  simpl in E.
+  rewrite remove_ve_dst_unchanged in E.
   apply reset_graph__heapgraph_has_field in H0.
   destruct H0 as [He Hgen1gen2].
   simpl in Hgen1gen2.
-  specialize (H vidx eidx He H1).
+  apply (H vidx eidx He) ; try easy.
+  intro F.
+  apply H1.
   assert (gen1 < gen3)%nat as H2.
   {
     destruct (le_lt_dec gen3 gen1) ; try easy.
@@ -647,16 +654,17 @@ Proof.
     rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen3 gen1) in Hgen1 by easy.
     apply app_eq_nil in Hgen1.
     destruct Hgen1 as [Hgen3 Hgen1].
-    now rewrite Hgen3 in H.
+    now rewrite Hgen3 in F.
   }
-  rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen1 gen3 ltac:(lia)) in H.
+  rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen1 gen3 ltac:(lia)) in F.
   rewrite (heapgraph_remember_upto__heapgraph_remember_range _ gen1 gen3 ltac:(lia)) by easy.
   apply in_app.
   right.
-  rewrite Hgen1 in H.
-  apply in_app in H.
-  destruct H as [H|H] ; try contradiction.
-  now rewrite heapgraph_remember_range__reset_graph by easy.
+  rewrite Hgen1 in F.
+  apply in_app in F.
+  destruct F as [F|F] ; try contradiction.
+  rewrite heapgraph_remember_range__reset_graph by easy.
+  now rewrite heapgraph_block_ptr_reset by easy.
 Qed.
 
 Lemma firstn_gen_clear_reset: forall g i,
@@ -693,26 +701,15 @@ Proof.
   rewrite heapgraph_block_fields_reset in H2.
   rewrite remove_ve_dst_unchanged.
   split.
-  - now apply (H v).
-  - cut (addr_gen (dst g e) <> gen).
-    { intuition. }
-    unfold gen2gen_no_edge in H0.
-    destruct e as [[vgen vidx] eidx].
-    pose proof H2.
-    apply heapgraph_block_fields_fst in H2.
-    simpl in H2.
-    subst v.
-    simpl in *.
-    intro E.
-    assert
-      (heapgraph_has_field g {|
-        field_addr := {| addr_gen := vgen; addr_block := vidx |};
-        field_index := eidx
-      |})
-      as Hf.
-    {
-      dintuition idtac.
-    }
-    specialize (H0 vgen ltac:(lia) vidx eidx Hf E).
-    admit. (* needs a stronger spec *)
+  { now apply (H v). }
+  cut (addr_gen (dst g e) <> gen) ; try congruence.
+  destruct e as [[vgen vidx] eidx].
+  pose proof (heapgraph_block_fields_fst _ _ _ H2) as Ev.
+  simpl in Ev.
+  subst v.
+  simpl in *.
+  apply H0 ; try easy ; try congruence.
+  clear H0.
+  intro F.
+  admit. (* needs a stronger spec *)
 Admitted.

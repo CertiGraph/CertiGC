@@ -105,10 +105,10 @@ _CoqProject: theories/$(PROJECT)/vst/clightgen/$(TARGET)/gc.v
 	find     theories/$(PROJECT)/vst/clightgen/$(TARGET)   -name "*.v" | sort           >> $@
 	echo "-Q theories/$(PROJECT)/vst/cmodel                 $(PROJECT).vst.cmodel"      >> $@
 	find     theories/$(PROJECT)/vst/cmodel                -name "*.v" | sort           >> $@
-	echo "-Q theories/$(PROJECT)/vst/proof                  $(PROJECT).vst.proof"       >> $@
-	find     theories/$(PROJECT)/vst/proof                 -name "*.v" | sort           >> $@
 	echo "-Q theories/$(PROJECT)/vst/spec                   $(PROJECT).vst.spec"        >> $@
 	find     theories/$(PROJECT)/vst/spec                  -name "*.v" | sort           >> $@
+	echo "-Q theories/$(PROJECT)/vst/verif                  $(PROJECT).vst.verif"       >> $@
+	find     theories/$(PROJECT)/vst/verif                 -name "*.v" | sort           >> $@
 
 
 Makefile.coq: Makefile _CoqProject
@@ -140,8 +140,8 @@ COQ_SOURCES= \
 	$(shell find theories/$(PROJECT)/vst/ast                    -name "*.v" | sort | cut -d'/' -f3-) \
 	$(shell find theories/$(PROJECT)/vst/clightgen/$(TARGET)    -name "*.v" | sort | cut -d'/' -f3-) \
 	$(shell find theories/$(PROJECT)/vst/cmodel                 -name "*.v" | sort | cut -d'/' -f3-) \
-	$(shell find theories/$(PROJECT)/vst/proof                  -name "*.v" | sort | cut -d'/' -f3-) \
-	$(shell find theories/$(PROJECT)/vst/spec                   -name "*.v" | sort | cut -d'/' -f3-)
+	$(shell find theories/$(PROJECT)/vst/spec                   -name "*.v" | sort | cut -d'/' -f3-) \
+	$(shell find theories/$(PROJECT)/vst/verif                  -name "*.v" | sort | cut -d'/' -f3-)
 
 COQ_COMPILED=$(COQ_SOURCES:%.v=%.vo)
 

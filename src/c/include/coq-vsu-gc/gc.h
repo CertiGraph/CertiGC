@@ -1,3 +1,6 @@
+#include <coq-vsu-int_or_ptr/int_or_ptr.h>
+#include <coq-certicoq-block/block.h>
+
 /* EXPLANATION OF THE CERTICOQ GENERATIONAL GARBAGE COLLECTOR.
  Andrew W. Appel, September 2016
 
@@ -86,35 +89,7 @@ recent collection.
 To call the garbage collector, the mutator passes a fun_info and
 a thread_info, as follows. */
 
-typedef void* value __attribute((aligned(_Alignof(void *))));
-
-typedef uintnat header_t;
-typedef uintnat mlsize_t;
-typedef unsigned int tag_t;             /* Actually, an unsigned char */
-typedef uintnat color_t;
-typedef uintnat mark_t;
-
-#define Hd_val(val) (((header_t *) (val)) [-1])        /* Also an l-value. */
-#define Field(x, i) (((value *)(x)) [i])           /* Also an l-value. */
-#define PROFINFO_SHIFT (64 - PROFINFO_WIDTH)
-#define PROFINFO_MASK ((1ull << PROFINFO_WIDTH) - 1ull)
-
-#define Tag_hd(hd) ((tag_t) ((hd) & 0xFF))
-#ifdef WITH_SPACETIME
-#define Hd_no_profinfo(hd) ((hd) & ~(PROFINFO_MASK << PROFINFO_SHIFT))
-#define Wosize_hd(hd) ((mlsize_t) ((Hd_no_profinfo(hd)) >> 10))
-#else
-#define Wosize_hd(hd) ((mlsize_t) ((hd) >> 10))
-#endif /* SPACETIME */
-#ifdef ARCH_SIXTYFOUR
-/* [Profinfo_hd] is used when the compiler is not configured for Spacetime
-   (e.g. when decoding profiles). */
-#define Profinfo_hd(hd) (((mlsize_t) ((hd) >> PROFINFO_SHIFT)) & PROFINFO_MASK)
-#else
-#define Profinfo_hd(hd) ((hd) & 0)
-#endif /* ARCH_SIXTYFOUR */
-
-typedef const uintnat *fun_info;
+typedef const uintptr_t *fun_info;
 /* fi[0]: How many words the function might allocate
    fi[1]: How many slots of the args array contain live roots
    fi[2..(fi[1]-2)]: Indices of the live roots in the args array
@@ -124,16 +99,16 @@ struct heap;     /* abstract, opaque */
 
 #define MAX_ARGS 1024
 
-struct thread_info {
-  value *alloc; /* alloc pointer  */
-  value *limit; /* limit pointer */
-  struct heap *heap;  /* Description of the generations in the heap */
-  value args[MAX_ARGS];   /* the args array */
+struct thread_info
+{
+  int_or_ptr *alloc;                    /* alloc pointer  */
+  int_or_ptr *limit;                    /* limit pointer */
+  struct heap *heap;                    /* Description of the generations in the heap */
+  int_or_ptr args[MAX_ARGS];            /* the args array */
 };
 
 struct thread_info *make_tinfo(void);
 
-void garbage_collect(fun_info fi, struct thread_info *ti);
 /* Performs one garbage collection; 
    or if ti->heap==NULL, initializes the heap. 
 
@@ -143,14 +118,14 @@ void garbage_collect(fun_info fi, struct thread_info *ti);
  (2) the alloc pointer points to N words of unallocated heap space
   (where N>=num_allocs), such that limit-alloc=N.
 */
+void garbage_collect(fun_info fi, struct thread_info *ti);
 
-void free_heap(struct heap *h);
 /* Deallocates all heap data associated with h, and returns the
  * memory to the operating system (via the malloc/free system).
  * After calling this function, h is a dangling pointer and should not be used.
  */
+void free_heap(struct heap *h);
 
-void reset_heap(struct heap *h);
 /* Empties the heap without freeing its storage.
  * After a complete execution of the mutator,
  * and after whoever invoked the mutator copies whatever result they want
@@ -159,22 +134,4 @@ void reset_heap(struct heap *h);
  * free_heap() followed by the implicit create_heap that would have been
  * done in the first garbage_collect() call of the next execution.
  */
-
-/* which slot of the args array has the answer of a certicoq program */
-#define answer_index 1
-
-value* extract_answer(struct thread_info *ti);
-/* y=extract_answer(x,ti) copies the dag rooted at ti->args[answer_index]
-  into a compact data structure starting at y[1], outside the heap,
-  in a single malloc'ed (therefore freeable) object at address y.
-  All within-the-heap pointers will now be within the object y.
-  If (the answer within) the heap pointed to records outside
-  the heap, then those will point at their original locations
-  outside the object y. 
-
-  Note that the start is *(y+1), not (y+1); that is, there's an
-  extra wrapper-record round the object.  That's so that the
-  root-within-the-heap and the root-outside-the-heap (or root-unboxed)
-  can be treated uniformly by the caller of extract_answer().
-*/
-
+void reset_heap(struct heap *h);

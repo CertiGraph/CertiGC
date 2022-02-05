@@ -66,13 +66,11 @@ endif
 
 theories/$(PROJECT)/vst/clightgen/x86_64-linux/gc.v: \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/src/gc.c \
-	$(C_INCLUDE_PATH)/coq-vsu-gc/config.h \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/gc.h \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/mem.h
 
 theories/$(PROJECT)/vst/clightgen/x86_32-linux/gc.v: \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/src/gc.c \
-	$(C_INCLUDE_PATH)/coq-vsu-gc/config.h \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/gc.h \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/mem.h
 

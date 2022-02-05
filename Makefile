@@ -32,7 +32,8 @@ TARGET=x86_64-linux
 COMPCERT_PACKAGE=coq-compcert
 VST_PACKAGE=coq-vst
 CERTIGRAPH_PACKAGE=coq-certigraph
-
+INT_OR_PTR_PACKAGE=coq-vsu-int_or_ptr-vst
+CERTICOQ_BLOCK_PACKAGE=coq-vsu-certicoq-block-vst
 
 COQLIB=$(shell $(COQC) -where | tr -d '\r' | tr '\\' '/')
 
@@ -45,6 +46,8 @@ else ifeq ($(BITSIZE),32)
 	COMPCERT_PACKAGE=coq-compcert-32
 	VST_PACKAGE=coq-vst-32
 	CERTIGRAPH_PACKAGE=coq-certigraph-32
+	INT_OR_PTR_PACKAGE=coq-vsu-int_or_ptr-vst-32
+	CERTICOQ_BLOCK_PACKAGE=coq-vsu-certicoq-block-vst-32
 	COQLIBINSTALL=$(COQLIB)/../coq-variant
 	COQ_INSTALL_DIR=$(COQLIBINSTALL)/$(PROJECT)/32/
 endif
@@ -93,10 +96,12 @@ clightgen: \
 #
 
 _CoqProject: theories/$(PROJECT)/vst/clightgen/$(TARGET)/gc.v
-	echo "# $(TARGET)"                          > $@
-	echo `$(VSUTOOL) -Q $(COMPCERT_PACKAGE)`    >> $@
-	echo `$(VSUTOOL) -Q $(VST_PACKAGE)`         >> $@
-	echo `$(VSUTOOL) -Q $(CERTIGRAPH_PACKAGE)`  >> $@
+	echo "# $(TARGET)"                              > $@
+	echo `$(VSUTOOL) -Q $(COMPCERT_PACKAGE)`        >> $@
+	echo `$(VSUTOOL) -Q $(VST_PACKAGE)`             >> $@
+	echo `$(VSUTOOL) -Q $(CERTIGRAPH_PACKAGE)`      >> $@
+	echo `$(VSUTOOL) -Q $(INT_OR_PTR_PACKAGE)`      >> $@
+	echo `$(VSUTOOL) -Q $(CERTICOQ_BLOCK_PACKAGE)`  >> $@
 	echo "-Q theories/$(PROJECT)/model                      $(PROJECT).model"           >> $@
 	find     theories/$(PROJECT)/model                     -name "*.v" | sort           >> $@
 	echo "-Q theories/$(PROJECT)/vst/ast                    $(PROJECT).vst.ast"         >> $@

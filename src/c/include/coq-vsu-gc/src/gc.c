@@ -73,7 +73,7 @@ int Is_block(int_or_ptr x)
   return int_or_ptr__is_int(x) == 0;
 }
 
-int Is_from(int_or_ptr* from_start, int_or_ptr * from_limit,  int_or_ptr * v)
+int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit,  int_or_ptr *v)
 {
   return (from_start <= v && v < from_limit);
 }
@@ -111,12 +111,10 @@ void forward (
       else
       {
         size_t i;
-        size_t sz;
-        int_or_ptr *new;
-        sz = certicoq_block__get_size(hd);
-        new = certicoq_block__init(*next, hd);
-        *next = new+sz;
-        for(i = 0; i < sz; i++)
+        const size_t field_count = certicoq_block__get_field_count(hd);
+        int_or_ptr *new = certicoq_block__init(*next, hd);
+        *next = new + field_count;
+        for(i = 0; i < field_count; i++)
         {
           certicoq_block__set_field(new, i, certicoq_block__get_field(v, i));
         }
@@ -125,7 +123,7 @@ void forward (
         *p = int_or_ptr__of_ptr(new);
         if (depth > 0)
         {
-          for (i = 0; i < sz; i++)
+          for (i = 0; i < field_count; i++)
           {
             forward(
               from_start,
@@ -201,12 +199,12 @@ void do_scan(
   s = scan;
   while(s < *next) {
     certicoq_block_header_t hd = *((certicoq_block_header_t *) s);
-    size_t sz = certicoq_block__get_size(hd);
+    const size_t field_count = certicoq_block__get_field_count(hd);
     certicoq_block_tag_t tag = certicoq_block__get_tag(hd);
     if (!No_scan(tag))
     {
       size_t j;
-      for(j = 1; j <= sz; j++)
+      for(j = 1; j <= field_count; j++)
       {
 	      forward(
           from_start,
@@ -217,10 +215,10 @@ void do_scan(
         );
       }
     }
-    s += 1+sz;
+    s += 1 + field_count;
   }
 }
-	
+
 /* Copy the live objects out of the "from" space, into the "to" space,
    using fi and ti to determine the roots of liveness. */
 void do_generation(

@@ -129,9 +129,9 @@ Definition _abort_with : ident := $"abort_with".
 Definition _alloc : ident := $"alloc".
 Definition _args : ident := $"args".
 Definition _certicoq_block__get_field : ident := $"certicoq_block__get_field".
+Definition _certicoq_block__get_field_count : ident := $"certicoq_block__get_field_count".
 Definition _certicoq_block__get_field_ptr : ident := $"certicoq_block__get_field_ptr".
 Definition _certicoq_block__get_header : ident := $"certicoq_block__get_header".
-Definition _certicoq_block__get_size : ident := $"certicoq_block__get_size".
 Definition _certicoq_block__get_tag : ident := $"certicoq_block__get_tag".
 Definition _certicoq_block__init : ident := $"certicoq_block__init".
 Definition _certicoq_block__set_field : ident := $"certicoq_block__set_field".
@@ -144,6 +144,7 @@ Definition _do_scan : ident := $"do_scan".
 Definition _end : ident := $"end".
 Definition _exit : ident := $"exit".
 Definition _fi : ident := $"fi".
+Definition _field_count : ident := $"field_count".
 Definition _forward : ident := $"forward".
 Definition _forward_remset : ident := $"forward_remset".
 Definition _forward_roots : ident := $"forward_roots".
@@ -183,7 +184,6 @@ Definition _space : ident := $"space".
 Definition _spaces : ident := $"spaces".
 Definition _start : ident := $"start".
 Definition _stderr : ident := $"stderr".
-Definition _sz : ident := $"sz".
 Definition _tag : ident := $"tag".
 Definition _thread_info : ident := $"thread_info".
 Definition _ti : ident := $"ti".
@@ -513,7 +513,7 @@ Definition f_forward := {|
   fn_vars := nil;
   fn_temps := ((_v, (tptr (talignas 3%N (tptr tvoid)))) ::
                (_va, (talignas 3%N (tptr tvoid))) :: (_hd, tulong) ::
-               (_i, tulong) :: (_sz, tulong) ::
+               (_i, tulong) :: (_field_count, tulong) ::
                (_new, (tptr (talignas 3%N (tptr tvoid)))) :: (_t'11, tint) ::
                (_t'10, tint) :: (_t'9, (tptr (talignas 3%N (tptr tvoid)))) ::
                (_t'8, (talignas 3%N (tptr tvoid))) ::
@@ -584,11 +584,12 @@ Definition f_forward := {|
                 (Ssequence
                   (Ssequence
                     (Scall (Some _t'4)
-                      (Evar _certicoq_block__get_size (Tfunction
-                                                        (Tcons tulong Tnil)
-                                                        tulong cc_default))
+                      (Evar _certicoq_block__get_field_count (Tfunction
+                                                               (Tcons tulong
+                                                                 Tnil) tulong
+                                                               cc_default))
                       ((Etempvar _hd tulong) :: nil))
-                    (Sset _sz (Etempvar _t'4 tulong)))
+                    (Sset _field_count (Etempvar _t'4 tulong)))
                   (Ssequence
                     (Ssequence
                       (Ssequence
@@ -614,7 +615,7 @@ Definition f_forward := {|
                           (tptr (talignas 3%N (tptr tvoid))))
                         (Ebinop Oadd
                           (Etempvar _new (tptr (talignas 3%N (tptr tvoid))))
-                          (Etempvar _sz tulong)
+                          (Etempvar _field_count tulong)
                           (tptr (talignas 3%N (tptr tvoid)))))
                       (Ssequence
                         (Ssequence
@@ -623,7 +624,8 @@ Definition f_forward := {|
                           (Sloop
                             (Ssequence
                               (Sifthenelse (Ebinop Olt (Etempvar _i tulong)
-                                             (Etempvar _sz tulong) tint)
+                                             (Etempvar _field_count tulong)
+                                             tint)
                                 Sskip
                                 Sbreak)
                               (Ssequence
@@ -721,7 +723,7 @@ Definition f_forward := {|
                                     (Ssequence
                                       (Sifthenelse (Ebinop Olt
                                                      (Etempvar _i tulong)
-                                                     (Etempvar _sz tulong)
+                                                     (Etempvar _field_count tulong)
                                                      tint)
                                         Sskip
                                         Sbreak)
@@ -834,7 +836,7 @@ Definition f_forward_roots := {|
                                            tvoid cc_default))
                     ((Evar ___stringlit_2 (tarray tschar 20)) ::
                      (Evar ___stringlit_1 (tarray tschar 34)) ::
-                     (Econst_int (Int.repr 160) tint) ::
+                     (Econst_int (Int.repr 158) tint) ::
                      (Evar ___func__ (tarray tschar 14)) :: nil))))
               (Ssequence
                 (Sset _t'1
@@ -1019,7 +1021,7 @@ Definition f_do_scan := {|
                 (_next, (tptr (tptr (talignas 3%N (tptr tvoid))))) :: nil);
   fn_vars := nil;
   fn_temps := ((_s, (tptr (talignas 3%N (tptr tvoid)))) :: (_hd, tulong) ::
-               (_sz, tulong) :: (_tag, tuchar) :: (_j, tulong) ::
+               (_field_count, tulong) :: (_tag, tuchar) :: (_j, tulong) ::
                (_t'3, (tptr (talignas 3%N (tptr tvoid)))) ::
                (_t'2, tuchar) :: (_t'1, tulong) ::
                (_t'4, (tptr (talignas 3%N (tptr tvoid)))) :: nil);
@@ -1046,10 +1048,11 @@ Definition f_do_scan := {|
         (Ssequence
           (Ssequence
             (Scall (Some _t'1)
-              (Evar _certicoq_block__get_size (Tfunction (Tcons tulong Tnil)
-                                                tulong cc_default))
+              (Evar _certicoq_block__get_field_count (Tfunction
+                                                       (Tcons tulong Tnil)
+                                                       tulong cc_default))
               ((Etempvar _hd tulong) :: nil))
-            (Sset _sz (Etempvar _t'1 tulong)))
+            (Sset _field_count (Etempvar _t'1 tulong)))
           (Ssequence
             (Ssequence
               (Scall (Some _t'2)
@@ -1066,7 +1069,7 @@ Definition f_do_scan := {|
                   (Sloop
                     (Ssequence
                       (Sifthenelse (Ebinop Ole (Etempvar _j tulong)
-                                     (Etempvar _sz tulong) tint)
+                                     (Etempvar _field_count tulong) tint)
                         Sskip
                         Sbreak)
                       (Ssequence
@@ -1105,7 +1108,7 @@ Definition f_do_scan := {|
               (Sset _s
                 (Ebinop Oadd (Etempvar _s (tptr (talignas 3%N (tptr tvoid))))
                   (Ebinop Oadd (Econst_int (Int.repr 1) tint)
-                    (Etempvar _sz tulong) tulong)
+                    (Etempvar _field_count tulong) tulong)
                   (tptr (talignas 3%N (tptr tvoid))))))))))
     Sskip))
 |}.
@@ -1192,7 +1195,7 @@ Definition f_do_generation := {|
                                        tvoid cc_default))
                 ((Evar ___stringlit_3 (tarray tschar 45)) ::
                  (Evar ___stringlit_1 (tarray tschar 34)) ::
-                 (Econst_int (Int.repr 233) tint) ::
+                 (Econst_int (Int.repr 231) tint) ::
                  (Evar ___func____1 (tarray tschar 14)) :: nil)))))))
     (Ssequence
       (Ssequence
@@ -1588,7 +1591,7 @@ Definition f_resume := {|
                                  tvoid cc_default))
           ((Evar ___stringlit_8 (tarray tschar 2)) ::
            (Evar ___stringlit_1 (tarray tschar 34)) ::
-           (Econst_int (Int.repr 314) tint) ::
+           (Econst_int (Int.repr 312) tint) ::
            (Evar ___func____2 (tarray tschar 7)) :: nil)))
       (Ssequence
         (Sset _lo
@@ -2318,8 +2321,8 @@ Definition global_definitions : list (ident * globdef fundef type) :=
                      cc_default))
      (Tcons (tptr (talignas 3%N (tptr tvoid))) (Tcons tulong Tnil)) tvoid
      cc_default)) ::
- (_certicoq_block__get_size,
-   Gfun(External (EF_external "certicoq_block__get_size"
+ (_certicoq_block__get_field_count,
+   Gfun(External (EF_external "certicoq_block__get_field_count"
                    (mksignature (AST.Tlong :: nil) AST.Tlong cc_default))
      (Tcons tulong Tnil) tulong cc_default)) ::
  (_certicoq_block__get_tag,
@@ -2377,7 +2380,7 @@ Definition public_idents : list ident :=
  _abort_with :: _MAX_SPACE_SIZE :: _exit :: _free :: _malloc ::
  _certicoq_block__set_field :: _certicoq_block__get_field ::
  _certicoq_block__get_field_ptr :: _certicoq_block__get_tag ::
- _certicoq_block__get_size :: _certicoq_block__set_header ::
+ _certicoq_block__get_field_count :: _certicoq_block__set_header ::
  _certicoq_block__get_header :: _certicoq_block__init ::
  _int_or_ptr__of_ptr :: _int_or_ptr__to_ptr :: _int_or_ptr__is_int ::
  ___assert_fail :: _fprintf :: _stderr :: ___builtin_debug ::
@@ -2405,6 +2408,6 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\n0e597ca47ce2c843e4fdd36994e52e9dbe9aa5a71608e1e1f7e714a2a47a97a0  src/c/include/coq-vsu-gc/src/gc.c
+(*\nInput hashes (sha256):\n\naa97f47f36146096b03369f3d5e110e91c8f07df8cad45156feef587b2ca7525  src/c/include/coq-vsu-gc/src/gc.c
 6bea924bf5a3177230cf4c22ea8dd6268a47cff689bfb32c85c5c96177c566ad  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

@@ -1,3 +1,6 @@
+#ifndef COQ_VSU_GC__GC_H
+#define COQ_VSU_GC__GC_H
+
 #include <coq-vsu-int_or_ptr/int_or_ptr.h>
 #include <coq-certicoq-block/block.h>
 
@@ -97,6 +100,17 @@ typedef const uintptr_t *fun_info;
 
 struct heap;     /* abstract, opaque */
 
+typedef enum {
+   GC_E_GENERATION_TOO_LARGE = 1,
+   GC_E_COULD_NOT_CREATE_NEXT_GENERATION = 2,
+   GC_E_COULD_NOT_CREATE_HEAP = 3,
+   GC_E_COULD_NOT_CREATE_THREAD_INFO = 4,
+   GC_E_NURSERY_TOO_SMALL = 5,
+   GC_E_RAN_OUT_OF_GENERATIONS = 6,
+} gc_error_t;
+
+typedef void (*gc_abort_t)(gc_error_t);
+
 #define MAX_ARGS 1024
 
 struct thread_info
@@ -107,7 +121,7 @@ struct thread_info
   int_or_ptr args[MAX_ARGS];            /* the args array */
 };
 
-struct thread_info *make_tinfo(void);
+struct thread_info *make_tinfo(gc_abort_t gc_abort);
 
 /* Performs one garbage collection; 
    or if ti->heap==NULL, initializes the heap. 
@@ -118,7 +132,7 @@ struct thread_info *make_tinfo(void);
  (2) the alloc pointer points to N words of unallocated heap space
   (where N>=num_allocs), such that limit-alloc=N.
 */
-void garbage_collect(fun_info fi, struct thread_info *ti);
+void garbage_collect(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti);
 
 /* Deallocates all heap data associated with h, and returns the
  * memory to the operating system (via the malloc/free system).
@@ -135,3 +149,7 @@ void free_heap(struct heap *h);
  * done in the first garbage_collect() call of the next execution.
  */
 void reset_heap(struct heap *h);
+
+void cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val);
+
+#endif /* COQ_VSU_GC__GC_H */

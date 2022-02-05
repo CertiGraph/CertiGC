@@ -1,5 +1,6 @@
-#include <stdio.h>
-#include <assert.h>
+#ifndef COQ_VSU_GC__GC_C
+#define COQ_VSU_GC__GC_C
+
 #include "../gc.h"
 #include "../mem.h"
 
@@ -59,13 +60,6 @@ struct heap
 {
   struct space spaces[MAX_SPACES];
 };
-
-
-void abort_with(char *s)
-{
-  fprintf(stderr, s);
-  exit(1);
-}
 
 
 int Is_block(int_or_ptr x)
@@ -155,7 +149,6 @@ void forward_roots(
 
   for(i = 0; i < n; i++)
   {
-    assert (roots[i] < MAX_ARGS);
     forward(
       from_start,
       from_limit,
@@ -228,7 +221,6 @@ void do_generation(
 	struct thread_info *ti)               /* where's the args array? */
 {
   int_or_ptr *p = to->next;
-  assert(from->next-from->start <= to->limit-to->next);
   // forward_remset(from, to, &to->next);
   forward_roots(from->start, from->limit, &to->next, fi, ti);
   do_scan(from->start, from->limit, p, &to->next);
@@ -242,18 +234,19 @@ void do_generation(
   to the beginning, and s->limit to the end.
 */
 void create_space(
+  gc_abort_t gc_abort,
   struct space *s,                      /* which generation to create */
   uintptr_t n)                          /* size of the generation */
 {
   int_or_ptr *p;
   if (n >= MAX_SPACE_SIZE)
   {
-    abort_with("The generation is too large to be created\n");
+    gc_abort(GC_E_GENERATION_TOO_LARGE);
   }
   p = (int_or_ptr *)malloc(n * sizeof(int_or_ptr));
   if (p==NULL)
   {
-    abort_with ("Could not create the next generation\n");
+    gc_abort(GC_E_COULD_NOT_CREATE_NEXT_GENERATION);
   }
   s->start=p;
   s->next=p;
@@ -263,15 +256,15 @@ void create_space(
 
 /* To create a heap, first malloc the array of space-descriptors,
    then create only generation 0.  */
-struct heap *create_heap()
+struct heap *create_heap(gc_abort_t gc_abort)
 {
   int i;
-  struct heap *h = (struct heap *)malloc(sizeof (struct heap));
-  if (h==NULL)
+  struct heap *h = (struct heap *)malloc(sizeof(struct heap));
+  if (h == NULL)
   {
-    abort_with("Could not create the heap\n");
+    gc_abort(GC_E_COULD_NOT_CREATE_HEAP);
   }
-  create_space(h->spaces+0, NURSERY_SIZE);
+  create_space(gc_abort, h->spaces+0, NURSERY_SIZE);
   for(i=1; i<MAX_SPACES; i++)
   {
     h->spaces[i].start = NULL;
@@ -282,15 +275,15 @@ struct heap *create_heap()
   return h;
 }
 
-struct thread_info *make_tinfo(void)
+struct thread_info *make_tinfo(gc_abort_t gc_abort)
 {
   struct heap *h;
   struct thread_info *tinfo;
-  h = create_heap();
+  h = create_heap(gc_abort);
   tinfo = (struct thread_info *)malloc(sizeof(struct thread_info));
   if (!tinfo)
   {
-    abort_with("Could not allocate thread_info struct\n");
+    gc_abort(GC_E_COULD_NOT_CREATE_THREAD_INFO);
   }
   tinfo->heap=h;
   tinfo->alloc=h->spaces[0].start;
@@ -304,24 +297,23 @@ struct thread_info *make_tinfo(void)
    But first, "resume" informs the mutator
    of the new int_or_ptrs for the alloc and limit pointers.
 */
-void resume(fun_info fi, struct thread_info *ti)
+void resume(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
 {
   struct heap *h = ti->heap;
   int_or_ptr *lo, *hi;
   uintptr_t num_allocs = fi[0];
-  assert (h);
   lo = h->spaces[0].start;
   hi = h->spaces[0].limit;
-  if (hi-lo < num_allocs)
+  if (hi - lo < num_allocs)
   {
-    abort_with ("Nursery is too small for function's num_allocs\n");
+    gc_abort(GC_E_NURSERY_TOO_SMALL);
   }
   ti->alloc = lo;
   ti->limit = hi;
 }
 
 /* See the header file for the interface-spec of this function. */
-void garbage_collect(fun_info fi, struct thread_info *ti)
+void garbage_collect(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
 {
   struct heap *h = ti->heap;
   int i;
@@ -336,7 +328,7 @@ void garbage_collect(fun_info fi, struct thread_info *ti)
     if (h->spaces[i+1].start==NULL)
     {
       uintptr_t w = h->spaces[i].end - h->spaces[i].start;
-      create_space(h->spaces+(i+1), RATIO*w);
+      create_space(gc_abort, h->spaces+(i+1), RATIO*w);
     }
     /* Copy all the objects in generation i, into generation i+1 */
     do_generation(h->spaces+i, h->spaces+(i+1), fi, ti);
@@ -344,30 +336,23 @@ void garbage_collect(fun_info fi, struct thread_info *ti)
        NEXT collection into i+1 will succeed, we can stop here */
     if ( h->spaces[i].end - h->spaces[i].start <= h->spaces[i+1].limit - h->spaces[i+1].next)
     {
-        resume(fi,ti);
+        resume(gc_abort, fi, ti);
         return;
     }
   }
   /* If we get to i==MAX_SPACES, that's bad news */
-  abort_with("Ran out of generations\n");
+  gc_abort(GC_E_RAN_OUT_OF_GENERATIONS);
 }
 
-/* mutable write barrier */
-/*
-void cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val) {
+void cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val)
+{
   *p_cell = p_val;
-  if (Is_block(p_val)) {
-    if(ti->alloc == ti->limit) {
-      garbage_collect(ti);
-      if(ti->alloc == ti->limit) {
-        abort_with("no space left to allocate modify\n");
-      }
-    }
+  if (Is_block(p_val))
+  {
     *(int_or_ptr **)(--ti->limit) = p_cell;
     --ti->heap->spaces[0].limit;
   }
 }
-*/
 
 /* REMARK.  The generation-management policy in the garbage_collect function
    has a potential flaw.  Whenever a record is copied, it is promoted to
@@ -377,7 +362,6 @@ void cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val) {
    it's the oldest, at least because create_space() fails), do some
    reorganization instead of failing.
  */
-
 void reset_heap (struct heap *h)
 {
   size_t i;
@@ -391,13 +375,15 @@ void reset_heap (struct heap *h)
 void free_heap (struct heap *h)
 {
   size_t i;
-  for (i=0; i<MAX_SPACES; i++)
+  for (i = 0; i < MAX_SPACES; i++)
   {
     int_or_ptr *p = h->spaces[i].start;
-    if (p!=NULL)
+    if (p != NULL)
     {
       free(p);
     }
   }
   free (h);
 }
+
+#endif /* COQ_VSU_GC__GC_C */

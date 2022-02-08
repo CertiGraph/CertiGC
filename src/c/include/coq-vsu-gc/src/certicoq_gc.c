@@ -21,25 +21,10 @@ void certicoq_gc__funs_init(gc_funs_t *out)
   out->gc_block__size_get = certicoq_block__size_get;
 }
 
-void certicoq_gc__cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val)
-{
-  *p_cell = p_val;
-  if (int_or_ptr__is_int(p_val) == 0)
-  {
-    remember(ti, p_cell);
-  }
-}
 
 struct thread_info *certicoq_gc__make_tinfo()
 {
   return make_tinfo(certicoq_gc__abort);
-}
-
-void certicoq_gc__garbage_collect(fun_info fi, struct thread_info *ti)
-{
-  gc_funs_t gc_funs;
-  certicoq_gc__funs_init(&gc_funs);
-  garbage_collect(&gc_funs, fi, ti);
 }
 
 void certicoq_gc__free_heap(struct heap *h)
@@ -50,6 +35,22 @@ void certicoq_gc__free_heap(struct heap *h)
 void certicoq_gc__reset_heap(struct heap *h)
 {
   reset_heap(h);
+}
+
+void certicoq_gc__cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val)
+{
+  *p_cell = p_val;
+  if (int_or_ptr__is_int(p_val) == 0)
+  {
+    remember(ti, p_cell);
+  }
+}
+
+void certicoq_gc__garbage_collect(fun_info fi, struct thread_info *ti)
+{
+  gc_funs_t gc_funs;
+  certicoq_gc__funs_init(&gc_funs);
+  garbage_collect(&gc_funs, fi, ti);
 }
 
 #endif /* COQ_CERTICOQ__GC_C */

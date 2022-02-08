@@ -6,14 +6,14 @@
 #include "gc.h"
 
 
-void certicoq_gc__cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val);
-
 struct thread_info *certicoq_gc__make_tinfo();
-
-void certicoq_gc__garbage_collect(fun_info fi, struct thread_info *ti);
 
 void certicoq_gc__free_heap(struct heap *h);
 
 void certicoq_gc__reset_heap(struct heap *h);
+
+void certicoq_gc__cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val);
+
+void certicoq_gc__garbage_collect(fun_info fi, struct thread_info *ti);
 
 #endif /* COQ_CERTICOQ__GC_H */

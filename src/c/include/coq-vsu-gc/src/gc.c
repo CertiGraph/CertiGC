@@ -38,7 +38,7 @@
    the space is larger than this restriction, the behavior of pointer
    subtraction is undefined.
 */
-const uintptr_t MAX_SPACE_SIZE = ((uintptr_t)1) << (sizeof(int_or_ptr) == 8 ? 40 : 29);
+const uintptr_t MAX_SPACE_SIZE = ((uintptr_t)1) << (sizeof(gc_val) == 8 ? 40 : 29);
 
 
 /* A "space" describes one generation of the generational collector.
@@ -48,7 +48,7 @@ const uintptr_t MAX_SPACE_SIZE = ((uintptr_t)1) << (sizeof(int_or_ptr) == 8 ? 40
   and initialized, and the words from next..limit are available to allocate.
 */
 struct space {
-  int_or_ptr *start, *next, *limit, *end;
+  gc_val *start, *next, *limit, *end;
 };
 
 
@@ -59,7 +59,7 @@ struct heap
 };
 
 
-int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit, int_or_ptr *v)
+int Is_from(gc_val *from_start, gc_val *from_limit, gc_val *v)
 {
   return (from_start <= v && v < from_limit);
 }
@@ -75,12 +75,12 @@ int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit, int_or_ptr *v)
    may improve the cache locality of the copied graph.
 */
 
-int has_been_forwarded(int_or_ptr *v)
+int has_been_forwarded(gc_val *v)
 {
   return v[-1] == 0;
 }
 
-int_or_ptr new_addr_from_forwarded(int_or_ptr *v)
+gc_val new_addr_from_forwarded(gc_val *v)
 {
   return v[0];
 }
@@ -88,29 +88,29 @@ int_or_ptr new_addr_from_forwarded(int_or_ptr *v)
 void mark_as_forwarded(gc_block old, gc_block new)
 {
   old[-1] = 0;
-  old[0] = int_or_ptr__of_ptr(new);
+  old[0] = (gc_val)(new);
 }
 
 typedef struct {
   const gc_funs_t *gc_funs;
-  int_or_ptr *from_start;               /* beginning of from-space */
-  int_or_ptr *from_limit;               /* end of from-space */
-  int_or_ptr **next;                    /* next available spot in to-space */
+  gc_val *from_start;               /* beginning of from-space */
+  gc_val *from_limit;               /* end of from-space */
+  gc_val **next;                    /* next available spot in to-space */
   int depth;                            /* how much depth-first search to do */
 } forward_args_t;
 
 void forward(
   void *f_args,
-  int_or_ptr *p)                        /* caller is responsible for ensuring that (*p) is a pointer */
+  gc_val *p)                        /* caller is responsible for ensuring that (*p) is a pointer */
 {
   forward_args_t *args = (forward_args_t *)f_args;
   const gc_funs_t *gc_funs = args->gc_funs;
-  int_or_ptr *from_start = args->from_start;
-  int_or_ptr *from_limit = args->from_limit;
-  int_or_ptr **next = args->next;
+  gc_val *from_start = args->from_start;
+  gc_val *from_limit = args->from_limit;
+  gc_val **next = args->next;
   int depth = args->depth;
 
-  gc_block v = (gc_block)int_or_ptr__to_ptr(*p);
+  gc_block v = (gc_block)(*p);
   if (Is_from(from_start, from_limit, v))
   {
     if (has_been_forwarded(v))
@@ -140,24 +140,19 @@ void forward(
   }
 }
 
-int Is_block(int_or_ptr x)
-{
-  return int_or_ptr__is_int(x) == 0;
-}
-
 /* Forward each live root in the args array */
 void forward_roots(
   const gc_funs_t *gc_funs,
-  int_or_ptr *from_start,               /* beginning of from-space */
-  int_or_ptr *from_limit,               /* end of from-space */
-  int_or_ptr **next,                    /* next available spot in to-space */
+  gc_val *from_start,               /* beginning of from-space */
+  gc_val *from_limit,               /* end of from-space */
+  gc_val **next,                    /* next available spot in to-space */
   fun_info fi,                          /* which args contain live roots? */
   struct thread_info *ti)               /* where's the args array? */
 {
    size_t i;
    size_t n = fi[1];
    const uintptr_t *roots = fi+2;
-   int_or_ptr *args = ti->args;
+   gc_val *args = ti->args;
 
   for (i = 0; i < n; i++)
   {
@@ -168,8 +163,8 @@ void forward_roots(
       .next = next,
       .depth = DEPTH,
     };
-    int_or_ptr *p = args+roots[i];
-    if (Is_block(*p))
+    gc_val *p = args+roots[i];
+    if (int_or_ptr__is_int(*p) == 0)
     {
       forward(&f_args, p);
     }
@@ -181,12 +176,12 @@ void forward_remset(
   const gc_funs_t *gc_funs,
   struct space *from,                   /* descriptor of from-space */
   struct space *to,                     /* descriptor of to-space */
-  int_or_ptr **next)                    /* next available spot in to-space */
+  gc_val **next)                    /* next available spot in to-space */
 {
-  int_or_ptr *q = from->limit;
+  gc_val *q = from->limit;
   while (q != from->end)
   {
-    if (!(from->start <= (int_or_ptr *)*q && (int_or_ptr *)*q < from->limit))
+    if (!(from->start <= (gc_val *)*q && (gc_val *)*q < from->limit))
     {
       forward_args_t f_args = {
         .gc_funs = gc_funs,
@@ -195,8 +190,8 @@ void forward_remset(
         .next = next,
         .depth = DEPTH,
       };
-      forward(&f_args, (int_or_ptr *)*q);
-      *(--to->limit) = (int_or_ptr)q;
+      forward(&f_args, (gc_val *)*q);
+      *(--to->limit) = (gc_val)q;
     }
     q++;
   }
@@ -209,12 +204,12 @@ void forward_remset(
 */
 void do_scan(
   const gc_funs_t *gc_funs,
-  int_or_ptr *from_start,               /* beginning of from-space */
-  int_or_ptr *from_limit,               /* end of from-space */
-  int_or_ptr *scan,                     /* start of unforwarded part of to-space */
-  int_or_ptr **next)                    /* next available spot in to-space */
+  gc_val *from_start,               /* beginning of from-space */
+  gc_val *from_limit,               /* end of from-space */
+  gc_val *scan,                     /* start of unforwarded part of to-space */
+  gc_val **next)                    /* next available spot in to-space */
 {
-  int_or_ptr *s;
+  gc_val *s;
   s = scan;
   while(s < *next) {
     gc_block_header hd = (gc_block_header)s;
@@ -241,12 +236,12 @@ void do_generation(
   fun_info fi,                          /* which args contain live roots? */
   struct thread_info *ti)               /* where's the args array? */
 {
-  int_or_ptr *p = to->next;
+  gc_val *p = to->next;
   // forward_remset(from, to, &to->next);
   forward_roots(gc_funs, from->start, from->limit, &to->next, fi, ti);
   do_scan(gc_funs, from->start, from->limit, p, &to->next);
-  int_or_ptr *start = from->start;
-  int_or_ptr *end  = from->end;
+  gc_val *start = from->start;
+  gc_val *end  = from->end;
   from->next  = start;
   from->limit = end;
 }
@@ -259,12 +254,12 @@ void create_space(
   struct space *s,                      /* which generation to create */
   uintptr_t n)                          /* size of the generation */
 {
-  int_or_ptr *p;
+  gc_val *p;
   if (n >= MAX_SPACE_SIZE)
   {
     gc_abort(GC_E_GENERATION_TOO_LARGE);
   }
-  p = (int_or_ptr *)malloc(n * sizeof(int_or_ptr));
+  p = (gc_val *)malloc(n * sizeof(gc_val));
   if (p==NULL)
   {
     gc_abort(GC_E_COULD_NOT_CREATE_NEXT_GENERATION);
@@ -315,13 +310,13 @@ struct thread_info *make_tinfo(gc_abort_t gc_abort)
 /* When the garbage collector is all done, it does not "return"
    to the mutator; instead, it uses this function (which does not return)
    to resume the mutator by invoking the continuation, fi->fun.
-   But first, "resume" informs the mutator
-   of the new int_or_ptrs for the alloc and limit pointers.
+   But first, "resume" informs the mutator of the new gc_vals for the alloc
+   and limit pointers.
 */
 void resume(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
 {
   struct heap *h = ti->heap;
-  int_or_ptr *lo, *hi;
+  gc_val *lo, *hi;
   uintptr_t num_allocs = fi[0];
   lo = h->spaces[0].start;
   hi = h->spaces[0].limit;
@@ -365,9 +360,9 @@ void garbage_collect(const gc_funs_t *gc_funs, fun_info fi, struct thread_info *
   gc_funs->gc_abort(GC_E_RAN_OUT_OF_GENERATIONS);
 }
 
-void remember(struct thread_info *ti, int_or_ptr *p_cell)
+void remember(struct thread_info *ti, gc_val *p_cell)
 {
-  *(int_or_ptr **)(--ti->limit) = p_cell;
+  *(gc_val **)(--ti->limit) = p_cell;
   --ti->heap->spaces[0].limit;
 }
 
@@ -395,7 +390,7 @@ void free_heap (struct heap *h)
   size_t i;
   for (i = 0; i < MAX_SPACES; i++)
   {
-    int_or_ptr *p = h->spaces[i].start;
+    gc_val *p = h->spaces[i].start;
     if (p != NULL)
     {
       free(p);

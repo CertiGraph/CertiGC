@@ -19,7 +19,7 @@ Module Info.
   Definition normalized := true.
 End Info.
 
-Definition __462 : ident := $"_462".
+Definition __461 : ident := $"_461".
 Definition ___builtin_ais_annot : ident := $"__builtin_ais_annot".
 Definition ___builtin_annot : ident := $"__builtin_annot".
 Definition ___builtin_annot_intval : ident := $"__builtin_annot_intval".
@@ -131,22 +131,22 @@ Definition f_certicoq_gc__abort := {|
 Definition f_certicoq_gc__funs_init := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_out, (tptr (Tstruct __462 noattr))) :: nil);
+  fn_params := ((_out, (tptr (Tstruct __461 noattr))) :: nil);
   fn_vars := nil;
   fn_temps := nil;
   fn_body :=
 (Ssequence
   (Sassign
     (Efield
-      (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-        (Tstruct __462 noattr)) _gc_abort
+      (Ederef (Etempvar _out (tptr (Tstruct __461 noattr)))
+        (Tstruct __461 noattr)) _gc_abort
       (tptr (Tfunction (Tcons tint Tnil) tvoid cc_default)))
     (Evar _certicoq_gc__abort (Tfunction (Tcons tint Tnil) tvoid cc_default)))
   (Ssequence
     (Sassign
       (Efield
-        (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-          (Tstruct __462 noattr)) _gc_block__header_get_ptr
+        (Ederef (Etempvar _out (tptr (Tstruct __461 noattr)))
+          (Tstruct __461 noattr)) _gc_block__header_get_ptr
         (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
                 (tptr tulong) cc_default)))
       (Evar _certicoq_block__header_get_ptr (Tfunction
@@ -157,8 +157,8 @@ Definition f_certicoq_gc__funs_init := {|
     (Ssequence
       (Sassign
         (Efield
-          (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-            (Tstruct __462 noattr)) _gc_block__copy
+          (Ederef (Etempvar _out (tptr (Tstruct __461 noattr)))
+            (Tstruct __461 noattr)) _gc_block__copy
           (tptr (Tfunction
                   (Tcons (tptr (talignas 3%N (tptr tvoid)))
                     (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
@@ -174,8 +174,8 @@ Definition f_certicoq_gc__funs_init := {|
       (Ssequence
         (Sassign
           (Efield
-            (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-              (Tstruct __462 noattr)) _gc_block__ptr_iter
+            (Ederef (Etempvar _out (tptr (Tstruct __461 noattr)))
+              (Tstruct __461 noattr)) _gc_block__ptr_iter
             (tptr (Tfunction
                     (Tcons (tptr (talignas 3%N (tptr tvoid)))
                       (Tcons
@@ -202,8 +202,8 @@ Definition f_certicoq_gc__funs_init := {|
         (Ssequence
           (Sassign
             (Efield
-              (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-                (Tstruct __462 noattr)) _gc_block__of_header
+              (Ederef (Etempvar _out (tptr (Tstruct __461 noattr)))
+                (Tstruct __461 noattr)) _gc_block__of_header
               (tptr (Tfunction (Tcons (tptr tulong) Tnil)
                       (tptr (talignas 3%N (tptr tvoid))) cc_default)))
             (Evar _certicoq_block__of_header (Tfunction
@@ -212,12 +212,57 @@ Definition f_certicoq_gc__funs_init := {|
                                                cc_default)))
           (Sassign
             (Efield
-              (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-                (Tstruct __462 noattr)) _gc_block__size_get
+              (Ederef (Etempvar _out (tptr (Tstruct __461 noattr)))
+                (Tstruct __461 noattr)) _gc_block__size_get
               (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong cc_default)))
             (Evar _certicoq_block__size_get (Tfunction
                                               (Tcons (tptr tulong) Tnil)
                                               tulong cc_default))))))))
+|}.
+
+Definition f_certicoq_gc__make_tinfo := {|
+  fn_return := (tptr (Tstruct _thread_info noattr));
+  fn_callconv := cc_default;
+  fn_params := nil;
+  fn_vars := nil;
+  fn_temps := ((_t'1, (tptr (Tstruct _thread_info noattr))) :: nil);
+  fn_body :=
+(Ssequence
+  (Scall (Some _t'1)
+    (Evar _make_tinfo (Tfunction
+                        (Tcons
+                          (tptr (Tfunction (Tcons tint Tnil) tvoid
+                                  cc_default)) Tnil)
+                        (tptr (Tstruct _thread_info noattr)) cc_default))
+    ((Evar _certicoq_gc__abort (Tfunction (Tcons tint Tnil) tvoid cc_default)) ::
+     nil))
+  (Sreturn (Some (Etempvar _t'1 (tptr (Tstruct _thread_info noattr))))))
+|}.
+
+Definition f_certicoq_gc__free_heap := {|
+  fn_return := tvoid;
+  fn_callconv := cc_default;
+  fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
+  fn_vars := nil;
+  fn_temps := nil;
+  fn_body :=
+(Scall None
+  (Evar _free_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
+                     tvoid cc_default))
+  ((Etempvar _h (tptr (Tstruct _heap noattr))) :: nil))
+|}.
+
+Definition f_certicoq_gc__reset_heap := {|
+  fn_return := tvoid;
+  fn_callconv := cc_default;
+  fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
+  fn_vars := nil;
+  fn_temps := nil;
+  fn_body :=
+(Scall None
+  (Evar _reset_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
+                      tvoid cc_default))
+  ((Etempvar _h (tptr (Tstruct _heap noattr))) :: nil))
 |}.
 
 Definition f_certicoq_gc__cell_modify := {|
@@ -252,79 +297,34 @@ Definition f_certicoq_gc__cell_modify := {|
       Sskip)))
 |}.
 
-Definition f_certicoq_gc__make_tinfo := {|
-  fn_return := (tptr (Tstruct _thread_info noattr));
-  fn_callconv := cc_default;
-  fn_params := nil;
-  fn_vars := nil;
-  fn_temps := ((_t'1, (tptr (Tstruct _thread_info noattr))) :: nil);
-  fn_body :=
-(Ssequence
-  (Scall (Some _t'1)
-    (Evar _make_tinfo (Tfunction
-                        (Tcons
-                          (tptr (Tfunction (Tcons tint Tnil) tvoid
-                                  cc_default)) Tnil)
-                        (tptr (Tstruct _thread_info noattr)) cc_default))
-    ((Evar _certicoq_gc__abort (Tfunction (Tcons tint Tnil) tvoid cc_default)) ::
-     nil))
-  (Sreturn (Some (Etempvar _t'1 (tptr (Tstruct _thread_info noattr))))))
-|}.
-
 Definition f_certicoq_gc__garbage_collect := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
   fn_params := ((_fi, (tptr tulong)) ::
                 (_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
-  fn_vars := ((_gc_funs, (Tstruct __462 noattr)) :: nil);
+  fn_vars := ((_gc_funs, (Tstruct __461 noattr)) :: nil);
   fn_temps := nil;
   fn_body :=
 (Ssequence
   (Scall None
     (Evar _certicoq_gc__funs_init (Tfunction
-                                    (Tcons (tptr (Tstruct __462 noattr))
+                                    (Tcons (tptr (Tstruct __461 noattr))
                                       Tnil) tvoid cc_default))
-    ((Eaddrof (Evar _gc_funs (Tstruct __462 noattr))
-       (tptr (Tstruct __462 noattr))) :: nil))
+    ((Eaddrof (Evar _gc_funs (Tstruct __461 noattr))
+       (tptr (Tstruct __461 noattr))) :: nil))
   (Scall None
     (Evar _garbage_collect (Tfunction
-                             (Tcons (tptr (Tstruct __462 noattr))
+                             (Tcons (tptr (Tstruct __461 noattr))
                                (Tcons (tptr tulong)
                                  (Tcons (tptr (Tstruct _thread_info noattr))
                                    Tnil))) tvoid cc_default))
-    ((Eaddrof (Evar _gc_funs (Tstruct __462 noattr))
-       (tptr (Tstruct __462 noattr))) :: (Etempvar _fi (tptr tulong)) ::
+    ((Eaddrof (Evar _gc_funs (Tstruct __461 noattr))
+       (tptr (Tstruct __461 noattr))) :: (Etempvar _fi (tptr tulong)) ::
      (Etempvar _ti (tptr (Tstruct _thread_info noattr))) :: nil)))
 |}.
 
-Definition f_certicoq_gc__free_heap := {|
-  fn_return := tvoid;
-  fn_callconv := cc_default;
-  fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
-  fn_vars := nil;
-  fn_temps := nil;
-  fn_body :=
-(Scall None
-  (Evar _free_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
-                     tvoid cc_default))
-  ((Etempvar _h (tptr (Tstruct _heap noattr))) :: nil))
-|}.
-
-Definition f_certicoq_gc__reset_heap := {|
-  fn_return := tvoid;
-  fn_callconv := cc_default;
-  fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
-  fn_vars := nil;
-  fn_temps := nil;
-  fn_body :=
-(Scall None
-  (Evar _reset_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
-                      tvoid cc_default))
-  ((Etempvar _h (tptr (Tstruct _heap noattr))) :: nil))
-|}.
-
 Definition composites : list composite_definition :=
-(Composite __462 Struct
+(Composite __461 Struct
    ((_gc_abort, (tptr (Tfunction (Tcons tint Tnil) tvoid cc_default))) ::
     (_gc_block__header_get_ptr,
      (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
@@ -668,14 +668,6 @@ Definition global_definitions : list (ident * globdef fundef type) :=
                    (mksignature (AST.Tlong :: nil) AST.Tlong cc_default))
      (Tcons (tptr (Tfunction (Tcons tint Tnil) tvoid cc_default)) Tnil)
      (tptr (Tstruct _thread_info noattr)) cc_default)) ::
- (_garbage_collect,
-   Gfun(External (EF_external "garbage_collect"
-                   (mksignature (AST.Tlong :: AST.Tlong :: AST.Tlong :: nil)
-                     AST.Tvoid cc_default))
-     (Tcons (tptr (Tstruct __462 noattr))
-       (Tcons (tptr tulong)
-         (Tcons (tptr (Tstruct _thread_info noattr)) Tnil))) tvoid
-     cc_default)) ::
  (_free_heap,
    Gfun(External (EF_external "free_heap"
                    (mksignature (AST.Tlong :: nil) AST.Tvoid cc_default))
@@ -690,20 +682,29 @@ Definition global_definitions : list (ident * globdef fundef type) :=
                      cc_default))
      (Tcons (tptr (Tstruct _thread_info noattr))
        (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)) tvoid cc_default)) ::
+ (_garbage_collect,
+   Gfun(External (EF_external "garbage_collect"
+                   (mksignature (AST.Tlong :: AST.Tlong :: AST.Tlong :: nil)
+                     AST.Tvoid cc_default))
+     (Tcons (tptr (Tstruct __461 noattr))
+       (Tcons (tptr tulong)
+         (Tcons (tptr (Tstruct _thread_info noattr)) Tnil))) tvoid
+     cc_default)) ::
  (_certicoq_gc__abort, Gfun(Internal f_certicoq_gc__abort)) ::
  (_certicoq_gc__funs_init, Gfun(Internal f_certicoq_gc__funs_init)) ::
- (_certicoq_gc__cell_modify, Gfun(Internal f_certicoq_gc__cell_modify)) ::
  (_certicoq_gc__make_tinfo, Gfun(Internal f_certicoq_gc__make_tinfo)) ::
- (_certicoq_gc__garbage_collect, Gfun(Internal f_certicoq_gc__garbage_collect)) ::
  (_certicoq_gc__free_heap, Gfun(Internal f_certicoq_gc__free_heap)) ::
- (_certicoq_gc__reset_heap, Gfun(Internal f_certicoq_gc__reset_heap)) :: nil).
+ (_certicoq_gc__reset_heap, Gfun(Internal f_certicoq_gc__reset_heap)) ::
+ (_certicoq_gc__cell_modify, Gfun(Internal f_certicoq_gc__cell_modify)) ::
+ (_certicoq_gc__garbage_collect, Gfun(Internal f_certicoq_gc__garbage_collect)) ::
+ nil).
 
 Definition public_idents : list ident :=
-(_certicoq_gc__reset_heap :: _certicoq_gc__free_heap ::
- _certicoq_gc__garbage_collect :: _certicoq_gc__make_tinfo ::
- _certicoq_gc__cell_modify :: _certicoq_gc__funs_init ::
- _certicoq_gc__abort :: _remember :: _reset_heap :: _free_heap ::
- _garbage_collect :: _make_tinfo :: _certicoq_block__field_ptr_iter ::
+(_certicoq_gc__garbage_collect :: _certicoq_gc__cell_modify ::
+ _certicoq_gc__reset_heap :: _certicoq_gc__free_heap ::
+ _certicoq_gc__make_tinfo :: _certicoq_gc__funs_init ::
+ _certicoq_gc__abort :: _garbage_collect :: _remember :: _reset_heap ::
+ _free_heap :: _make_tinfo :: _certicoq_block__field_ptr_iter ::
  _certicoq_block__size_get :: _certicoq_block__header_get_ptr ::
  _certicoq_block__copy :: _certicoq_block__of_header ::
  _int_or_ptr__is_int :: _exit :: ___builtin_debug ::
@@ -731,7 +732,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\ned4ba73dc6acd98c42798600c332b05d2c10fa7a5db5657799573d52c4929421  src/c/include/coq-vsu-gc/src/certicoq_gc.c
-ce236f1d0280dc25041c38f4edaf561594832ce94e09e849144ca9b81ffa46a6  src/c/include/coq-vsu-gc/certicoq_gc.h
-fc64eb3aa602d5fdefe115bc574b3c6f96ea3e7aed8fb2d6ddd63448f63bbfad  src/c/include/coq-vsu-gc/gc.h
+(*\nInput hashes (sha256):\n\n630c3547bf08e23466bf39d52436a4ad1c478a04dc68d6955a5c17b2a1cf48b2  src/c/include/coq-vsu-gc/src/certicoq_gc.c
+c8423c1389e9864f1c3f32ed7b03deb669d6c7b4d48b7fd95f41f5420660edb8  src/c/include/coq-vsu-gc/certicoq_gc.h
+c952f07ed3f3338c4635737fc467bd2f1901d5e89a2b68100d0b046573a26bbf  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

@@ -43,22 +43,22 @@ void certicoq_gc__root_ptr_iter(void *void_rt, void (*f)(const void *, void *, g
   }
 }
 
-void certicoq_gc__make_tinfo(struct thread_info *tinfo)
+void certicoq_gc__make_tinfo(struct thread_info *ti)
 {
   struct heap *h = create_heap(certicoq_gc__abort);
-  tinfo->heap = h;
-  tinfo->alloc = h->spaces[0].start;
-  tinfo->limit = h->spaces[0].limit;
+  ti->heap = h;
+  ti->alloc = h->spaces[0].start;
+  ti->limit = h->spaces[0].limit;
 }
 
-void certicoq_gc__heap_free(struct heap *h)
+void certicoq_gc__heap_free(struct thread_info *ti)
 {
-  free_heap(h);
+  free_heap(ti->heap);
 }
 
-void certicoq_gc__heap_reset(struct heap *h)
+void certicoq_gc__heap_reset(struct thread_info *ti)
 {
-  reset_heap(h);
+  reset_heap(ti->heap);
 }
 
 void certicoq_gc__remember(struct thread_info *ti, gc_val *p_cell)

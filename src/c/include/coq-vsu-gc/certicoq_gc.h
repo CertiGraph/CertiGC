@@ -27,11 +27,11 @@ typedef struct {
 } certicoq_gc__runtime_t;
 
 
-void certicoq_gc__tinfo_init(struct thread_info *);
+void certicoq_gc__tinfo_init(struct thread_info *ti);
 
-void certicoq_gc__heap_free(struct heap *h);
+void certicoq_gc__heap_free(struct thread_info *ti);
 
-void certicoq_gc__heap_reset(struct heap *h);
+void certicoq_gc__heap_reset(struct thread_info *ti);
 
 void certicoq_gc__cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val);
 

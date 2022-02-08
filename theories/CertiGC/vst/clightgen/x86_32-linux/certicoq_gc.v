@@ -134,7 +134,6 @@ Definition _spaces : ident := $"spaces".
 Definition _start : ident := $"start".
 Definition _thread_info : ident := $"thread_info".
 Definition _ti : ident := $"ti".
-Definition _tinfo : ident := $"tinfo".
 Definition _void_rt : ident := $"void_rt".
 Definition _t'1 : ident := 128%positive.
 Definition _t'2 : ident := 129%positive.
@@ -324,7 +323,7 @@ Definition f_certicoq_gc__root_ptr_iter := {|
 Definition f_certicoq_gc__make_tinfo := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_tinfo, (tptr (Tstruct _thread_info noattr))) :: nil);
+  fn_params := ((_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
   fn_temps := ((_h, (tptr (Tstruct _heap noattr))) ::
                (_t'1, (tptr (Tstruct _heap noattr))) ::
@@ -345,7 +344,7 @@ Definition f_certicoq_gc__make_tinfo := {|
   (Ssequence
     (Sassign
       (Efield
-        (Ederef (Etempvar _tinfo (tptr (Tstruct _thread_info noattr)))
+        (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
           (Tstruct _thread_info noattr)) _heap (tptr (Tstruct _heap noattr)))
       (Etempvar _h (tptr (Tstruct _heap noattr))))
     (Ssequence
@@ -363,7 +362,7 @@ Definition f_certicoq_gc__make_tinfo := {|
             _start (tptr (talignas 2%N (tptr tvoid)))))
         (Sassign
           (Efield
-            (Ederef (Etempvar _tinfo (tptr (Tstruct _thread_info noattr)))
+            (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
               (Tstruct _thread_info noattr)) _alloc
             (tptr (talignas 2%N (tptr tvoid))))
           (Etempvar _t'3 (tptr (talignas 2%N (tptr tvoid))))))
@@ -381,7 +380,7 @@ Definition f_certicoq_gc__make_tinfo := {|
             _limit (tptr (talignas 2%N (tptr tvoid)))))
         (Sassign
           (Efield
-            (Ederef (Etempvar _tinfo (tptr (Tstruct _thread_info noattr)))
+            (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
               (Tstruct _thread_info noattr)) _limit
             (tptr (talignas 2%N (tptr tvoid))))
           (Etempvar _t'2 (tptr (talignas 2%N (tptr tvoid)))))))))
@@ -390,27 +389,37 @@ Definition f_certicoq_gc__make_tinfo := {|
 Definition f_certicoq_gc__heap_free := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
+  fn_params := ((_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
-  fn_temps := nil;
+  fn_temps := ((_t'1, (tptr (Tstruct _heap noattr))) :: nil);
   fn_body :=
-(Scall None
-  (Evar _free_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
-                     tvoid cc_default))
-  ((Etempvar _h (tptr (Tstruct _heap noattr))) :: nil))
+(Ssequence
+  (Sset _t'1
+    (Efield
+      (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
+        (Tstruct _thread_info noattr)) _heap (tptr (Tstruct _heap noattr))))
+  (Scall None
+    (Evar _free_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
+                       tvoid cc_default))
+    ((Etempvar _t'1 (tptr (Tstruct _heap noattr))) :: nil)))
 |}.
 
 Definition f_certicoq_gc__heap_reset := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
-  fn_params := ((_h, (tptr (Tstruct _heap noattr))) :: nil);
+  fn_params := ((_ti, (tptr (Tstruct _thread_info noattr))) :: nil);
   fn_vars := nil;
-  fn_temps := nil;
+  fn_temps := ((_t'1, (tptr (Tstruct _heap noattr))) :: nil);
   fn_body :=
-(Scall None
-  (Evar _reset_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
-                      tvoid cc_default))
-  ((Etempvar _h (tptr (Tstruct _heap noattr))) :: nil))
+(Ssequence
+  (Sset _t'1
+    (Efield
+      (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
+        (Tstruct _thread_info noattr)) _heap (tptr (Tstruct _heap noattr))))
+  (Scall None
+    (Evar _reset_heap (Tfunction (Tcons (tptr (Tstruct _heap noattr)) Tnil)
+                        tvoid cc_default))
+    ((Etempvar _t'1 (tptr (Tstruct _heap noattr))) :: nil)))
 |}.
 
 Definition f_certicoq_gc__remember := {|
@@ -1189,7 +1198,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\n499edd04460646480d85c3b14b82d25f570db698e6026d38a62071b6d0bdce27  src/c/include/coq-vsu-gc/src/certicoq_gc.c
-077b57822bd0f49f35c0d7a973c2205e4e6beaa75f5fc4e5d581cffdd3ea4aa3  src/c/include/coq-vsu-gc/certicoq_gc.h
+(*\nInput hashes (sha256):\n\nddd66e26aef506e7bd5875787660db47bb8ddd84d47cb719b8400d9a3979e331  src/c/include/coq-vsu-gc/src/certicoq_gc.c
+75d033d69160f57a0f2e64deb104ddc37be9516722cda58109aa5b47c96db8fa  src/c/include/coq-vsu-gc/certicoq_gc.h
 2b46310a191efc3eb5c3fd3b78a513ae252f6b639e0b5877a885149291c5ac77  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

@@ -212,7 +212,7 @@ void do_scan(
   int_or_ptr *from_start,               /* beginning of from-space */
   int_or_ptr *from_limit,               /* end of from-space */
   int_or_ptr *scan,                     /* start of unforwarded part of to-space */
-   int_or_ptr **next)                    /* next available spot in to-space */
+  int_or_ptr **next)                    /* next available spot in to-space */
 {
   int_or_ptr *s;
   s = scan;

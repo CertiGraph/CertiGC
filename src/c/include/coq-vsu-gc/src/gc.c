@@ -5,8 +5,6 @@
 #include "../mem.h"
 
 
-#define MAX_SPACES 12  /* how many generations */
-
 /*  Using RATIO=2 is faster than larger ratios, empirically */
 #ifndef RATIO
 #define RATIO 2   /* size of generation i+1 / size of generation i */
@@ -33,30 +31,11 @@
 #define DEPTH 0  /* how much depth-first search to do */
 #endif
 
-
 /* The restriction of max space size is required by pointer subtraction.  If
    the space is larger than this restriction, the behavior of pointer
    subtraction is undefined.
 */
-const uintptr_t MAX_SPACE_SIZE = ((uintptr_t)1) << (sizeof(gc_val) == 8 ? 40 : 29);
-
-
-/* A "space" describes one generation of the generational collector.
-
-  Either start==NULL (meaning that this generation has not yet been created),
-  or start <= next <= limit.  The words in start..next  are allocated
-  and initialized, and the words from next..limit are available to allocate.
-*/
-struct space {
-  gc_val *start, *next, *limit, *end;
-};
-
-
-/* A heap is an array of generations; generation 0 must be already-created */
-struct heap
-{
-  struct space spaces[MAX_SPACES];
-};
+static const uintptr_t MAX_SPACE_SIZE = ((uintptr_t)1) << (sizeof(gc_val) == 8 ? 40 : 29);
 
 
 int Is_from(gc_val *from_start, gc_val *from_limit, gc_val *v)
@@ -143,32 +122,19 @@ void forward(
 /* Forward each live root in the args array */
 void forward_roots(
   const gc_funs_t *gc_funs,
+  void *rt,
   gc_val *from_start,                   /* beginning of from-space */
   gc_val *from_limit,                   /* end of from-space */
-  gc_val **next,                        /* next available spot in to-space */
-  fun_info fi,                          /* which args contain live roots? */
-  struct thread_info *ti)               /* where's the args array? */
+  gc_val **next)                        /* next available spot in to-space */
 {
-   size_t i;
-   size_t n = fi[1];
-   const uintptr_t *roots = fi+2;
-   gc_val *args = ti->args;
-
-  for (i = 0; i < n; i++)
-  {
-    forward_args_t f_args = {
-      .gc_funs = gc_funs,
-      .from_start = from_start,
-      .from_limit = from_limit,
-      .next = next,
-      .depth = DEPTH,
-    };
-    gc_val *p = args+roots[i];
-    if (int_or_ptr__is_int(*p) == 0)
-    {
-      forward(&f_args, p);
-    }
-  }
+  forward_args_t f_args = {
+    .gc_funs = gc_funs,
+    .from_start = from_start,
+    .from_limit = from_limit,
+    .next = next,
+    .depth = DEPTH,
+  };
+  gc_funs->gc_rt__root_ptr_iter(rt, forward, &f_args);
 }
 
 
@@ -231,14 +197,13 @@ void do_scan(
    using fi and ti to determine the roots of liveness. */
 void do_generation(
   const gc_funs_t *gc_funs,
+  void *rt,
   struct space *from,                   /* descriptor of from-space */
-  struct space *to,                     /* descriptor of to-space */
-  fun_info fi,                          /* which args contain live roots? */
-  struct thread_info *ti)               /* where's the args array? */
+  struct space *to)                     /* descriptor of to-space */
 {
   gc_val *p = to->next;
   // forward_remset(from, to, &to->next);
-  forward_roots(gc_funs, from->start, from->limit, &to->next, fi, ti);
+  forward_roots(gc_funs, rt, from->start, from->limit, &to->next);
   do_scan(gc_funs, from->start, from->limit, p, &to->next);
   gc_val *start = from->start;
   gc_val *end  = from->end;
@@ -257,12 +222,12 @@ void create_space(
   gc_val *p;
   if (n >= MAX_SPACE_SIZE)
   {
-    gc_abort(GC_E_GENERATION_TOO_LARGE);
+    gc_abort(GC__E_GENERATION_TOO_LARGE);
   }
   p = (gc_val *)malloc(n * sizeof(gc_val));
   if (p==NULL)
   {
-    gc_abort(GC_E_COULD_NOT_CREATE_NEXT_GENERATION);
+    gc_abort(GC__E_COULD_NOT_CREATE_NEXT_GENERATION);
   }
   s->start=p;
   s->next=p;
@@ -278,7 +243,7 @@ struct heap *create_heap(gc_abort_t gc_abort)
   struct heap *h = (struct heap *)malloc(sizeof(struct heap));
   if (h == NULL)
   {
-    gc_abort(GC_E_COULD_NOT_CREATE_HEAP);
+    gc_abort(GC__E_COULD_NOT_CREATE_HEAP);
   }
   create_space(gc_abort, h->spaces+0, NURSERY_SIZE);
   for (i = 1; i < MAX_SPACES; i++)
@@ -291,47 +256,28 @@ struct heap *create_heap(gc_abort_t gc_abort)
   return h;
 }
 
-struct thread_info *make_tinfo(gc_abort_t gc_abort)
-{
-  struct heap *h;
-  struct thread_info *tinfo;
-  h = create_heap(gc_abort);
-  tinfo = (struct thread_info *)malloc(sizeof(struct thread_info));
-  if (!tinfo)
-  {
-    gc_abort(GC_E_COULD_NOT_CREATE_THREAD_INFO);
-  }
-  tinfo->heap=h;
-  tinfo->alloc=h->spaces[0].start;
-  tinfo->limit=h->spaces[0].limit;
-  return tinfo;
-}
-
 /* When the garbage collector is all done, it does not "return"
    to the mutator; instead, it uses this function (which does not return)
    to resume the mutator by invoking the continuation, fi->fun.
    But first, "resume" informs the mutator of the new gc_vals for the alloc
    and limit pointers.
 */
-void resume(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
+void resume(const gc_funs_t *gc_funs, void *rt, struct heap *h)
 {
-  struct heap *h = ti->heap;
   gc_val *lo, *hi;
-  uintptr_t num_allocs = fi[0];
+  uintptr_t num_allocs = gc_funs->gc_rt__num_allocs(rt);
   lo = h->spaces[0].start;
   hi = h->spaces[0].limit;
   if (hi - lo < num_allocs)
   {
-    gc_abort(GC_E_NURSERY_TOO_SMALL);
+    gc_funs->gc_abort(GC__E_NURSERY_TOO_SMALL);
   }
-  ti->alloc = lo;
-  ti->limit = hi;
+  gc_funs->gc_rt__resume(rt, lo, hi);
 }
 
 /* See the header file for the interface-spec of this function. */
-void garbage_collect(const gc_funs_t *gc_funs, fun_info fi, struct thread_info *ti)
+void garbage_collect(const gc_funs_t *gc_funs, void *rt, struct heap *h)
 {
-  struct heap *h = ti->heap;
   int i;
   for (i = 0; i < MAX_SPACES-1; i++)
   {
@@ -341,29 +287,28 @@ void garbage_collect(const gc_funs_t *gc_funs, fun_info fi, struct thread_info *
        so that we can break the loop by resuming the mutator. */
 
     /* If the next generation does not yet exist, create it */
-    if (h->spaces[i+1].start==NULL)
+    if (h->spaces[i+1].start == NULL)
     {
       uintptr_t w = h->spaces[i].end - h->spaces[i].start;
-      create_space(gc_funs->gc_abort, h->spaces+(i+1), RATIO*w);
+      create_space(gc_funs->gc_abort, h->spaces + (i + 1), RATIO * w);
     }
     /* Copy all the objects in generation i, into generation i+1 */
-    do_generation(gc_funs, h->spaces+i, h->spaces+(i+1), fi, ti);
+    do_generation(gc_funs, rt, h->spaces+i, h->spaces+(i+1));
     /* If there's enough space in gen i+1 to guarantee that the
        NEXT collection into i+1 will succeed, we can stop here */
     if (h->spaces[i].end - h->spaces[i].start <= h->spaces[i+1].limit - h->spaces[i+1].next)
     {
-        resume(gc_funs->gc_abort, fi, ti);
+        resume(gc_funs, rt, h);
         return;
     }
   }
   /* If we get to i==MAX_SPACES, that's bad news */
-  gc_funs->gc_abort(GC_E_RAN_OUT_OF_GENERATIONS);
+  gc_funs->gc_abort(GC__E_RAN_OUT_OF_GENERATIONS);
 }
 
-void remember(struct thread_info *ti, gc_val *p_cell)
+void remember(struct heap *h, gc_val *p_cell)
 {
-  *(gc_val **)(--ti->limit) = p_cell;
-  --ti->heap->spaces[0].limit;
+  *(gc_val **)(--h->spaces[0].limit) = p_cell;
 }
 
 

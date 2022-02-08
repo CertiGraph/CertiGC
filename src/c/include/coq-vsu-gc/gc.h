@@ -3,15 +3,15 @@
 
 
 typedef enum {
-  GC_E_GENERATION_TOO_LARGE = 1,
-  GC_E_COULD_NOT_CREATE_NEXT_GENERATION = 2,
-  GC_E_COULD_NOT_CREATE_HEAP = 3,
-  GC_E_COULD_NOT_CREATE_THREAD_INFO = 4,
-  GC_E_NURSERY_TOO_SMALL = 5,
-  GC_E_RAN_OUT_OF_GENERATIONS = 6,
-} gc_error_t;
+  GC__E_GENERATION_TOO_LARGE = -1,
+  GC__E_COULD_NOT_CREATE_NEXT_GENERATION = -2,
+  GC__E_COULD_NOT_CREATE_HEAP = -3,
+  GC__E_NURSERY_TOO_SMALL = -4,
+  GC__E_RAN_OUT_OF_GENERATIONS = -5,
+  GC__E_LAST_ERROR = GC__E_RAN_OUT_OF_GENERATIONS
+} gc__error_t;
 
-typedef void (*gc_abort_t)(gc_error_t);
+typedef void (*gc_abort_t)(gc__error_t);
 
 /* TODO: remove dependence on certicoq_block and int_or_ptr */
 #include <coq-vsu-int_or_ptr/int_or_ptr.h>
@@ -27,6 +27,9 @@ typedef gc_block (*gc_block__copy_t)(gc_val *dst, const gc_block src);
 typedef void (*gc_block__ptr_iter_t)(gc_block block, void (*f)(void *, gc_val *), void *f_args);
 typedef gc_block (*gc_block__of_base_t)(const gc_val *base);
 typedef size_t (*gc_block__size_get_t)(gc_block_header header);
+typedef size_t (*gc_rt__num_allocs_t)(void *rt);
+typedef void (*gc_rt__resume_t)(void *rt, gc_val *alloc, gc_val *limit);
+typedef void (*gc_rt__root_ptr_iter_t)(void *rt, void (*f)(void *, gc_val *), void *f_args);
 
 typedef struct {
   gc_abort_t gc_abort;
@@ -35,6 +38,10 @@ typedef struct {
   gc_block__ptr_iter_t gc_block__ptr_iter;
   gc_block__of_base_t gc_block__of_base;
   gc_block__size_get_t gc_block__size_get;
+  gc_rt__num_allocs_t gc_rt__num_allocs;
+  gc_rt__resume_t gc_rt__resume;
+  gc_rt__root_ptr_iter_t gc_rt__root_ptr_iter;
+  void *odata;
 } gc_funs_t;
 
 
@@ -79,26 +86,26 @@ To call the garbage collector, the mutator passes a fun_info and
 a thread_info, as follows. */
 
 
-typedef const uintptr_t *fun_info;
-/* fi[0]: How many words the function might allocate
-   fi[1]: How many slots of the args array contain live roots
-   fi[2..(fi[1]-2)]: Indices of the live roots in the args array
+/* A "space" describes one generation of the generational collector.
+
+  Either start==NULL (meaning that this generation has not yet been created),
+  or start <= next <= limit.  The words in start..next  are allocated
+  and initialized, and the words from next..limit are available to allocate.
 */
-
-struct heap;     /* abstract, opaque */
-
-#define MAX_ARGS 1024
-
-struct thread_info
-{
-  int_or_ptr *alloc;                    /* alloc pointer  */
-  int_or_ptr *limit;                    /* limit pointer */
-  struct heap *heap;                    /* Description of the generations in the heap */
-  int_or_ptr args[MAX_ARGS];            /* the args array */
+struct space {
+  gc_val *start, *next, *limit, *end;
 };
 
 
-struct thread_info *make_tinfo(gc_abort_t gc_abort);
+#define MAX_SPACES 12  /* how many generations */
+
+/* A heap is an array of generations; generation 0 must be already-created */
+struct heap
+{
+  struct space spaces[MAX_SPACES];
+};
+
+struct heap *create_heap(gc_abort_t gc_abort);
 
 /* Deallocates all heap data associated with h, and returns the
  * memory to the operating system (via the malloc/free system).
@@ -117,7 +124,7 @@ void free_heap(struct heap *h);
 void reset_heap(struct heap *h);
 
 /* Adds p_cell to the remember set */
-void remember(struct thread_info *ti, gc_val *p_cell);
+void remember(struct heap *h, gc_val *p_cell);
 
 /* Performs one garbage collection; 
    or if ti->heap==NULL, initializes the heap. 
@@ -128,6 +135,6 @@ void remember(struct thread_info *ti, gc_val *p_cell);
  (2) the alloc pointer points to N words of unallocated heap space
   (where N>=num_allocs), such that limit-alloc=N.
 */
-void garbage_collect(const gc_funs_t *gc_funs, fun_info fi, struct thread_info *ti);
+void garbage_collect(const gc_funs_t *gc_funs, void *rt, struct heap *h);
 
 #endif /* COQ_VSU_GC__GC_H */

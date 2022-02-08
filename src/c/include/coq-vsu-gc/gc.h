@@ -25,69 +25,21 @@ typedef int_or_ptr gc_val;
 typedef gc_block_header (*gc_block__header_get_ptr_t)(const gc_block block);
 typedef gc_block (*gc_block__copy_t)(gc_val *dst, const gc_block src);
 typedef void (*gc_block__ptr_iter_t)(gc_block block, void (*f)(void *, gc_val *), void *f_args);
-typedef gc_block (*gc_block__of_header_t)(gc_block_header header);
-typedef size_t (*gc_block__size_get_t)(const gc_block_header header);
+typedef gc_block (*gc_block__of_base_t)(const gc_val *base);
+typedef size_t (*gc_block__size_get_t)(gc_block_header header);
 
 typedef struct {
   gc_abort_t gc_abort;
   gc_block__header_get_ptr_t gc_block__header_get_ptr;
   gc_block__copy_t gc_block__copy;
   gc_block__ptr_iter_t gc_block__ptr_iter;
-  gc_block__of_header_t gc_block__of_header;
+  gc_block__of_base_t gc_block__of_base;
   gc_block__size_get_t gc_block__size_get;
 } gc_funs_t;
 
 
 /* EXPLANATION OF THE CERTICOQ GENERATIONAL GARBAGE COLLECTOR.
  Andrew W. Appel, September 2016
-
-The current Certicoq code generator uses Ocaml object formats,
-as described in Chapter 20 of Real World Ocaml by Minsky et al.
-https://realworldocaml.org/v1/en/html/memory-representation-of-values.html
-
-That is:
-
-       31   10 9       8 7        0
-      +-------+---------+----------+
-      | size  |  color  | tag byte |
-      +-------+---------+----------+
-v --> |              value[0]      |
-      +----------------------------+
-      |              value[1]      |
-      +----------------------------+
-      |                   .        |
-      |                   .        |
-      |                   .        |
-      +----------------------------+
-      |           value[size-1]    |
-      +----------------------------+
-
-This works for 32-bit or 64-bit words;
-if 64-bit words, substitute "63" for "31" in the diagram above.
-At present we'll assume 32-bit words.
-
-The header file "values.h", from the OCaml distribution,
-has macros (etc.) for accessing these fields and headers.
-
-The header file "config.h", from the OCaml distribution, defines
-typedef "intnat", the "natural integer type" for this compiler/machine,
-and "uintnat", the "natural unsigned integer type".
-Config.h also defines (BUT WE DO NOT USE) parameters for the Ocaml
-generational garbage collector.
-
-The important definitions we use from values.h are:
-
-Is_block(v) : tests whether v is a pointer (even number)
-Hd_val(v)   : contents of the header word, i.e., just before where v points to
-Field(v,i)  : the i'th field of object v
-Tag_hd(h)   : If h is a header-word, get the constructor-tag
-Wosize_hd(h): If h is a header-word, get size of the object in words
-
-We define the following ourselves, following Ocaml's format:
-
-No_scan(t)  : If t is a constructor-tag, true if none of the object's
-              data words are to be interpreted as pointers.
-	      (For example, character-string data)
 
 CALLING THE GARBAGE COLLECTOR (this part is NOT standard Ocaml):
 

@@ -17,7 +17,7 @@ void certicoq_gc__funs_init(gc_funs_t *out)
   out->gc_block__header_get_ptr = certicoq_block__header_get_ptr;
   out->gc_block__copy = certicoq_block__copy;
   out->gc_block__ptr_iter = certicoq_block__field_ptr_iter;
-  out->gc_block__of_header = certicoq_block__of_header;
+  out->gc_block__of_base = certicoq_block__of_header;
   out->gc_block__size_get = certicoq_block__size_get;
 }
 

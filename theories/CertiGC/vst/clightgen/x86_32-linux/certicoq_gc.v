@@ -98,7 +98,7 @@ Definition _garbage_collect : ident := $"garbage_collect".
 Definition _gc_abort : ident := $"gc_abort".
 Definition _gc_block__copy : ident := $"gc_block__copy".
 Definition _gc_block__header_get_ptr : ident := $"gc_block__header_get_ptr".
-Definition _gc_block__of_header : ident := $"gc_block__of_header".
+Definition _gc_block__of_base : ident := $"gc_block__of_base".
 Definition _gc_block__ptr_iter : ident := $"gc_block__ptr_iter".
 Definition _gc_block__size_get : ident := $"gc_block__size_get".
 Definition _gc_funs : ident := $"gc_funs".
@@ -203,8 +203,9 @@ Definition f_certicoq_gc__funs_init := {|
           (Sassign
             (Efield
               (Ederef (Etempvar _out (tptr (Tstruct __462 noattr)))
-                (Tstruct __462 noattr)) _gc_block__of_header
-              (tptr (Tfunction (Tcons (tptr tuint) Tnil)
+                (Tstruct __462 noattr)) _gc_block__of_base
+              (tptr (Tfunction
+                      (Tcons (tptr (talignas 2%N (tptr tvoid))) Tnil)
                       (tptr (talignas 2%N (tptr tvoid))) cc_default)))
             (Evar _certicoq_block__of_header (Tfunction
                                                (Tcons (tptr tuint) Tnil)
@@ -343,8 +344,8 @@ Definition composites : list composite_definition :=
                            (Tcons (tptr (talignas 2%N (tptr tvoid))) Tnil))
                          tvoid cc_default)) (Tcons (tptr tvoid) Tnil))) tvoid
              cc_default))) ::
-    (_gc_block__of_header,
-     (tptr (Tfunction (Tcons (tptr tuint) Tnil)
+    (_gc_block__of_base,
+     (tptr (Tfunction (Tcons (tptr (talignas 2%N (tptr tvoid))) Tnil)
              (tptr (talignas 2%N (tptr tvoid))) cc_default))) ::
     (_gc_block__size_get,
      (tptr (Tfunction (Tcons (tptr tuint) Tnil) tuint cc_default))) :: nil)
@@ -731,7 +732,7 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\n630c3547bf08e23466bf39d52436a4ad1c478a04dc68d6955a5c17b2a1cf48b2  src/c/include/coq-vsu-gc/src/certicoq_gc.c
+(*\nInput hashes (sha256):\n\nf9523db419ab3440fe067f7287c4abd0feee5f0e3046c00927b70863343c5022  src/c/include/coq-vsu-gc/src/certicoq_gc.c
 c8423c1389e9864f1c3f32ed7b03deb669d6c7b4d48b7fd95f41f5420660edb8  src/c/include/coq-vsu-gc/certicoq_gc.h
-c952f07ed3f3338c4635737fc467bd2f1901d5e89a2b68100d0b046573a26bbf  src/c/include/coq-vsu-gc/gc.h
+fb74e6ac6862086de34578a0e054515d0edea6afe593d6bc2b69b381124620c4  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

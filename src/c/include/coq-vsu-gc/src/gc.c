@@ -212,8 +212,8 @@ void do_scan(
   gc_val *s;
   s = scan;
   while(s < *next) {
-    gc_block_header hd = (gc_block_header)s;
-    gc_block block = gc_funs->gc_block__of_header(hd);
+    gc_block block = gc_funs->gc_block__of_base(s);
+    gc_block_header hd = gc_funs->gc_block__header_get_ptr(block);
     const size_t sz = gc_funs->gc_block__size_get(hd);
     forward_args_t f_args = {
       .gc_funs = gc_funs,

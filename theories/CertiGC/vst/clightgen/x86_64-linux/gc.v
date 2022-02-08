@@ -103,7 +103,7 @@ Definition _garbage_collect : ident := $"garbage_collect".
 Definition _gc_abort : ident := $"gc_abort".
 Definition _gc_block__copy : ident := $"gc_block__copy".
 Definition _gc_block__header_get_ptr : ident := $"gc_block__header_get_ptr".
-Definition _gc_block__of_header : ident := $"gc_block__of_header".
+Definition _gc_block__of_base : ident := $"gc_block__of_base".
 Definition _gc_block__ptr_iter : ident := $"gc_block__ptr_iter".
 Definition _gc_block__size_get : ident := $"gc_block__size_get".
 Definition _gc_funs : ident := $"gc_funs".
@@ -866,18 +866,23 @@ Definition f_do_scan := {|
                 (_next, (tptr (tptr (talignas 3%N (tptr tvoid))))) :: nil);
   fn_vars := ((_f_args, (Tstruct __383 noattr)) :: nil);
   fn_temps := ((_s, (tptr (talignas 3%N (tptr tvoid)))) ::
-               (_hd, (tptr tulong)) ::
                (_block, (tptr (talignas 3%N (tptr tvoid)))) ::
-               (_sz, tulong) :: (_t'2, tulong) ::
+               (_hd, (tptr tulong)) :: (_sz, tulong) :: (_t'3, tulong) ::
+               (_t'2, (tptr tulong)) ::
                (_t'1, (tptr (talignas 3%N (tptr tvoid)))) ::
-               (_t'6, (tptr (talignas 3%N (tptr tvoid)))) ::
-               (_t'5,
-                (tptr (Tfunction (Tcons (tptr tulong) Tnil)
+               (_t'8, (tptr (talignas 3%N (tptr tvoid)))) ::
+               (_t'7,
+                (tptr (Tfunction
+                        (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
                         (tptr (talignas 3%N (tptr tvoid))) cc_default))) ::
-               (_t'4,
+               (_t'6,
+                (tptr (Tfunction
+                        (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                        (tptr tulong) cc_default))) ::
+               (_t'5,
                 (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong
                         cc_default))) ::
-               (_t'3,
+               (_t'4,
                 (tptr (Tfunction
                         (Tcons (tptr (talignas 3%N (tptr tvoid)))
                           (Tcons
@@ -894,48 +899,65 @@ Definition f_do_scan := {|
   (Sloop
     (Ssequence
       (Ssequence
-        (Sset _t'6
+        (Sset _t'8
           (Ederef (Etempvar _next (tptr (tptr (talignas 3%N (tptr tvoid)))))
             (tptr (talignas 3%N (tptr tvoid)))))
         (Sifthenelse (Ebinop Olt
                        (Etempvar _s (tptr (talignas 3%N (tptr tvoid))))
-                       (Etempvar _t'6 (tptr (talignas 3%N (tptr tvoid))))
+                       (Etempvar _t'8 (tptr (talignas 3%N (tptr tvoid))))
                        tint)
           Sskip
           Sbreak))
       (Ssequence
-        (Sset _hd
-          (Ecast (Etempvar _s (tptr (talignas 3%N (tptr tvoid))))
-            (tptr tulong)))
+        (Ssequence
+          (Ssequence
+            (Sset _t'7
+              (Efield
+                (Ederef (Etempvar _gc_funs (tptr (Tstruct __342 noattr)))
+                  (Tstruct __342 noattr)) _gc_block__of_base
+                (tptr (Tfunction
+                        (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                        (tptr (talignas 3%N (tptr tvoid))) cc_default))))
+            (Scall (Some _t'1)
+              (Etempvar _t'7 (tptr (Tfunction
+                                     (Tcons
+                                       (tptr (talignas 3%N (tptr tvoid)))
+                                       Tnil)
+                                     (tptr (talignas 3%N (tptr tvoid)))
+                                     cc_default)))
+              ((Etempvar _s (tptr (talignas 3%N (tptr tvoid)))) :: nil)))
+          (Sset _block (Etempvar _t'1 (tptr (talignas 3%N (tptr tvoid))))))
         (Ssequence
           (Ssequence
             (Ssequence
-              (Sset _t'5
+              (Sset _t'6
                 (Efield
                   (Ederef (Etempvar _gc_funs (tptr (Tstruct __342 noattr)))
-                    (Tstruct __342 noattr)) _gc_block__of_header
-                  (tptr (Tfunction (Tcons (tptr tulong) Tnil)
-                          (tptr (talignas 3%N (tptr tvoid))) cc_default))))
-              (Scall (Some _t'1)
-                (Etempvar _t'5 (tptr (Tfunction (Tcons (tptr tulong) Tnil)
-                                       (tptr (talignas 3%N (tptr tvoid)))
-                                       cc_default)))
-                ((Etempvar _hd (tptr tulong)) :: nil)))
-            (Sset _block (Etempvar _t'1 (tptr (talignas 3%N (tptr tvoid))))))
+                    (Tstruct __342 noattr)) _gc_block__header_get_ptr
+                  (tptr (Tfunction
+                          (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                          (tptr tulong) cc_default))))
+              (Scall (Some _t'2)
+                (Etempvar _t'6 (tptr (Tfunction
+                                       (Tcons
+                                         (tptr (talignas 3%N (tptr tvoid)))
+                                         Tnil) (tptr tulong) cc_default)))
+                ((Etempvar _block (tptr (talignas 3%N (tptr tvoid)))) :: nil)))
+            (Sset _hd (Etempvar _t'2 (tptr tulong))))
           (Ssequence
             (Ssequence
               (Ssequence
-                (Sset _t'4
+                (Sset _t'5
                   (Efield
                     (Ederef (Etempvar _gc_funs (tptr (Tstruct __342 noattr)))
                       (Tstruct __342 noattr)) _gc_block__size_get
                     (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong
                             cc_default))))
-                (Scall (Some _t'2)
-                  (Etempvar _t'4 (tptr (Tfunction (Tcons (tptr tulong) Tnil)
+                (Scall (Some _t'3)
+                  (Etempvar _t'5 (tptr (Tfunction (Tcons (tptr tulong) Tnil)
                                          tulong cc_default)))
                   ((Etempvar _hd (tptr tulong)) :: nil)))
-              (Sset _sz (Etempvar _t'2 tulong)))
+              (Sset _sz (Etempvar _t'3 tulong)))
             (Ssequence
               (Sassign
                 (Efield (Evar _f_args (Tstruct __383 noattr)) _gc_funs
@@ -962,7 +984,7 @@ Definition f_do_scan := {|
                           tint) (Econst_int (Int.repr 0) tint))
                       (Ssequence
                         (Ssequence
-                          (Sset _t'3
+                          (Sset _t'4
                             (Efield
                               (Ederef
                                 (Etempvar _gc_funs (tptr (Tstruct __342 noattr)))
@@ -980,7 +1002,7 @@ Definition f_do_scan := {|
                                           (Tcons (tptr tvoid) Tnil))) tvoid
                                       cc_default))))
                           (Scall None
-                            (Etempvar _t'3 (tptr (Tfunction
+                            (Etempvar _t'4 (tptr (Tfunction
                                                    (Tcons
                                                      (tptr (talignas 3%N (tptr tvoid)))
                                                      (Tcons
@@ -1940,8 +1962,8 @@ Definition composites : list composite_definition :=
                            (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
                          tvoid cc_default)) (Tcons (tptr tvoid) Tnil))) tvoid
              cc_default))) ::
-    (_gc_block__of_header,
-     (tptr (Tfunction (Tcons (tptr tulong) Tnil)
+    (_gc_block__of_base,
+     (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
              (tptr (talignas 3%N (tptr tvoid))) cc_default))) ::
     (_gc_block__size_get,
      (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong cc_default))) :: nil)
@@ -2294,6 +2316,6 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\n4a1c3849ea7935b8b02bb269584c7f9d6a4aa2240befb8115258edd949b89530  src/c/include/coq-vsu-gc/src/gc.c
-c952f07ed3f3338c4635737fc467bd2f1901d5e89a2b68100d0b046573a26bbf  src/c/include/coq-vsu-gc/gc.h
+(*\nInput hashes (sha256):\n\naadc84c07c1c5aa78d4c7883677ac7e87a9eb9738539ffacc43a765243249b58  src/c/include/coq-vsu-gc/src/gc.c
+fb74e6ac6862086de34578a0e054515d0edea6afe593d6bc2b69b381124620c4  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

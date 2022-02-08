@@ -87,7 +87,6 @@ Definition _certicoq_block__of_header : ident := $"certicoq_block__of_header".
 Definition _certicoq_block__size_get : ident := $"certicoq_block__size_get".
 Definition _certicoq_gc__abort : ident := $"certicoq_gc__abort".
 Definition _certicoq_gc__cell_modify : ident := $"certicoq_gc__cell_modify".
-Definition _certicoq_gc__funs_init : ident := $"certicoq_gc__funs_init".
 Definition _certicoq_gc__garbage_collect : ident := $"certicoq_gc__garbage_collect".
 Definition _certicoq_gc__heap_free : ident := $"certicoq_gc__heap_free".
 Definition _certicoq_gc__heap_reset : ident := $"certicoq_gc__heap_reset".
@@ -123,7 +122,6 @@ Definition _limit : ident := $"limit".
 Definition _main : ident := $"main".
 Definition _n : ident := $"n".
 Definition _next : ident := $"next".
-Definition _out : ident := $"out".
 Definition _p : ident := $"p".
 Definition _p_cell : ident := $"p_cell".
 Definition _p_val : ident := $"p_val".
@@ -323,217 +321,6 @@ Definition f_certicoq_gc__root_ptr_iter := {|
                 (Econst_int (Int.repr 1) tint) tulong))))))))
 |}.
 
-Definition f_certicoq_gc__funs_init := {|
-  fn_return := tvoid;
-  fn_callconv := cc_default;
-  fn_params := ((_out, (tptr (Tstruct __483 noattr))) :: nil);
-  fn_vars := nil;
-  fn_temps := nil;
-  fn_body :=
-(Ssequence
-  (Sassign
-    (Efield
-      (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-        (Tstruct __483 noattr)) _gc_abort
-      (tptr (Tfunction (Tcons tint Tnil) tvoid cc_default)))
-    (Evar _certicoq_gc__abort (Tfunction (Tcons tint Tnil) tvoid cc_default)))
-  (Ssequence
-    (Sassign
-      (Efield
-        (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-          (Tstruct __483 noattr)) _gc_block__header_get_ptr
-        (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
-                (tptr tulong) cc_default)))
-      (Ecast
-        (Evar _certicoq_block__header_get_ptr (Tfunction
-                                                (Tcons
-                                                  (tptr (talignas 3%N (tptr tvoid)))
-                                                  Tnil) (tptr tulong)
-                                                cc_default))
-        (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
-                (tptr tulong) cc_default))))
-    (Ssequence
-      (Sassign
-        (Efield
-          (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-            (Tstruct __483 noattr)) _gc_block__copy
-          (tptr (Tfunction
-                  (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                    (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
-                  (tptr (talignas 3%N (tptr tvoid))) cc_default)))
-        (Ecast
-          (Evar _certicoq_block__copy (Tfunction
-                                        (Tcons
-                                          (tptr (talignas 3%N (tptr tvoid)))
-                                          (Tcons
-                                            (tptr (talignas 3%N (tptr tvoid)))
-                                            Tnil))
-                                        (tptr (talignas 3%N (tptr tvoid)))
-                                        cc_default))
-          (tptr (Tfunction
-                  (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                    (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
-                  (tptr (talignas 3%N (tptr tvoid))) cc_default))))
-      (Ssequence
-        (Sassign
-          (Efield
-            (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-              (Tstruct __483 noattr)) _gc_block__ptr_iter
-            (tptr (Tfunction
-                    (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                      (Tcons
-                        (tptr (Tfunction
-                                (Tcons (tptr tvoid)
-                                  (Tcons (tptr tvoid)
-                                    (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                                      Tnil))) tvoid cc_default))
-                        (Tcons (tptr tvoid) (Tcons (tptr tvoid) Tnil))))
-                    tvoid cc_default)))
-          (Ecast
-            (Evar _certicoq_block__field_ptr_iter (Tfunction
-                                                    (Tcons
-                                                      (tptr (talignas 3%N (tptr tvoid)))
-                                                      (Tcons
-                                                        (tptr (Tfunction
-                                                                (Tcons
-                                                                  (tptr tvoid)
-                                                                  (Tcons
-                                                                    (tptr tvoid)
-                                                                    (Tcons
-                                                                    (tptr (talignas 3%N (tptr tvoid)))
-                                                                    Tnil)))
-                                                                tvoid
-                                                                cc_default))
-                                                        (Tcons (tptr tvoid)
-                                                          (Tcons (tptr tvoid)
-                                                            Tnil)))) tvoid
-                                                    cc_default))
-            (tptr (Tfunction
-                    (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                      (Tcons
-                        (tptr (Tfunction
-                                (Tcons (tptr tvoid)
-                                  (Tcons (tptr tvoid)
-                                    (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                                      Tnil))) tvoid cc_default))
-                        (Tcons (tptr tvoid) (Tcons (tptr tvoid) Tnil))))
-                    tvoid cc_default))))
-        (Ssequence
-          (Sassign
-            (Efield
-              (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-                (Tstruct __483 noattr)) _gc_block__of_base
-              (tptr (Tfunction
-                      (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
-                      (tptr (talignas 3%N (tptr tvoid))) cc_default)))
-            (Ecast
-              (Evar _certicoq_block__of_header (Tfunction
-                                                 (Tcons (tptr tulong) Tnil)
-                                                 (tptr (talignas 3%N (tptr tvoid)))
-                                                 cc_default))
-              (tptr (Tfunction
-                      (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
-                      (tptr (talignas 3%N (tptr tvoid))) cc_default))))
-          (Ssequence
-            (Sassign
-              (Efield
-                (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-                  (Tstruct __483 noattr)) _gc_block__size_get
-                (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong
-                        cc_default)))
-              (Ecast
-                (Evar _certicoq_block__size_get (Tfunction
-                                                  (Tcons (tptr tulong) Tnil)
-                                                  tulong cc_default))
-                (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong
-                        cc_default))))
-            (Ssequence
-              (Sassign
-                (Efield
-                  (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-                    (Tstruct __483 noattr)) _gc_rt__num_allocs
-                  (tptr (Tfunction (Tcons (tptr tvoid) Tnil) tulong
-                          cc_default)))
-                (Ecast
-                  (Evar _certicoq_gc__num_allocs (Tfunction
-                                                   (Tcons (tptr tvoid) Tnil)
-                                                   tulong cc_default))
-                  (tptr (Tfunction (Tcons (tptr tvoid) Tnil) tulong
-                          cc_default))))
-              (Ssequence
-                (Sassign
-                  (Efield
-                    (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-                      (Tstruct __483 noattr)) _gc_rt__resume
-                    (tptr (Tfunction
-                            (Tcons (tptr tvoid)
-                              (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                                (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                                  Tnil))) tvoid cc_default)))
-                  (Ecast
-                    (Evar _certicoq_gc__resume (Tfunction
-                                                 (Tcons (tptr tvoid)
-                                                   (Tcons
-                                                     (tptr (talignas 3%N (tptr tvoid)))
-                                                     (Tcons
-                                                       (tptr (talignas 3%N (tptr tvoid)))
-                                                       Tnil))) tvoid
-                                                 cc_default))
-                    (tptr (Tfunction
-                            (Tcons (tptr tvoid)
-                              (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                                (Tcons (tptr (talignas 3%N (tptr tvoid)))
-                                  Tnil))) tvoid cc_default))))
-                (Sassign
-                  (Efield
-                    (Ederef (Etempvar _out (tptr (Tstruct __483 noattr)))
-                      (Tstruct __483 noattr)) _gc_rt__root_ptr_iter
-                    (tptr (Tfunction
-                            (Tcons (tptr tvoid)
-                              (Tcons
-                                (tptr (Tfunction
-                                        (Tcons (tptr tvoid)
-                                          (Tcons (tptr tvoid)
-                                            (Tcons
-                                              (tptr (talignas 3%N (tptr tvoid)))
-                                              Tnil))) tvoid cc_default))
-                                (Tcons (tptr tvoid)
-                                  (Tcons (tptr tvoid) Tnil)))) tvoid
-                            cc_default)))
-                  (Ecast
-                    (Evar _certicoq_gc__root_ptr_iter (Tfunction
-                                                        (Tcons (tptr tvoid)
-                                                          (Tcons
-                                                            (tptr (Tfunction
-                                                                    (Tcons
-                                                                    (tptr tvoid)
-                                                                    (Tcons
-                                                                    (tptr tvoid)
-                                                                    (Tcons
-                                                                    (tptr (talignas 3%N (tptr tvoid)))
-                                                                    Tnil)))
-                                                                    tvoid
-                                                                    cc_default))
-                                                            (Tcons
-                                                              (tptr tvoid)
-                                                              (Tcons
-                                                                (tptr tvoid)
-                                                                Tnil))))
-                                                        tvoid cc_default))
-                    (tptr (Tfunction
-                            (Tcons (tptr tvoid)
-                              (Tcons
-                                (tptr (Tfunction
-                                        (Tcons (tptr tvoid)
-                                          (Tcons (tptr tvoid)
-                                            (Tcons
-                                              (tptr (talignas 3%N (tptr tvoid)))
-                                              Tnil))) tvoid cc_default))
-                                (Tcons (tptr tvoid)
-                                  (Tcons (tptr tvoid) Tnil)))) tvoid
-                            cc_default))))))))))))
-|}.
-
 Definition f_certicoq_gc__make_tinfo := {|
   fn_return := tvoid;
   fn_callconv := cc_default;
@@ -726,29 +513,230 @@ Definition f_certicoq_gc__garbage_collect := {|
         (tptr (Tstruct _thread_info noattr)))
       (Etempvar _ti (tptr (Tstruct _thread_info noattr))))
     (Ssequence
-      (Scall None
-        (Evar _certicoq_gc__funs_init (Tfunction
-                                        (Tcons (tptr (Tstruct __483 noattr))
-                                          Tnil) tvoid cc_default))
-        ((Eaddrof (Evar _gc_funs (Tstruct __483 noattr))
-           (tptr (Tstruct __483 noattr))) :: nil))
+      (Sassign
+        (Efield (Evar _gc_funs (Tstruct __483 noattr)) _gc_abort
+          (tptr (Tfunction (Tcons tint Tnil) tvoid cc_default)))
+        (Evar _certicoq_gc__abort (Tfunction (Tcons tint Tnil) tvoid
+                                    cc_default)))
       (Ssequence
-        (Sset _t'1
-          (Efield
-            (Ederef (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
-              (Tstruct _thread_info noattr)) _heap
-            (tptr (Tstruct _heap noattr))))
-        (Scall None
-          (Evar _garbage_collect (Tfunction
-                                   (Tcons (tptr (Tstruct __483 noattr))
-                                     (Tcons (tptr tvoid)
-                                       (Tcons (tptr (Tstruct _heap noattr))
-                                         Tnil))) tvoid cc_default))
-          ((Eaddrof (Evar _gc_funs (Tstruct __483 noattr))
-             (tptr (Tstruct __483 noattr))) ::
-           (Eaddrof (Evar _rt (Tstruct __502 noattr))
-             (tptr (Tstruct __502 noattr))) ::
-           (Etempvar _t'1 (tptr (Tstruct _heap noattr))) :: nil))))))
+        (Sassign
+          (Efield (Evar _gc_funs (Tstruct __483 noattr))
+            _gc_block__header_get_ptr
+            (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                    (tptr tulong) cc_default)))
+          (Ecast
+            (Evar _certicoq_block__header_get_ptr (Tfunction
+                                                    (Tcons
+                                                      (tptr (talignas 3%N (tptr tvoid)))
+                                                      Tnil) (tptr tulong)
+                                                    cc_default))
+            (tptr (Tfunction (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                    (tptr tulong) cc_default))))
+        (Ssequence
+          (Sassign
+            (Efield (Evar _gc_funs (Tstruct __483 noattr)) _gc_block__copy
+              (tptr (Tfunction
+                      (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                        (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
+                      (tptr (talignas 3%N (tptr tvoid))) cc_default)))
+            (Ecast
+              (Evar _certicoq_block__copy (Tfunction
+                                            (Tcons
+                                              (tptr (talignas 3%N (tptr tvoid)))
+                                              (Tcons
+                                                (tptr (talignas 3%N (tptr tvoid)))
+                                                Tnil))
+                                            (tptr (talignas 3%N (tptr tvoid)))
+                                            cc_default))
+              (tptr (Tfunction
+                      (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                        (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
+                      (tptr (talignas 3%N (tptr tvoid))) cc_default))))
+          (Ssequence
+            (Sassign
+              (Efield (Evar _gc_funs (Tstruct __483 noattr))
+                _gc_block__ptr_iter
+                (tptr (Tfunction
+                        (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                          (Tcons
+                            (tptr (Tfunction
+                                    (Tcons (tptr tvoid)
+                                      (Tcons (tptr tvoid)
+                                        (Tcons
+                                          (tptr (talignas 3%N (tptr tvoid)))
+                                          Tnil))) tvoid cc_default))
+                            (Tcons (tptr tvoid) (Tcons (tptr tvoid) Tnil))))
+                        tvoid cc_default)))
+              (Ecast
+                (Evar _certicoq_block__field_ptr_iter (Tfunction
+                                                        (Tcons
+                                                          (tptr (talignas 3%N (tptr tvoid)))
+                                                          (Tcons
+                                                            (tptr (Tfunction
+                                                                    (Tcons
+                                                                    (tptr tvoid)
+                                                                    (Tcons
+                                                                    (tptr tvoid)
+                                                                    (Tcons
+                                                                    (tptr (talignas 3%N (tptr tvoid)))
+                                                                    Tnil)))
+                                                                    tvoid
+                                                                    cc_default))
+                                                            (Tcons
+                                                              (tptr tvoid)
+                                                              (Tcons
+                                                                (tptr tvoid)
+                                                                Tnil))))
+                                                        tvoid cc_default))
+                (tptr (Tfunction
+                        (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                          (Tcons
+                            (tptr (Tfunction
+                                    (Tcons (tptr tvoid)
+                                      (Tcons (tptr tvoid)
+                                        (Tcons
+                                          (tptr (talignas 3%N (tptr tvoid)))
+                                          Tnil))) tvoid cc_default))
+                            (Tcons (tptr tvoid) (Tcons (tptr tvoid) Tnil))))
+                        tvoid cc_default))))
+            (Ssequence
+              (Sassign
+                (Efield (Evar _gc_funs (Tstruct __483 noattr))
+                  _gc_block__of_base
+                  (tptr (Tfunction
+                          (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                          (tptr (talignas 3%N (tptr tvoid))) cc_default)))
+                (Ecast
+                  (Evar _certicoq_block__of_header (Tfunction
+                                                     (Tcons (tptr tulong)
+                                                       Tnil)
+                                                     (tptr (talignas 3%N (tptr tvoid)))
+                                                     cc_default))
+                  (tptr (Tfunction
+                          (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil)
+                          (tptr (talignas 3%N (tptr tvoid))) cc_default))))
+              (Ssequence
+                (Sassign
+                  (Efield (Evar _gc_funs (Tstruct __483 noattr))
+                    _gc_block__size_get
+                    (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong
+                            cc_default)))
+                  (Ecast
+                    (Evar _certicoq_block__size_get (Tfunction
+                                                      (Tcons (tptr tulong)
+                                                        Tnil) tulong
+                                                      cc_default))
+                    (tptr (Tfunction (Tcons (tptr tulong) Tnil) tulong
+                            cc_default))))
+                (Ssequence
+                  (Sassign
+                    (Efield (Evar _gc_funs (Tstruct __483 noattr))
+                      _gc_rt__num_allocs
+                      (tptr (Tfunction (Tcons (tptr tvoid) Tnil) tulong
+                              cc_default)))
+                    (Ecast
+                      (Evar _certicoq_gc__num_allocs (Tfunction
+                                                       (Tcons (tptr tvoid)
+                                                         Tnil) tulong
+                                                       cc_default))
+                      (tptr (Tfunction (Tcons (tptr tvoid) Tnil) tulong
+                              cc_default))))
+                  (Ssequence
+                    (Sassign
+                      (Efield (Evar _gc_funs (Tstruct __483 noattr))
+                        _gc_rt__resume
+                        (tptr (Tfunction
+                                (Tcons (tptr tvoid)
+                                  (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                                    (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                                      Tnil))) tvoid cc_default)))
+                      (Ecast
+                        (Evar _certicoq_gc__resume (Tfunction
+                                                     (Tcons (tptr tvoid)
+                                                       (Tcons
+                                                         (tptr (talignas 3%N (tptr tvoid)))
+                                                         (Tcons
+                                                           (tptr (talignas 3%N (tptr tvoid)))
+                                                           Tnil))) tvoid
+                                                     cc_default))
+                        (tptr (Tfunction
+                                (Tcons (tptr tvoid)
+                                  (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                                    (Tcons (tptr (talignas 3%N (tptr tvoid)))
+                                      Tnil))) tvoid cc_default))))
+                    (Ssequence
+                      (Sassign
+                        (Efield (Evar _gc_funs (Tstruct __483 noattr))
+                          _gc_rt__root_ptr_iter
+                          (tptr (Tfunction
+                                  (Tcons (tptr tvoid)
+                                    (Tcons
+                                      (tptr (Tfunction
+                                              (Tcons (tptr tvoid)
+                                                (Tcons (tptr tvoid)
+                                                  (Tcons
+                                                    (tptr (talignas 3%N (tptr tvoid)))
+                                                    Tnil))) tvoid cc_default))
+                                      (Tcons (tptr tvoid)
+                                        (Tcons (tptr tvoid) Tnil)))) tvoid
+                                  cc_default)))
+                        (Ecast
+                          (Evar _certicoq_gc__root_ptr_iter (Tfunction
+                                                              (Tcons
+                                                                (tptr tvoid)
+                                                                (Tcons
+                                                                  (tptr 
+                                                                  (Tfunction
+                                                                    (Tcons
+                                                                    (tptr tvoid)
+                                                                    (Tcons
+                                                                    (tptr tvoid)
+                                                                    (Tcons
+                                                                    (tptr (talignas 3%N (tptr tvoid)))
+                                                                    Tnil)))
+                                                                    tvoid
+                                                                    cc_default))
+                                                                  (Tcons
+                                                                    (tptr tvoid)
+                                                                    (Tcons
+                                                                    (tptr tvoid)
+                                                                    Tnil))))
+                                                              tvoid
+                                                              cc_default))
+                          (tptr (Tfunction
+                                  (Tcons (tptr tvoid)
+                                    (Tcons
+                                      (tptr (Tfunction
+                                              (Tcons (tptr tvoid)
+                                                (Tcons (tptr tvoid)
+                                                  (Tcons
+                                                    (tptr (talignas 3%N (tptr tvoid)))
+                                                    Tnil))) tvoid cc_default))
+                                      (Tcons (tptr tvoid)
+                                        (Tcons (tptr tvoid) Tnil)))) tvoid
+                                  cc_default))))
+                      (Ssequence
+                        (Sset _t'1
+                          (Efield
+                            (Ederef
+                              (Etempvar _ti (tptr (Tstruct _thread_info noattr)))
+                              (Tstruct _thread_info noattr)) _heap
+                            (tptr (Tstruct _heap noattr))))
+                        (Scall None
+                          (Evar _garbage_collect (Tfunction
+                                                   (Tcons
+                                                     (tptr (Tstruct __483 noattr))
+                                                     (Tcons (tptr tvoid)
+                                                       (Tcons
+                                                         (tptr (Tstruct _heap noattr))
+                                                         Tnil))) tvoid
+                                                   cc_default))
+                          ((Eaddrof (Evar _gc_funs (Tstruct __483 noattr))
+                             (tptr (Tstruct __483 noattr))) ::
+                           (Eaddrof (Evar _rt (Tstruct __502 noattr))
+                             (tptr (Tstruct __502 noattr))) ::
+                           (Etempvar _t'1 (tptr (Tstruct _heap noattr))) ::
+                           nil))))))))))))))
 |}.
 
 Definition composites : list composite_definition :=
@@ -1158,7 +1146,6 @@ Definition global_definitions : list (ident * globdef fundef type) :=
  (_certicoq_gc__num_allocs, Gfun(Internal f_certicoq_gc__num_allocs)) ::
  (_certicoq_gc__resume, Gfun(Internal f_certicoq_gc__resume)) ::
  (_certicoq_gc__root_ptr_iter, Gfun(Internal f_certicoq_gc__root_ptr_iter)) ::
- (_certicoq_gc__funs_init, Gfun(Internal f_certicoq_gc__funs_init)) ::
  (_certicoq_gc__make_tinfo, Gfun(Internal f_certicoq_gc__make_tinfo)) ::
  (_certicoq_gc__heap_free, Gfun(Internal f_certicoq_gc__heap_free)) ::
  (_certicoq_gc__heap_reset, Gfun(Internal f_certicoq_gc__heap_reset)) ::
@@ -1171,38 +1158,38 @@ Definition public_idents : list ident :=
 (_certicoq_gc__garbage_collect :: _certicoq_gc__cell_modify ::
  _certicoq_gc__remember :: _certicoq_gc__heap_reset ::
  _certicoq_gc__heap_free :: _certicoq_gc__make_tinfo ::
- _certicoq_gc__funs_init :: _certicoq_gc__root_ptr_iter ::
- _certicoq_gc__resume :: _certicoq_gc__num_allocs :: _certicoq_gc__abort ::
- _garbage_collect :: _remember :: _reset_heap :: _free_heap ::
- _create_heap :: _certicoq_block__field_ptr_iter ::
- _certicoq_block__size_get :: _certicoq_block__header_get_ptr ::
- _certicoq_block__copy :: _certicoq_block__of_header ::
- _int_or_ptr__is_int :: _exit :: ___builtin_debug ::
- ___builtin_write32_reversed :: ___builtin_write16_reversed ::
- ___builtin_read32_reversed :: ___builtin_read16_reversed ::
- ___builtin_fnmsub :: ___builtin_fnmadd :: ___builtin_fmsub ::
- ___builtin_fmadd :: ___builtin_fmin :: ___builtin_fmax ::
- ___compcert_i64_umulh :: ___compcert_i64_smulh :: ___compcert_i64_sar ::
- ___compcert_i64_shr :: ___compcert_i64_shl :: ___compcert_i64_umod ::
- ___compcert_i64_smod :: ___compcert_i64_udiv :: ___compcert_i64_sdiv ::
- ___compcert_i64_utof :: ___compcert_i64_stof :: ___compcert_i64_utod ::
- ___compcert_i64_stod :: ___compcert_i64_dtou :: ___compcert_i64_dtos ::
- ___builtin_expect :: ___builtin_unreachable :: ___compcert_va_composite ::
- ___compcert_va_float64 :: ___compcert_va_int64 :: ___compcert_va_int32 ::
- ___builtin_va_end :: ___builtin_va_copy :: ___builtin_va_arg ::
- ___builtin_va_start :: ___builtin_membar :: ___builtin_annot_intval ::
- ___builtin_annot :: ___builtin_sel :: ___builtin_memcpy_aligned ::
- ___builtin_sqrt :: ___builtin_fsqrt :: ___builtin_fabsf ::
- ___builtin_fabs :: ___builtin_ctzll :: ___builtin_ctzl :: ___builtin_ctz ::
- ___builtin_clzll :: ___builtin_clzl :: ___builtin_clz ::
- ___builtin_bswap16 :: ___builtin_bswap32 :: ___builtin_bswap ::
- ___builtin_bswap64 :: ___builtin_ais_annot :: nil).
+ _certicoq_gc__root_ptr_iter :: _certicoq_gc__resume ::
+ _certicoq_gc__num_allocs :: _certicoq_gc__abort :: _garbage_collect ::
+ _remember :: _reset_heap :: _free_heap :: _create_heap ::
+ _certicoq_block__field_ptr_iter :: _certicoq_block__size_get ::
+ _certicoq_block__header_get_ptr :: _certicoq_block__copy ::
+ _certicoq_block__of_header :: _int_or_ptr__is_int :: _exit ::
+ ___builtin_debug :: ___builtin_write32_reversed ::
+ ___builtin_write16_reversed :: ___builtin_read32_reversed ::
+ ___builtin_read16_reversed :: ___builtin_fnmsub :: ___builtin_fnmadd ::
+ ___builtin_fmsub :: ___builtin_fmadd :: ___builtin_fmin ::
+ ___builtin_fmax :: ___compcert_i64_umulh :: ___compcert_i64_smulh ::
+ ___compcert_i64_sar :: ___compcert_i64_shr :: ___compcert_i64_shl ::
+ ___compcert_i64_umod :: ___compcert_i64_smod :: ___compcert_i64_udiv ::
+ ___compcert_i64_sdiv :: ___compcert_i64_utof :: ___compcert_i64_stof ::
+ ___compcert_i64_utod :: ___compcert_i64_stod :: ___compcert_i64_dtou ::
+ ___compcert_i64_dtos :: ___builtin_expect :: ___builtin_unreachable ::
+ ___compcert_va_composite :: ___compcert_va_float64 ::
+ ___compcert_va_int64 :: ___compcert_va_int32 :: ___builtin_va_end ::
+ ___builtin_va_copy :: ___builtin_va_arg :: ___builtin_va_start ::
+ ___builtin_membar :: ___builtin_annot_intval :: ___builtin_annot ::
+ ___builtin_sel :: ___builtin_memcpy_aligned :: ___builtin_sqrt ::
+ ___builtin_fsqrt :: ___builtin_fabsf :: ___builtin_fabs ::
+ ___builtin_ctzll :: ___builtin_ctzl :: ___builtin_ctz :: ___builtin_clzll ::
+ ___builtin_clzl :: ___builtin_clz :: ___builtin_bswap16 ::
+ ___builtin_bswap32 :: ___builtin_bswap :: ___builtin_bswap64 ::
+ ___builtin_ais_annot :: nil).
 
 Definition prog : Clight.program := 
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(*\nInput hashes (sha256):\n\ned85e07a35177b7123548f0b308fec703d21390d95f6e24995c422dd010359d5  src/c/include/coq-vsu-gc/src/certicoq_gc.c
+(*\nInput hashes (sha256):\n\n499edd04460646480d85c3b14b82d25f570db698e6026d38a62071b6d0bdce27  src/c/include/coq-vsu-gc/src/certicoq_gc.c
 077b57822bd0f49f35c0d7a973c2205e4e6beaa75f5fc4e5d581cffdd3ea4aa3  src/c/include/coq-vsu-gc/certicoq_gc.h
 2b46310a191efc3eb5c3fd3b78a513ae252f6b639e0b5877a885149291c5ac77  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

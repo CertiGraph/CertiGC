@@ -43,19 +43,6 @@ void certicoq_gc__root_ptr_iter(void *void_rt, void (*f)(const void *, void *, g
   }
 }
 
-void certicoq_gc__funs_init(gc_funs_t *out)
-{
-  out->gc_abort                 = certicoq_gc__abort;
-  out->gc_block__header_get_ptr = (gc_block__header_get_ptr_t)certicoq_block__header_get_ptr;
-  out->gc_block__copy           = (gc_block__copy_t)certicoq_block__copy;
-  out->gc_block__ptr_iter       = (gc_block__ptr_iter_t)certicoq_block__field_ptr_iter;
-  out->gc_block__of_base        = (gc_block__of_base_t)certicoq_block__of_header;
-  out->gc_block__size_get       = (gc_block__size_get_t)certicoq_block__size_get;
-  out->gc_rt__num_allocs        = (gc_rt__num_allocs_t)certicoq_gc__num_allocs;
-  out->gc_rt__resume            = (gc_rt__resume_t)certicoq_gc__resume;
-  out->gc_rt__root_ptr_iter     = (gc_rt__root_ptr_iter_t)certicoq_gc__root_ptr_iter;
-}
-
 void certicoq_gc__make_tinfo(struct thread_info *tinfo)
 {
   struct heap *h = create_heap(certicoq_gc__abort);
@@ -95,8 +82,17 @@ void certicoq_gc__garbage_collect(fun_info fi, struct thread_info *ti)
     .fi = fi,
     .ti = ti
   };
-  gc_funs_t gc_funs;
-  certicoq_gc__funs_init(&gc_funs);
+  gc_funs_t gc_funs = {
+    .gc_abort                 = certicoq_gc__abort,
+    .gc_block__header_get_ptr = (gc_block__header_get_ptr_t)certicoq_block__header_get_ptr,
+    .gc_block__copy           = (gc_block__copy_t)certicoq_block__copy,
+    .gc_block__ptr_iter       = (gc_block__ptr_iter_t)certicoq_block__field_ptr_iter,
+    .gc_block__of_base        = (gc_block__of_base_t)certicoq_block__of_header,
+    .gc_block__size_get       = (gc_block__size_get_t)certicoq_block__size_get,
+    .gc_rt__num_allocs        = (gc_rt__num_allocs_t)certicoq_gc__num_allocs,
+    .gc_rt__resume            = (gc_rt__resume_t)certicoq_gc__resume,
+    .gc_rt__root_ptr_iter     = (gc_rt__root_ptr_iter_t)certicoq_gc__root_ptr_iter
+  };
   garbage_collect(&gc_funs, &rt, ti->heap);
 }
 

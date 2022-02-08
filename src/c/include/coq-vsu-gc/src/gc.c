@@ -94,8 +94,8 @@ void mark_as_forwarded(gc_block old, gc_block new)
 typedef struct {
   const gc_funs_t *gc_funs;
   int_or_ptr *from_start;               /* beginning of from-space */
-	int_or_ptr *from_limit;               /* end of from-space */
-	int_or_ptr **next;                    /* next available spot in to-space */
+  int_or_ptr *from_limit;               /* end of from-space */
+  int_or_ptr **next;                    /* next available spot in to-space */
   int depth;                            /* how much depth-first search to do */
 } forward_args_t;
 
@@ -106,9 +106,9 @@ void forward(
   forward_args_t *args = (forward_args_t *)f_args;
   const gc_funs_t *gc_funs = args->gc_funs;
   int_or_ptr *from_start = args->from_start;
-	int_or_ptr *from_limit = args->from_limit;
-	int_or_ptr **next = args->next;
-	int depth = args->depth;
+  int_or_ptr *from_limit = args->from_limit;
+  int_or_ptr **next = args->next;
+  int depth = args->depth;
 
   gc_block v = (gc_block)int_or_ptr__to_ptr(*p);
   if (Is_from(from_start, from_limit, v))
@@ -149,10 +149,10 @@ int Is_block(int_or_ptr x)
 void forward_roots(
   const gc_funs_t *gc_funs,
   int_or_ptr *from_start,               /* beginning of from-space */
-	int_or_ptr *from_limit,               /* end of from-space */
-	int_or_ptr **next,                    /* next available spot in to-space */
-	fun_info fi,                          /* which args contain live roots? */
-	struct thread_info *ti)               /* where's the args array? */
+  int_or_ptr *from_limit,               /* end of from-space */
+  int_or_ptr **next,                    /* next available spot in to-space */
+  fun_info fi,                          /* which args contain live roots? */
+  struct thread_info *ti)               /* where's the args array? */
 {
    size_t i;
    size_t n = fi[1];
@@ -210,9 +210,9 @@ void forward_remset(
 void do_scan(
   const gc_funs_t *gc_funs,
   int_or_ptr *from_start,               /* beginning of from-space */
-	int_or_ptr *from_limit,               /* end of from-space */
-	int_or_ptr *scan,                     /* start of unforwarded part of to-space */
- 	int_or_ptr **next)                    /* next available spot in to-space */
+  int_or_ptr *from_limit,               /* end of from-space */
+  int_or_ptr *scan,                     /* start of unforwarded part of to-space */
+   int_or_ptr **next)                    /* next available spot in to-space */
 {
   int_or_ptr *s;
   s = scan;
@@ -237,9 +237,9 @@ void do_scan(
 void do_generation(
   const gc_funs_t *gc_funs,
   struct space *from,                   /* descriptor of from-space */
-	struct space *to,                     /* descriptor of to-space */
-	fun_info fi,                          /* which args contain live roots? */
-	struct thread_info *ti)               /* where's the args array? */
+  struct space *to,                     /* descriptor of to-space */
+  fun_info fi,                          /* which args contain live roots? */
+  struct thread_info *ti)               /* where's the args array? */
 {
   int_or_ptr *p = to->next;
   // forward_remset(from, to, &to->next);

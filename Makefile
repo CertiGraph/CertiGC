@@ -74,6 +74,18 @@ theories/$(PROJECT)/vst/clightgen/x86_32-linux/gc.v: \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/gc.h \
 	$(C_INCLUDE_PATH)/coq-vsu-gc/mem.h
 
+theories/$(PROJECT)/vst/clightgen/x86_64-linux/certicoq_gc.v: \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/src/certicoq_gc.c \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/certicoq_gc.h \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/gc.h \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/mem.h
+
+theories/$(PROJECT)/vst/clightgen/x86_32-linux/certicoq_gc.v: \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/src/certicoq_gc.c \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/certicoq_gc.h \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/gc.h \
+	$(C_INCLUDE_PATH)/coq-vsu-gc/mem.h
+
 theories/$(PROJECT)/vst/clightgen/x86_64-linux/%.v:
 	mkdir -p `dirname $@`
 	$(CLIGHTGEN64) -Wall -I`$(VSUTOOL) -I` -normalize -o $@ $<
@@ -86,7 +98,9 @@ theories/$(PROJECT)/vst/clightgen/x86_32-linux/%.v:
 
 clightgen: \
 	theories/$(PROJECT)/vst/clightgen/x86_64-linux/gc.v \
-	theories/$(PROJECT)/vst/clightgen/x86_32-linux/gc.v
+	theories/$(PROJECT)/vst/clightgen/x86_64-linux/certicoq_gc.v \
+	theories/$(PROJECT)/vst/clightgen/x86_32-linux/gc.v \
+	theories/$(PROJECT)/vst/clightgen/x86_32-linux/certicoq_gc.v
 
 
 #

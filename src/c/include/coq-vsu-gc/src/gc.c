@@ -59,12 +59,7 @@ struct heap
 };
 
 
-int Is_block(int_or_ptr x)
-{
-  return int_or_ptr__is_int(x) == 0;
-}
-
-int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit,  int_or_ptr *v)
+int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit, int_or_ptr *v)
 {
   return (from_start <= v && v < from_limit);
 }
@@ -90,64 +85,69 @@ int_or_ptr new_addr_from_forwarded(int_or_ptr *v)
   return v[0];
 }
 
-void mark_as_forwarded(certicoq_block_t old, certicoq_block_t new)
+void mark_as_forwarded(gc_block old, gc_block new)
 {
   old[-1] = 0;
   old[0] = int_or_ptr__of_ptr(new);
 }
 
 typedef struct {
+  const gc_funs_t *gc_funs;
   int_or_ptr *from_start;               /* beginning of from-space */
 	int_or_ptr *from_limit;               /* end of from-space */
 	int_or_ptr **next;                    /* next available spot in to-space */
   int depth;                            /* how much depth-first search to do */
 } forward_args_t;
 
-void forward(void *f_args, int_or_ptr *p)
+void forward(
+  void *f_args,
+  int_or_ptr *p)                        /* caller is responsible for ensuring that (*p) is a pointer */
 {
   forward_args_t *args = (forward_args_t *)f_args;
+  const gc_funs_t *gc_funs = args->gc_funs;
   int_or_ptr *from_start = args->from_start;
 	int_or_ptr *from_limit = args->from_limit;
 	int_or_ptr **next = args->next;
 	int depth = args->depth;
 
-  certicoq_block_t v;
-  int_or_ptr va = *p;
-  if (Is_block(va))
+  gc_block v = (gc_block)int_or_ptr__to_ptr(*p);
+  if (Is_from(from_start, from_limit, v))
   {
-    v = (certicoq_block_t)int_or_ptr__to_ptr(va);
-    if (Is_from(from_start, from_limit, v))
+    if (has_been_forwarded(v))
     {
-      if (has_been_forwarded(v))
+      *p = new_addr_from_forwarded(v);
+    }
+    else
+    {
+      const gc_block_header hd = gc_funs->gc_block__header_get_ptr(v);
+      const size_t sz = gc_funs->gc_block__size_get(hd);
+      gc_block new = gc_funs->gc_block__copy(*next, v);
+      mark_as_forwarded(v, new);
+      *next += sz;
+      *p = new_addr_from_forwarded(v);
+      if (depth > 0)
       {
-	      *p = new_addr_from_forwarded(v);
-      }
-      else
-      {
-        const certicoq_block_header_t *hd = certicoq_block__header_get_ptr(v);
-        const size_t sz = certicoq_block__size_get(hd);
-        certicoq_block_t new = certicoq_block__copy(*next, v);
-        mark_as_forwarded(v, new);
-        *next += sz;
-	      *p = new_addr_from_forwarded(v);
-        if (depth > 0)
-        {
-          forward_args_t f_args = {
-            .from_start = from_start,
-            .from_limit = from_limit,
-            .next = next,
-            .depth = depth - 1,
-          };
-          certicoq_block__field_ptr_iter(new, forward, &f_args);
-        }
+        forward_args_t f_args = {
+          .gc_funs = gc_funs,
+          .from_start = from_start,
+          .from_limit = from_limit,
+          .next = next,
+          .depth = depth - 1,
+        };
+        gc_funs->gc_block__ptr_iter(new, forward, &f_args);
       }
     }
   }
 }
 
+int Is_block(int_or_ptr x)
+{
+  return int_or_ptr__is_int(x) == 0;
+}
 
 /* Forward each live root in the args array */
 void forward_roots(
+  const gc_funs_t *gc_funs,
   int_or_ptr *from_start,               /* beginning of from-space */
 	int_or_ptr *from_limit,               /* end of from-space */
 	int_or_ptr **next,                    /* next available spot in to-space */
@@ -162,17 +162,23 @@ void forward_roots(
   for (i = 0; i < n; i++)
   {
     forward_args_t f_args = {
+      .gc_funs = gc_funs,
       .from_start = from_start,
       .from_limit = from_limit,
       .next = next,
       .depth = DEPTH,
     };
-    forward(&f_args, args+roots[i]);
+    int_or_ptr *p = args+roots[i];
+    if (Is_block(*p))
+    {
+      forward(&f_args, p);
+    }
   }
 }
 
 
 void forward_remset(
+  const gc_funs_t *gc_funs,
   struct space *from,                   /* descriptor of from-space */
   struct space *to,                     /* descriptor of to-space */
   int_or_ptr **next)                    /* next available spot in to-space */
@@ -183,6 +189,7 @@ void forward_remset(
     if (!(from->start <= (int_or_ptr *)*q && (int_or_ptr *)*q < from->limit))
     {
       forward_args_t f_args = {
+        .gc_funs = gc_funs,
         .from_start = from->start,
         .from_limit = from->limit,
         .next = next,
@@ -201,6 +208,7 @@ void forward_remset(
   Leave alone:  header words, and "no_scan" (nonpointer) data.
 */
 void do_scan(
+  const gc_funs_t *gc_funs,
   int_or_ptr *from_start,               /* beginning of from-space */
 	int_or_ptr *from_limit,               /* end of from-space */
 	int_or_ptr *scan,                     /* start of unforwarded part of to-space */
@@ -209,16 +217,17 @@ void do_scan(
   int_or_ptr *s;
   s = scan;
   while(s < *next) {
-    certicoq_block_header_t *hd = (certicoq_block_header_t *)s;
-    certicoq_block_t block = certicoq_block__of_header(hd);
-    const size_t sz = certicoq_block__size_get(hd);
+    gc_block_header hd = (gc_block_header)s;
+    gc_block block = gc_funs->gc_block__of_header(hd);
+    const size_t sz = gc_funs->gc_block__size_get(hd);
     forward_args_t f_args = {
+      .gc_funs = gc_funs,
       .from_start = from_start,
       .from_limit = from_limit,
       .next = next,
       .depth = DEPTH,
     };
-    certicoq_block__field_ptr_iter(block, forward, &f_args);
+    gc_funs->gc_block__ptr_iter(block, forward, &f_args);
     s += sz;
   }
 }
@@ -226,6 +235,7 @@ void do_scan(
 /* Copy the live objects out of the "from" space, into the "to" space,
    using fi and ti to determine the roots of liveness. */
 void do_generation(
+  const gc_funs_t *gc_funs,
   struct space *from,                   /* descriptor of from-space */
 	struct space *to,                     /* descriptor of to-space */
 	fun_info fi,                          /* which args contain live roots? */
@@ -233,8 +243,8 @@ void do_generation(
 {
   int_or_ptr *p = to->next;
   // forward_remset(from, to, &to->next);
-  forward_roots(from->start, from->limit, &to->next, fi, ti);
-  do_scan(from->start, from->limit, p, &to->next);
+  forward_roots(gc_funs, from->start, from->limit, &to->next, fi, ti);
+  do_scan(gc_funs, from->start, from->limit, p, &to->next);
   int_or_ptr *start = from->start;
   int_or_ptr *end  = from->end;
   from->next  = start;
@@ -324,7 +334,7 @@ void resume(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
 }
 
 /* See the header file for the interface-spec of this function. */
-void garbage_collect(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
+void garbage_collect(const gc_funs_t *gc_funs, fun_info fi, struct thread_info *ti)
 {
   struct heap *h = ti->heap;
   int i;
@@ -339,31 +349,28 @@ void garbage_collect(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
     if (h->spaces[i+1].start==NULL)
     {
       uintptr_t w = h->spaces[i].end - h->spaces[i].start;
-      create_space(gc_abort, h->spaces+(i+1), RATIO*w);
+      create_space(gc_funs->gc_abort, h->spaces+(i+1), RATIO*w);
     }
     /* Copy all the objects in generation i, into generation i+1 */
-    do_generation(h->spaces+i, h->spaces+(i+1), fi, ti);
+    do_generation(gc_funs, h->spaces+i, h->spaces+(i+1), fi, ti);
     /* If there's enough space in gen i+1 to guarantee that the
        NEXT collection into i+1 will succeed, we can stop here */
-    if ( h->spaces[i].end - h->spaces[i].start <= h->spaces[i+1].limit - h->spaces[i+1].next)
+    if (h->spaces[i].end - h->spaces[i].start <= h->spaces[i+1].limit - h->spaces[i+1].next)
     {
-        resume(gc_abort, fi, ti);
+        resume(gc_funs->gc_abort, fi, ti);
         return;
     }
   }
   /* If we get to i==MAX_SPACES, that's bad news */
-  gc_abort(GC_E_RAN_OUT_OF_GENERATIONS);
+  gc_funs->gc_abort(GC_E_RAN_OUT_OF_GENERATIONS);
 }
 
-void cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val)
+void remember(struct thread_info *ti, int_or_ptr *p_cell)
 {
-  *p_cell = p_val;
-  if (Is_block(p_val))
-  {
-    *(int_or_ptr **)(--ti->limit) = p_cell;
-    --ti->heap->spaces[0].limit;
-  }
+  *(int_or_ptr **)(--ti->limit) = p_cell;
+  --ti->heap->spaces[0].limit;
 }
+
 
 /* REMARK.  The generation-management policy in the garbage_collect function
    has a potential flaw.  Whenever a record is copied, it is promoted to

@@ -101,15 +101,33 @@ typedef const uintptr_t *fun_info;
 struct heap;     /* abstract, opaque */
 
 typedef enum {
-   GC_E_GENERATION_TOO_LARGE = 1,
-   GC_E_COULD_NOT_CREATE_NEXT_GENERATION = 2,
-   GC_E_COULD_NOT_CREATE_HEAP = 3,
-   GC_E_COULD_NOT_CREATE_THREAD_INFO = 4,
-   GC_E_NURSERY_TOO_SMALL = 5,
-   GC_E_RAN_OUT_OF_GENERATIONS = 6,
+  GC_E_GENERATION_TOO_LARGE = 1,
+  GC_E_COULD_NOT_CREATE_NEXT_GENERATION = 2,
+  GC_E_COULD_NOT_CREATE_HEAP = 3,
+  GC_E_COULD_NOT_CREATE_THREAD_INFO = 4,
+  GC_E_NURSERY_TOO_SMALL = 5,
+  GC_E_RAN_OUT_OF_GENERATIONS = 6,
 } gc_error_t;
 
+typedef const certicoq_block_header_t *gc_block_header;
+typedef certicoq_block_t gc_block;
+
 typedef void (*gc_abort_t)(gc_error_t);
+typedef gc_block_header (*gc_block__header_get_ptr_t)(const gc_block block);
+typedef gc_block (*gc_block__copy_t)(int_or_ptr *dst, const gc_block src);
+typedef void (*gc_block__ptr_iter_t)(gc_block block, void (*f)(void *, int_or_ptr *), void *f_args);
+typedef gc_block (*gc_block__of_header_t)(gc_block_header header);
+typedef size_t (*gc_block__size_get_t)(const gc_block_header header);
+
+typedef struct {
+  gc_abort_t gc_abort;
+  gc_block__header_get_ptr_t gc_block__header_get_ptr;
+  gc_block__copy_t gc_block__copy;
+  gc_block__ptr_iter_t gc_block__ptr_iter;
+  gc_block__of_header_t gc_block__of_header;
+  gc_block__size_get_t gc_block__size_get;
+} gc_funs_t;
+
 
 #define MAX_ARGS 1024
 
@@ -132,7 +150,7 @@ struct thread_info *make_tinfo(gc_abort_t gc_abort);
  (2) the alloc pointer points to N words of unallocated heap space
   (where N>=num_allocs), such that limit-alloc=N.
 */
-void garbage_collect(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti);
+void garbage_collect(const gc_funs_t *gc_funs, fun_info fi, struct thread_info *ti);
 
 /* Deallocates all heap data associated with h, and returns the
  * memory to the operating system (via the malloc/free system).
@@ -150,6 +168,6 @@ void free_heap(struct heap *h);
  */
 void reset_heap(struct heap *h);
 
-void cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val);
+void remember(struct thread_info *ti, int_or_ptr *p_cell);
 
 #endif /* COQ_VSU_GC__GC_H */

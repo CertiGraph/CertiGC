@@ -71,7 +71,6 @@ void mark_as_forwarded(gc_block old, gc_block new)
 }
 
 typedef struct {
-  const gc_funs_t *gc_funs;
   gc_val *from_start;                   /* beginning of from-space */
   gc_val *from_limit;                   /* end of from-space */
   gc_val **next;                        /* next available spot in to-space */
@@ -79,11 +78,12 @@ typedef struct {
 } forward_args_t;
 
 void forward(
+  const void *c_args,
   void *f_args,
   gc_val *p)                            /* caller is responsible for ensuring that (*p) is a pointer */
 {
+  const gc_funs_t *gc_funs = (const gc_funs_t *)c_args;
   forward_args_t *args = (forward_args_t *)f_args;
-  const gc_funs_t *gc_funs = args->gc_funs;
   gc_val *from_start = args->from_start;
   gc_val *from_limit = args->from_limit;
   gc_val **next = args->next;
@@ -107,13 +107,12 @@ void forward(
       if (depth > 0)
       {
         forward_args_t f_args = {
-          .gc_funs = gc_funs,
           .from_start = from_start,
           .from_limit = from_limit,
           .next = next,
           .depth = depth - 1,
         };
-        gc_funs->gc_block__ptr_iter(new, forward, &f_args);
+        gc_funs->gc_block__ptr_iter(new, forward, c_args, &f_args);
       }
     }
   }
@@ -128,13 +127,12 @@ void forward_roots(
   gc_val **next)                        /* next available spot in to-space */
 {
   forward_args_t f_args = {
-    .gc_funs = gc_funs,
     .from_start = from_start,
     .from_limit = from_limit,
     .next = next,
     .depth = DEPTH,
   };
-  gc_funs->gc_rt__root_ptr_iter(rt, forward, &f_args);
+  gc_funs->gc_rt__root_ptr_iter(rt, forward, gc_funs, &f_args);
 }
 
 
@@ -150,13 +148,12 @@ void forward_remset(
     if (!(from->start <= (gc_val *)*q && (gc_val *)*q < from->limit))
     {
       forward_args_t f_args = {
-        .gc_funs = gc_funs,
         .from_start = from->start,
         .from_limit = from->limit,
         .next = next,
         .depth = DEPTH,
       };
-      forward(&f_args, (gc_val *)*q);
+      forward(gc_funs, &f_args, (gc_val *)*q);
       *(--to->limit) = (gc_val)q;
     }
     q++;
@@ -182,13 +179,12 @@ void do_scan(
     gc_block_header hd = gc_funs->gc_block__header_get_ptr(block);
     const size_t sz = gc_funs->gc_block__size_get(hd);
     forward_args_t f_args = {
-      .gc_funs = gc_funs,
       .from_start = from_start,
       .from_limit = from_limit,
       .next = next,
       .depth = DEPTH,
     };
-    gc_funs->gc_block__ptr_iter(block, forward, &f_args);
+    gc_funs->gc_block__ptr_iter(block, forward, gc_funs, &f_args);
     s += sz;
   }
 }

@@ -24,12 +24,12 @@ typedef int_or_ptr gc_val;
 
 typedef gc_block_header (*gc_block__header_get_ptr_t)(const gc_block block);
 typedef gc_block (*gc_block__copy_t)(gc_val *dst, const gc_block src);
-typedef void (*gc_block__ptr_iter_t)(gc_block block, void (*f)(void *, gc_val *), void *f_args);
+typedef void (*gc_block__ptr_iter_t)(gc_block block, void (*f)(const void *, void *, gc_val *), const void *c_args, void *f_args);
 typedef gc_block (*gc_block__of_base_t)(const gc_val *base);
 typedef size_t (*gc_block__size_get_t)(gc_block_header header);
 typedef size_t (*gc_rt__num_allocs_t)(void *rt);
 typedef void (*gc_rt__resume_t)(void *rt, gc_val *alloc, gc_val *limit);
-typedef void (*gc_rt__root_ptr_iter_t)(void *rt, void (*f)(void *, gc_val *), void *f_args);
+typedef void (*gc_rt__root_ptr_iter_t)(void *rt, void (*f)(const void *, void *, gc_val *), const void *c_args, void *f_args);
 
 typedef struct {
   gc_abort_t gc_abort;

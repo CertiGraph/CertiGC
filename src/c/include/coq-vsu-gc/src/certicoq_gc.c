@@ -25,7 +25,7 @@ void certicoq_gc__resume(void *void_rt, int_or_ptr *alloc, int_or_ptr *limit)
   rt->ti->limit = limit;
 }
 
-void certicoq_gc__root_ptr_iter(void *void_rt, void (*f)(void *, gc_val *), void *f_args)
+void certicoq_gc__root_ptr_iter(void *void_rt, void (*f)(const void *, void *, gc_val *), const void *c_args, void *f_args)
 {
   certicoq_gc__runtime_t *rt = (certicoq_gc__runtime_t *)void_rt;
   size_t n = rt->fi[1];
@@ -38,7 +38,7 @@ void certicoq_gc__root_ptr_iter(void *void_rt, void (*f)(void *, gc_val *), void
     int_or_ptr *p = args+roots[i];
     if (int_or_ptr__is_int(*p) == 0)
     {
-      f(&f_args, p);
+      f(c_args, f_args, p);
     }
   }
 }

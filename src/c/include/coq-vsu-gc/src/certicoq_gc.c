@@ -7,7 +7,7 @@
 #include "../gc.h"
 #include "../certicoq_gc.h"
 
-void certicoq_gc__abort(certicoq_gc__error_t e)
+void certicoq_gc__abort(gc__error_t e)
 {
   exit(-1);
 }
@@ -45,7 +45,7 @@ void certicoq_gc__root_ptr_iter(void *void_rt, void (*f)(void *, gc_val *), void
 
 void certicoq_gc__funs_init(gc_funs_t *out)
 {
-  out->gc_abort                 = (gc_abort_t)certicoq_gc__abort;
+  out->gc_abort                 = certicoq_gc__abort;
   out->gc_block__header_get_ptr = (gc_block__header_get_ptr_t)certicoq_block__header_get_ptr;
   out->gc_block__copy           = (gc_block__copy_t)certicoq_block__copy;
   out->gc_block__ptr_iter       = (gc_block__ptr_iter_t)certicoq_block__field_ptr_iter;
@@ -56,28 +56,20 @@ void certicoq_gc__funs_init(gc_funs_t *out)
   out->gc_rt__root_ptr_iter     = (gc_rt__root_ptr_iter_t)certicoq_gc__root_ptr_iter;
 }
 
-struct thread_info *certicoq_gc__make_tinfo()
+void certicoq_gc__make_tinfo(struct thread_info *tinfo)
 {
-  struct heap *h;
-  struct thread_info *tinfo;
-  h = create_heap((gc_abort_t)certicoq_gc__abort);
-  tinfo = (struct thread_info *)malloc(sizeof(struct thread_info));
-  if (!tinfo)
-  {
-    certicoq_gc__abort(CERTICOQ_GC__E_COULD_NOT_CREATE_THREAD_INFO);
-  }
-  tinfo->heap=h;
-  tinfo->alloc=h->spaces[0].start;
-  tinfo->limit=h->spaces[0].limit;
-  return tinfo;
+  struct heap *h = create_heap(certicoq_gc__abort);
+  tinfo->heap = h;
+  tinfo->alloc = h->spaces[0].start;
+  tinfo->limit = h->spaces[0].limit;
 }
 
-void certicoq_gc__free_heap(struct heap *h)
+void certicoq_gc__heap_free(struct heap *h)
 {
   free_heap(h);
 }
 
-void certicoq_gc__reset_heap(struct heap *h)
+void certicoq_gc__heap_reset(struct heap *h)
 {
   reset_heap(h);
 }

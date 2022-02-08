@@ -5,12 +5,6 @@
 
 struct heap;
 
-typedef enum {
-  CERTICOQ_GC__E_COULD_NOT_CREATE_THREAD_INFO = GC__E_LAST_ERROR - 1,
-  CERTICOQ_GC__E_LAST_ERROR = CERTICOQ_GC__E_COULD_NOT_CREATE_THREAD_INFO
-} certicoq_gc__error_t;
-
-
 #define MAX_ARGS 1024
 
 struct thread_info
@@ -33,11 +27,11 @@ typedef struct {
 } certicoq_gc__runtime_t;
 
 
-struct thread_info *certicoq_gc__make_tinfo();
+void certicoq_gc__tinfo_init(struct thread_info *);
 
-void certicoq_gc__free_heap(struct heap *h);
+void certicoq_gc__heap_free(struct heap *h);
 
-void certicoq_gc__reset_heap(struct heap *h);
+void certicoq_gc__heap_reset(struct heap *h);
 
 void certicoq_gc__cell_modify(struct thread_info *ti, int_or_ptr *p_cell, int_or_ptr p_val);
 

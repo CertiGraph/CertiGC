@@ -93,15 +93,15 @@ void mark_as_forwarded(gc_block old, gc_block new)
 
 typedef struct {
   const gc_funs_t *gc_funs;
-  gc_val *from_start;               /* beginning of from-space */
-  gc_val *from_limit;               /* end of from-space */
-  gc_val **next;                    /* next available spot in to-space */
+  gc_val *from_start;                   /* beginning of from-space */
+  gc_val *from_limit;                   /* end of from-space */
+  gc_val **next;                        /* next available spot in to-space */
   int depth;                            /* how much depth-first search to do */
 } forward_args_t;
 
 void forward(
   void *f_args,
-  gc_val *p)                        /* caller is responsible for ensuring that (*p) is a pointer */
+  gc_val *p)                            /* caller is responsible for ensuring that (*p) is a pointer */
 {
   forward_args_t *args = (forward_args_t *)f_args;
   const gc_funs_t *gc_funs = args->gc_funs;
@@ -143,9 +143,9 @@ void forward(
 /* Forward each live root in the args array */
 void forward_roots(
   const gc_funs_t *gc_funs,
-  gc_val *from_start,               /* beginning of from-space */
-  gc_val *from_limit,               /* end of from-space */
-  gc_val **next,                    /* next available spot in to-space */
+  gc_val *from_start,                   /* beginning of from-space */
+  gc_val *from_limit,                   /* end of from-space */
+  gc_val **next,                        /* next available spot in to-space */
   fun_info fi,                          /* which args contain live roots? */
   struct thread_info *ti)               /* where's the args array? */
 {
@@ -176,7 +176,7 @@ void forward_remset(
   const gc_funs_t *gc_funs,
   struct space *from,                   /* descriptor of from-space */
   struct space *to,                     /* descriptor of to-space */
-  gc_val **next)                    /* next available spot in to-space */
+  gc_val **next)                        /* next available spot in to-space */
 {
   gc_val *q = from->limit;
   while (q != from->end)
@@ -204,10 +204,10 @@ void forward_remset(
 */
 void do_scan(
   const gc_funs_t *gc_funs,
-  gc_val *from_start,               /* beginning of from-space */
-  gc_val *from_limit,               /* end of from-space */
-  gc_val *scan,                     /* start of unforwarded part of to-space */
-  gc_val **next)                    /* next available spot in to-space */
+  gc_val *from_start,                   /* beginning of from-space */
+  gc_val *from_limit,                   /* end of from-space */
+  gc_val *scan,                         /* start of unforwarded part of to-space */
+  gc_val **next)                        /* next available spot in to-space */
 {
   gc_val *s;
   s = scan;

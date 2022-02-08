@@ -20,11 +20,13 @@ Proof.
       (offset_val (if Archi.ptr64 then 16 else 8) fi) by
       (rewrite sem_add_pi'; auto; rep_lia).
   remember (Zlength (live_roots_indices f_info)) as n.
-  replace_SEP 1 (fun_info_rep rsh f_info fi) by entailer.
-  assert (Zlength roots = Zlength (live_roots_indices f_info)). {
-    destruct H as [_ [? _]]. red in H.
+  replace_SEP 0 (fun_info_rep rsh f_info fi) by entailer.
+  assert (Zlength roots = Zlength (live_roots_indices f_info)).
+  {
+    destruct H as [_ [? _]].
+    red in H.
     now rewrite <- (Zlength_map _ _ ((fun x y => Znth y x) (ti_args t_info))), <- H, Zlength_map.
-    }
+  }
   forward_for_simple_bound
     n
     (EX i: Z, EX g' : HeapGraph, EX t_info': thread_info, EX roots' : roots_t,
@@ -44,8 +46,7 @@ Proof.
       ; temp _next (next_address t_info' to)
       )
      SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g'
       ; thread_info_rep sh t_info' ti
@@ -67,69 +68,91 @@ Proof.
                                [ArraySubsc (i+2)] fi). {
       entailer!. simpl. unfold field_address. rewrite if_true; simpl.
       1: f_equal; lia. unfold field_compatible in *. intuition. red. split; auto.
-      simpl. lia. } forward. do 2 rewrite Znth_pos_cons by lia.
-    replace (i + 2 - 1 - 1) with i by lia. apply semax_if_seq. rewrite Heqn in H6.
-    pose proof (fi_index_range _ _ (Znth_In _ _ H6)). forward_if.
-    + forward. do 2 rewrite Znth_pos_cons by lia.
-      replace (i + 2 - 1 - 1) with i by lia.
-      remember (Znth i (live_roots_indices f_info)).
-      replace_SEP 1 (fun_info_rep rsh f_info fi) by entailer.
-      assert_PROP (force_val
-                     (if Archi.ptr64
-                        then (sem_add_ptr_long int_or_ptr_type (offset_val 24 ti) (Z2val z))
-                        else (sem_add_ptr_int int_or_ptr_type Unsigned (offset_val 12 ti) (Z2val z)))
-                      = field_address thread_info_type [ArraySubsc z; StructField _args] ti
-      ).
-      {
-        unfold thread_info_rep. Intros. entailer!. simpl. unfold Z2val.
-        first [rewrite sem_add_pi_ptr_special' |
-               rewrite sem_add_pl_ptr_special] ; auto. simpl. unfold field_address.
-        rewrite if_true. 1: simpl; rewrite offset_offset_val; reflexivity.
-        unfold field_compatible in *. simpl. unfold in_members. simpl.
-        intuition lia.
-      }
-      assert (Zlength roots' = Zlength roots) by (apply frl_roots_Zlength in H8; assumption).
-      forward_call (rsh, sh, gv, fi, ti, g', t_info', f_info, roots', outlier, from, to, 0, (@inl _ (Addr*Z) i)).
-      * simpl snd. apply prop_right.
+      simpl. lia.
+    }
+    forward.
+    do 2 rewrite Znth_pos_cons by lia.
+    replace (i + 2 - 1 - 1) with i by lia.
+
+    replace (i + 2 - 1 - 1) with i by lia.
+    remember (Znth i (live_roots_indices f_info)).
+    replace_SEP 0 (fun_info_rep rsh f_info fi) by entailer.
+    assert_PROP
+      (force_val
+        (if Archi.ptr64
+          then (sem_add_ptr_long int_or_ptr_type (offset_val 24 ti) (Z2val z))
+          else (sem_add_ptr_int int_or_ptr_type Unsigned (offset_val 12 ti) (Z2val z)))
+        = field_address thread_info_type [ArraySubsc z; StructField _args] ti
+      )
+      as H13.
+    {
+      unfold thread_info_rep. Intros. entailer!. simpl. unfold Z2val.
+      first [rewrite sem_add_pi_ptr_special' |
+              rewrite sem_add_pl_ptr_special] ; auto. simpl. unfold field_address.
+      rewrite if_true. 1: simpl; rewrite offset_offset_val; reflexivity.
+      unfold field_compatible in *. simpl. unfold in_members. simpl.
+      intuition (try lia).
+      - admit.
+      - admit.
+    }
+    assert (Zlength roots' = Zlength roots) by (apply frl_roots_Zlength in H8; assumption).
+    forward_call (rsh, sh, gv, fi, ti, g', t_info', f_info, roots', outlier, from, to, 0, (@inl _ (Addr*Z) i)).
+    * simpl snd. apply prop_right.
       change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 2%N |}) with int_or_ptr_type.
       change (Tpointer tvoid {| attr_volatile := false; attr_alignas := Some 3%N |}) with int_or_ptr_type.
-      simpl. cbv [Archi.ptr64] in H15. rewrite H15.
-        rewrite <- Heqz. clear. intuition.
-      * intuition. red. rewrite H16, H5. split; assumption.
-      * Intros vret. destruct vret as [[g2 t_info2] roots2]. simpl fst in *.
-        simpl snd in *. simpl forward_p2forward_t in H16. Exists g2 t_info2 roots2.
-        assert (thread_info_relation t_info t_info2) by (eapply tir_trans; eauto).
-        assert
-          (thread_info__remembered_invariant t_info t_info2)
-          as HH24.
-        {
-          unfold thread_info__remembered_invariant in *.
-          intro m. congruence.
-        }
-        assert (heapgraph_generation_base g' from = heapgraph_generation_base g2 from). {
-          eapply fr_gen_start; eauto. destruct H11 as [_ [_ [? _]]].
-          assumption. }
-        assert (limit_address g2 t_info2 from = limit_address g' t_info' from).
-        {
-          unfold limit_address.
-          now rewrite H22, H24, (thread_info_relation__gen_size H21).
-        }
-        assert (next_address t_info2 to = next_address t_info' to) by
-            (unfold next_address; now rewrite (thread_info_relation__ti_heap H21)).
-        destruct H17 as [H17 [H27 [H28 H29]]].
-        entailer!.
-        replace
-          (Z.to_nat (i + 1))
-          with (S (Z.to_nat i))
-          by (rewrite Z2Nat.inj_add by lia; simpl; lia).
-        rewrite nat_inc_list_S.
-        remember (Z.to_nat i) as n.
-        replace i with (Z.of_nat n) in * by (subst n;rewrite Z2Nat.id; lia).
-        simpl in H19.
-        split; [apply frl_add_tail|split]; easy.
-    + exfalso. try (rewrite !Int64.unsigned_repr in H14; [|rep_lia..]). rep_lia.
-  - Intros g' t_info' roots'. Exists g' t_info' roots'.
+      simpl.
+      cbv [Archi.ptr64] in H13.
+      rewrite H13.
+      rewrite <- Heqz.
+      clear.
+      intuition idtac.
+    * intuition idtac.
+      red.
+      rewrite H14, H5.
+      admit.
+    * Intros vret.
+      destruct vret as [[g2 t_info2] roots2].
+      simpl fst in *.
+      simpl snd in *.
+      simpl forward_p2forward_t in H16.
+      Exists g2 t_info2 roots2.
+      assert (thread_info_relation t_info t_info2) by (eapply tir_trans; eauto).
+      assert
+        (thread_info__remembered_invariant t_info t_info2)
+        as HH24.
+      {
+        unfold thread_info__remembered_invariant in *.
+        intro m. congruence.
+      }
+      assert (heapgraph_generation_base g' from = heapgraph_generation_base g2 from).
+      {
+        eapply fr_gen_start; eauto. destruct H11 as [_ [_ [? _]]].
+        assumption.
+      }
+      assert (limit_address g2 t_info2 from = limit_address g' t_info' from).
+      {
+        unfold limit_address.
+        now rewrite (thread_info_relation__gen_size H19), H22, H20.
+      }
+      assert (next_address t_info2 to = next_address t_info' to).
+      {
+        unfold next_address.
+        now rewrite (thread_info_relation__ti_heap H19).
+      }
+      destruct H15 as [H15 [H27 [H28 H29]]].
+      entailer!.
+      replace
+        (Z.to_nat (i + 1))
+        with (S (Z.to_nat i))
+        by (rewrite Z2Nat.inj_add by lia; simpl; lia).
+      rewrite nat_inc_list_S.
+      remember (Z.to_nat i) as n.
+      replace i with (Z.of_nat n) in * by (subst n;rewrite Z2Nat.id; lia).
+      simpl in H19.
+      split; [apply frl_add_tail|split]; easy.
+  - Intros g' t_info' roots'.
+    Exists g' t_info' roots'.
     destruct H8 as [? [? [? ?]]].
     entailer!.
     now rewrite <- H5, ZtoNat_Zlength in H6.
-Qed.
+Admitted.

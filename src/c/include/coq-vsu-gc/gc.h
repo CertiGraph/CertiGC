@@ -2,7 +2,7 @@
 #define COQ_VSU_GC__GC_H
 
 #include <coq-vsu-int_or_ptr/int_or_ptr.h>
-#include <coq-certicoq-block/block.h>
+#include <coq-vsu-certicoq-block/block.h>
 
 /* EXPLANATION OF THE CERTICOQ GENERATIONAL GARBAGE COLLECTOR.
  Andrew W. Appel, September 2016

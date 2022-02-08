@@ -76,10 +76,8 @@ Proof.
   forward_call (heap_type, gv).
   Intros h. if_tac.
   - subst h; forward_if False; [| first [exfalso; now apply H | inversion H ]].
-    unfold all_string_constants; Intros;
-      forward_call ((gv ___stringlit_7),
-                    (map init_data2byte (gvar_init v___stringlit_7)), sh);
-      exfalso; assumption.
+    forward_call.
+    contradiction.
   - Intros. forward_if True; [contradiction | forward; entailer! |]. Intros.
     (* make "data_at sh space_type v h " in SEP *)
     assert_PROP (isptr h) by entailer!. remember (Vundef, (Vundef, (Vundef, Vundef))) as vn.
@@ -91,7 +89,9 @@ Proof.
     rewrite (split2_data_at_Tarray_space_type Ews 12 1);
       [| lia | rewrite Zlength_repeat; lia].
     rewrite sublist_repeat by lia. simpl repeat at 1.
-    rewrite space_array_1_eq. Intros. forward_call (Ews, h, Z.shiftl 1 16, gv, sh).
+    rewrite space_array_1_eq.
+    Intros.
+    forward_call (gc_abort, Ews, h, Z.shiftl 1 16, gv, sh).
     (* make succeed *)
     + unfold MAX_SPACE_SIZE. compute; split; [discriminate | reflexivity].
     + Intros p0. freeze [0;1;2;3;4;6] FR.

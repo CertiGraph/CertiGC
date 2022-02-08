@@ -64,7 +64,7 @@ Proof.
                  temp _from_start (heapgraph_generation_base g' from);
                  temp _from_limit (limit_address g' t_info' from);
                  temp _next (next_address t_info' to))
-                SEP (all_string_constants rsh gv; fun_info_rep rsh f_info fi;
+                SEP (fun_info_rep rsh f_info fi;
                outlier_rep outlier; graph_rep g'; thread_info_rep sh t_info' ti))
   break: (EX g' : HeapGraph, EX t_info' : thread_info,
           PROP (super_compatible (g', t_info', roots) f_info outlier;
@@ -73,8 +73,7 @@ Proof.
                 thread_info_relation t_info t_info';
                 thread_info__remembered_invariant t_info t_info')
           LOCAL ()
-          SEP (all_string_constants rsh gv; fun_info_rep rsh f_info fi;
-               outlier_rep outlier; graph_rep g'; thread_info_rep sh t_info' ti)).
+          SEP (fun_info_rep rsh f_info fi; outlier_rep outlier; graph_rep g'; thread_info_rep sh t_info' ti)).
   - Exists O g t_info.
     destruct H as [? [? [? ?]]].
     replace (to_index + 0)%nat with to_index by lia.
@@ -113,7 +112,7 @@ Proof.
     unfold heapgraph_generation_base at 1. rewrite if_true by assumption. rewrite H18.
     remember (WORD_SIZE * space_allocated sp_to)%Z as used_offset.
     remember (WORD_SIZE * heapgraph_block_size_prev g' to index)%Z as index_offset.
-    freeze [0; 1; 2; 4; 5] FR.
+    freeze [0; 1; 3; 4] FR.
     gather_SEP (graph_rep g') (heap_rest_rep (ti_heap t_info')).
     assert (
         forall b i,
@@ -250,7 +249,8 @@ Proof.
       unfold heapgraph_generation_has_index. rewrite <- H20 in H26.
       rewrite <- Z.mul_lt_mono_pos_l in H26 by (unfold WORD_SIZE; lia).
       intro; apply H26. now apply heapgraph_block_size_prev__mono_strict.
-    + clear H8 H23 H24. Intros. thaw FR. freeze [1;2;3;4;5;6] FR.
+    + clear H8 H23 H24. Intros. thaw FR.
+      freeze [1;2;3;4;5] FR.
       assert (heapgraph_has_block g' {| addr_gen := to ; addr_block := index |}) by easy.
       (* annotation theta 7 *)
       localize [vertex_rep (heapgraph_generation_sh g' to) g' {| addr_gen := to ; addr_block := index |}].
@@ -294,7 +294,7 @@ Proof.
                   (nat_inc_list (length (heapgraph_block g' {| addr_gen := to ; addr_block := index |}).(block_fields))) g' g'');
                 thread_info__remembered_invariant t_info t_info'')
          LOCAL (temp _tag (vint (block_tag (heapgraph_block g' {| addr_gen := to ; addr_block := index |})));
-                temp _sz
+                temp _field_count
                      (if Archi.ptr64 then
                         Vlong (Int64.repr
                                  (Zlength (block_fields (heapgraph_block g' {| addr_gen := to ; addr_block := index |}))))
@@ -304,8 +304,7 @@ Proof.
                 temp _from_limit (limit_address g'' t_info'' from);
                 temp _next (next_address t_info'' to))
          SEP (thread_info_rep sh t_info'' ti; graph_rep g'';
-              fun_info_rep rsh f_info fi;
-              all_string_constants rsh gv; outlier_rep outlier)).
+              fun_info_rep rsh f_info fi; outlier_rep outlier)).
       * try (rewrite Int64.unsigned_repr in H27;
              [|pose proof (block_tag__range (heapgraph_block g' {| addr_gen := to ; addr_block := index |})); rep_lia]).
         apply typed_true_tag in H27.
@@ -329,13 +328,12 @@ Proof.
                 thread_info__remembered_invariant t_info t_info3)
            LOCAL (temp _tag (vint (block_tag (heapgraph_block g' {| addr_gen := to ; addr_block := index |})));
                   temp _j (if Archi.ptr64 then (Vlong (Int64.repr i)) else vint i);
-                  temp _sz (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
+                  temp _field_count (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
                   temp _s (offset_val (- WORD_SIZE) (heapgraph_block_ptr g3 {| addr_gen := to ; addr_block := index |}));
                   temp _from_start (heapgraph_generation_base g3 from);
                   temp _from_limit (limit_address g3 t_info3 from);
                   temp _next (next_address t_info3 to))
-           SEP (all_string_constants rsh gv;
-                outlier_rep outlier;
+           SEP (outlier_rep outlier;
                 fun_info_rep rsh f_info fi;
                 graph_rep g3;
                 thread_info_rep sh t_info3 ti))
@@ -352,13 +350,12 @@ Proof.
                 thread_info__remembered_invariant t_info t_info3)
            LOCAL (temp _tag (vint (block_tag (heapgraph_block g' {| addr_gen := to ; addr_block := index |})));
                   temp _j (if Archi.ptr64 then (Vlong (Int64.repr i)) else vint i);
-                  temp _sz (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
+                  temp _field_count (if Archi.ptr64 then (Vlong (Int64.repr z)) else vint z);
                   temp _s (offset_val (- WORD_SIZE) (heapgraph_block_ptr g3 {| addr_gen := to ; addr_block := index |}));
                   temp _from_start (heapgraph_generation_base g3 from);
                   temp _from_limit (limit_address g3 t_info3 from);
                   temp _next (next_address t_info3 to))
-           SEP (all_string_constants rsh gv;
-                fun_info_rep rsh f_info fi;
+           SEP (fun_info_rep rsh f_info fi;
                 outlier_rep outlier;
                 graph_rep g3;
                 thread_info_rep sh t_info3 ti)).

@@ -57,10 +57,10 @@ Proof.
     as H15
     by (apply HS; assumption).
   clear HS.
-  freeze [0;1;2;3] FR.
+  freeze [0;1;2] FR.
   localize [space_struct_rep sh t_info from; space_struct_rep sh t_info to].
   unfold space_struct_rep, space_tri.
-  do 5 forward.
+  do 3 forward.
   gather_SEP
     (data_at sh space_type _ (space_address t_info from))
     (data_at sh space_type _ (space_address t_info to)).
@@ -102,6 +102,7 @@ Proof.
     simpl.
     now destruct peq.
   }
+(*
   forward_if True.
   {
     forward.
@@ -190,10 +191,11 @@ Proof.
     repeat rewrite space_remembered__is_zero in *.
     lia.
   }
+*)
   Intros.
   localize [space_struct_rep sh t_info from].
   unfold space_struct_rep, space_tri.
-  do 2 (forward; [subst from_p; entailer!|]).
+  (* do 2 (forward; [subst from_p; entailer!|]). *)
   replace_SEP 0
     (space_struct_rep sh t_info from)
     by (unfold space_struct_rep, space_tri; entailer!).
@@ -203,7 +205,7 @@ Proof.
   }
   apply dgc_imply_fc in H0.
   destruct H0 as [H0 [H18 [H19 H20]]].
-  rewrite <- Heqfrom_p.
+  (* rewrite <- Heqfrom_p. *)
   replace
     from_p
     with (heapgraph_generation_base g from)
@@ -240,7 +242,7 @@ Proof.
   destruct vret as [[g1 t_info1] roots1].
   simpl fst in *.
   simpl snd in *.
-  freeze [0;1;2;3] FR. 
+  freeze [0;1;2] FR. 
   replace
     (space_address t_info from)
     with (space_address t_info1 from)
@@ -331,7 +333,7 @@ Proof.
   destruct vret as [g2 t_info2].
   simpl fst in *.
   simpl snd in *.
-  forward_if True; Intros; [contradiction | forward; entailer! |].
+  (* forward_if True; Intros; [contradiction | forward; entailer! |]. *)
   replace
     (space_address t_info1 from)
     with (space_address t_info2 from)
@@ -359,7 +361,7 @@ Proof.
     rewrite if_true by assumption.
     apply generation_base__isptr.
   }
-  freeze [0;1;2;3] FR.
+  freeze [0;1;2] FR.
   localize [space_struct_rep sh t_info2 from].
   unfold space_struct_rep, space_tri.
   do 2 forward.
@@ -373,7 +375,7 @@ Proof.
   thaw FR.
   unfold thread_info_rep.
   Intros.
-  freeze [0;2;3;4;6] FR.
+  freeze [0;2;3;4] FR.
   rewrite heap_struct_rep_eq.
   assert_PROP
     (space_address t_info2 from = field_address (tarray space_type 12) [ArraySubsc (Z.of_nat from)] (ti_heap_p t_info2))
@@ -387,7 +389,8 @@ Proof.
       simpl in *.
       intuition lia.
   }
-  rewrite Espace_address. clear Espace_address.
+  rewrite Espace_address.
+  clear Espace_address.
   Opaque Znth.
   forward. { Transparent Znth. entailer!. }
   forward. { Transparent Znth. entailer!. }
@@ -417,7 +420,7 @@ Proof.
     assert (from < length (heap_spaces (ti_heap t_info2)))%nat by
         (destruct H34 as [[_ [_ ?]] _]; red in H40; lia).
     simpl.
-    rewrite (reset_nth_space_Znth _ _ H54), <- nth_space_Znth, <- upd_Znth_map.
+    rewrite (reset_nth_space_Znth _ _ H52), <- nth_space_Znth, <- upd_Znth_map.
     unfold space_tri at 3.
     simpl.
     replace

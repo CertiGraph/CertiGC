@@ -37,7 +37,6 @@ Clone and install [CertiGraph](https://github.com/Salamari/CertiGraph/) using th
 * `coq-vsu-gc-src` - C source code
 * `coq-vsu-gc-vst` - VST model, spec, and proof (`x86_64-linux`)
 * `coq-vsu-gc-vst-32` - VST model, spec, and proof (`x86_32-linux`)
-* `coq-vsu-gc` - All of the above
 
 ## Installing
 
@@ -45,7 +44,7 @@ Installation is performed by `opam` with help by [coq-vsu](https://github.com/ap
 
 ```console
 $ opam pin -n -y .
-$ opam install --working-dir ./coq-vsu-gc.opam
+$ opam install coq-vsu-gc-vst coq-vsu-gc-vst-32
 ```
 
 ## Using the C library

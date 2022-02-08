@@ -5,9 +5,6 @@
 #include "../mem.h"
 
 
-#define No_scan_tag 251
-#define No_scan(t) ((t) >= No_scan_tag)
-
 #define MAX_SPACES 12  /* how many generations */
 
 /*  Using RATIO=2 is faster than larger ratios, empirically */
@@ -72,7 +69,6 @@ int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit,  int_or_ptr *v)
   return (from_start <= v && v < from_limit);
 }
 
-
 /* What it does:  If *p is a pointer, AND it points into from-space,
    then make *p point at the corresponding object in to-space.
    If such an object did not already exist, create it at address *next
@@ -83,50 +79,66 @@ int Is_from(int_or_ptr *from_start, int_or_ptr *from_limit,  int_or_ptr *v)
    collection.  Setting depth to a small integer (perhaps 10)
    may improve the cache locality of the copied graph.
 */
-void forward (
-  int_or_ptr *from_start,               /* beginning of from-space */
-	int_or_ptr *from_limit,               /* end of from-space */
-	int_or_ptr **next,                    /* next available spot in to-space */
-	int_or_ptr *p,                        /* location of word to forward */
-	int depth)                            /* how much depth-first search to do */
+
+int has_been_forwarded(int_or_ptr *v)
 {
+  return v[-1] == 0;
+}
+
+int_or_ptr new_addr_from_forwarded(int_or_ptr *v)
+{
+  return v[0];
+}
+
+void mark_as_forwarded(certicoq_block_t old, certicoq_block_t new)
+{
+  old[-1] = 0;
+  old[0] = int_or_ptr__of_ptr(new);
+}
+
+typedef struct {
+  int_or_ptr *from_start;               /* beginning of from-space */
+	int_or_ptr *from_limit;               /* end of from-space */
+	int_or_ptr **next;                    /* next available spot in to-space */
+  int depth;                            /* how much depth-first search to do */
+} forward_args_t;
+
+void forward(void *f_args, int_or_ptr *p)
+{
+  forward_args_t *args = (forward_args_t *)f_args;
+  int_or_ptr *from_start = args->from_start;
+	int_or_ptr *from_limit = args->from_limit;
+	int_or_ptr **next = args->next;
+	int depth = args->depth;
+
   certicoq_block_t v;
   int_or_ptr va = *p;
-  if(Is_block(va))
+  if (Is_block(va))
   {
     v = (certicoq_block_t)int_or_ptr__to_ptr(va);
-    if(Is_from(from_start, from_limit, v))
+    if (Is_from(from_start, from_limit, v))
     {
-      certicoq_block_header_t hd = certicoq_block__get_header(v);
-      if(hd == 0)
-      { /* already forwarded */
-	      *p = certicoq_block__get_field(v, 0);
+      if (has_been_forwarded(v))
+      {
+	      *p = new_addr_from_forwarded(v);
       }
       else
       {
-        size_t i;
-        const size_t field_count = certicoq_block__get_field_count(hd);
-        int_or_ptr *new = certicoq_block__init(*next, hd);
-        *next = new + field_count;
-        for(i = 0; i < field_count; i++)
-        {
-          certicoq_block__set_field(new, i, certicoq_block__get_field(v, i));
-        }
-        certicoq_block__set_header(v, 0);
-        certicoq_block__set_field(v, 0, int_or_ptr__of_ptr(new));
-        *p = int_or_ptr__of_ptr(new);
+        const certicoq_block_header_t *hd = certicoq_block__header_get_ptr(v);
+        const size_t sz = certicoq_block__size_get(hd);
+        certicoq_block_t new = certicoq_block__copy(*next, v);
+        mark_as_forwarded(v, new);
+        *next += sz;
+	      *p = new_addr_from_forwarded(v);
         if (depth > 0)
         {
-          for (i = 0; i < field_count; i++)
-          {
-            forward(
-              from_start,
-              from_limit,
-              next,
-              certicoq_block__get_field_ptr(new, i),
-              depth - 1
-            );
-          }
+          forward_args_t f_args = {
+            .from_start = from_start,
+            .from_limit = from_limit,
+            .next = next,
+            .depth = depth - 1,
+          };
+          certicoq_block__field_ptr_iter(new, forward, &f_args);
         }
       }
     }
@@ -147,15 +159,15 @@ void forward_roots(
    const uintptr_t *roots = fi+2;
    int_or_ptr *args = ti->args;
 
-  for(i = 0; i < n; i++)
+  for (i = 0; i < n; i++)
   {
-    forward(
-      from_start,
-      from_limit,
-      next,
-      args+roots[i],
-      DEPTH
-    );
+    forward_args_t f_args = {
+      .from_start = from_start,
+      .from_limit = from_limit,
+      .next = next,
+      .depth = DEPTH,
+    };
+    forward(&f_args, args+roots[i]);
   }
 }
 
@@ -170,7 +182,13 @@ void forward_remset(
   {
     if (!(from->start <= (int_or_ptr *)*q && (int_or_ptr *)*q < from->limit))
     {
-      forward(from->start, from->limit, next, (int_or_ptr *)*q, DEPTH);
+      forward_args_t f_args = {
+        .from_start = from->start,
+        .from_limit = from->limit,
+        .next = next,
+        .depth = DEPTH,
+      };
+      forward(&f_args, (int_or_ptr *)*q);
       *(--to->limit) = (int_or_ptr)q;
     }
     q++;
@@ -191,24 +209,17 @@ void do_scan(
   int_or_ptr *s;
   s = scan;
   while(s < *next) {
-    certicoq_block_header_t hd = *((certicoq_block_header_t *) s);
-    const size_t field_count = certicoq_block__get_field_count(hd);
-    certicoq_block_tag_t tag = certicoq_block__get_tag(hd);
-    if (!No_scan(tag))
-    {
-      size_t j;
-      for(j = 1; j <= field_count; j++)
-      {
-	      forward(
-          from_start,
-          from_limit,
-          next,
-          certicoq_block__get_field_ptr(s, j),
-          DEPTH
-        );
-      }
-    }
-    s += 1 + field_count;
+    certicoq_block_header_t *hd = (certicoq_block_header_t *)s;
+    certicoq_block_t block = certicoq_block__of_header(hd);
+    const size_t sz = certicoq_block__size_get(hd);
+    forward_args_t f_args = {
+      .from_start = from_start,
+      .from_limit = from_limit,
+      .next = next,
+      .depth = DEPTH,
+    };
+    certicoq_block__field_ptr_iter(block, forward, &f_args);
+    s += sz;
   }
 }
 
@@ -265,7 +276,7 @@ struct heap *create_heap(gc_abort_t gc_abort)
     gc_abort(GC_E_COULD_NOT_CREATE_HEAP);
   }
   create_space(gc_abort, h->spaces+0, NURSERY_SIZE);
-  for(i=1; i<MAX_SPACES; i++)
+  for (i = 1; i < MAX_SPACES; i++)
   {
     h->spaces[i].start = NULL;
     h->spaces[i].next = NULL;
@@ -317,7 +328,7 @@ void garbage_collect(gc_abort_t gc_abort, fun_info fi, struct thread_info *ti)
 {
   struct heap *h = ti->heap;
   int i;
-  for (i=0; i<MAX_SPACES-1; i++)
+  for (i = 0; i < MAX_SPACES-1; i++)
   {
     /* Starting with the youngest generation, collect each generation
        into the next-older generation.  Usually, when doing that,

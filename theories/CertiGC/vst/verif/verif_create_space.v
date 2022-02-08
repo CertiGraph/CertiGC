@@ -31,21 +31,26 @@ Proof.
       rewrite Z.max_r; [reflexivity | destruct H; assumption].
     + Intros p. if_tac.
       * subst p. forward_if False.
-        -- unfold all_string_constants. Intros.
-           forward_call ((gv ___stringlit_6),
-                         (map init_data2byte (gvar_init v___stringlit_6)), rsh).
-           exfalso; assumption.
+        -- Intros.
+           forward_call.
+           contradiction.
         -- first [exfalso; now apply H0 | inversion H0 ].
       * Intros. forward_if (
                     PROP ( )
                     LOCAL (temp _p p; temp _s s;
                            temp _n (if Archi.ptr64 then Vlong (Int64.repr n)
                                     else Vint (Int.repr n)))
-                    SEP (mem_mgr gv; all_string_constants rsh gv;
+                    SEP (func_ptr' gc_abort_spec gc_abort
+                        ; mem_mgr gv;
                          malloc_token Ews (Tarray int_or_ptr_type n noattr) p;
                          data_at_ Ews (Tarray int_or_ptr_type n noattr) p;
                          data_at_ sh space_type s; MSS_constant gv)).
         -- contradiction.
-        -- forward. unfold MSS_constant. entailer!.
-        -- do 4 forward. Exists p. unfold tarray. entailer!.
+        -- forward.
+           unfold MSS_constant.
+           entailer!.
+        -- do 4 forward.
+           Exists p.
+           unfold tarray.
+           entailer!.
 Qed.

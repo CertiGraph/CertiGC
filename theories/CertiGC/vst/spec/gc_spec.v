@@ -14,95 +14,24 @@ From CertiGC Require Import vst.cmodel.spatial_gcgraph.
 
 Local Open Scope logic.
 
-Definition init_data2byte (d: init_data) : byte :=
-  match d with
-  | Init_int8 m => Byte.repr (Int.intval m)
-  | _ => Byte.one
-  end.
+Definition gc_abort_t: type := tptr (Tfunction (Ctypes.Tcons tint Ctypes.Tnil) tvoid cc_default).
 
-Definition all_string_constants (sh: share) (gv: globals) : mpred :=
-  cstring sh (map init_data2byte (gvar_init v___stringlit_1)) (gv ___stringlit_1) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_2)) (gv ___stringlit_2) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_3)) (gv ___stringlit_3) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_4)) (gv ___stringlit_4) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_5)) (gv ___stringlit_5) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_6)) (gv ___stringlit_6) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_7)) (gv ___stringlit_7) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_8)) (gv ___stringlit_8) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_9)) (gv ___stringlit_9) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_10)) (gv ___stringlit_10) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_11)) (gv ___stringlit_11) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_12)) (gv ___stringlit_12) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_13)) (gv ___stringlit_13) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_14)) (gv ___stringlit_14) *
-  cstring sh (map init_data2byte (gvar_init v___stringlit_15)) (gv ___stringlit_15).
+Definition gc_abort_spec :=
+  WITH e : val
+  PRE [ tint ]
+    PROP ()
+    PARAMS (e)
+    GLOBALS ()
+    SEP ()
+  POST [ tvoid ]
+    PROP (False)
+    LOCAL ()
+    SEP ().
 
 Definition MSS_constant (gv: globals): mpred :=
   data_at Ews (if Archi.ptr64 then tulong else tuint)
           (if Archi.ptr64 then Vlong (Int64.repr MAX_SPACE_SIZE) else
              Vint (Int.repr MAX_SPACE_SIZE)) (gv _MAX_SPACE_SIZE).
-
-Definition test_int_or_ptr_spec :=
- DECLARE _test_int_or_ptr
- WITH x : val
- PRE [ int_or_ptr_type ]
-   PROP (valid_int_or_ptr x)
-   PARAMS (x)
-   GLOBALS ()
-   SEP ()
- POST [ tint ]
-   PROP()
-   LOCAL(temp ret_temp
-          (Vint (Int.repr (match x with
-                           | Vint _ => if Archi.ptr64 then 0 else 1
-                           | Vlong _ => if Archi.ptr64 then 1 else 0
-                           | _ => 0
-                           end))))
-   SEP().
-
-Definition int_or_ptr_to_int_spec :=
-  DECLARE _int_or_ptr_to_int
-  WITH x : val
-  PRE [ int_or_ptr_type ]
-    PROP (is_int I32 Signed x)
-    PARAMS (x)
-    GLOBALS ()
-    SEP ()
-  POST [ (if Archi.ptr64 then tlong else tint) ]
-    PROP() LOCAL (temp ret_temp x) SEP().
-
-Definition int_or_ptr_to_ptr_spec :=
-  DECLARE _int_or_ptr_to_ptr
-  WITH x : val
-  PRE [ int_or_ptr_type ]
-    PROP (isptr x)
-    PARAMS (x)
-    GLOBALS ()
-    SEP ()
-  POST [ tptr tvoid ]
-    PROP() LOCAL (temp ret_temp x) SEP().
-
-Definition int_to_int_or_ptr_spec :=
-  DECLARE _int_to_int_or_ptr
-  WITH x : val
-  PRE [ (if Archi.ptr64 then tlong else tint) ]
-    PROP (valid_int_or_ptr x)
-    PARAMS (x)
-    GLOBALS ()
-    SEP ()
-  POST [ int_or_ptr_type ]
-    PROP() LOCAL (temp ret_temp x) SEP().
-
-Definition ptr_to_int_or_ptr_spec :=
-  DECLARE _ptr_to_int_or_ptr
-  WITH x : val
-  PRE [ tptr tvoid ]
-    PROP (valid_int_or_ptr x)
-    PARAMS (x)
-    GLOBALS ()
-    SEP()
-  POST [ int_or_ptr_type ]
-    PROP() LOCAL (temp ret_temp x) SEP().
 
 Definition Is_block_spec :=
   DECLARE _Is_block
@@ -121,17 +50,6 @@ Definition Is_block_spec :=
                                 end))))
     SEP().
 
-Definition abort_with_spec :=
-  DECLARE _abort_with
-  WITH s: val, str: list byte, sh: share
-  PRE [tptr tschar]
-    PROP (readable_share sh)
-    PARAMS (s)
-    GLOBALS ()
-    SEP (cstring sh str s)
-  POST [ tvoid ]
-    PROP (False) LOCAL() SEP().
-
 Definition IS_FROM_TYPE : TypeTree :=
   ProdType (ProdType (ProdType
                         (ProdType (ConstType share) (ConstType val))
@@ -149,7 +67,7 @@ Program Definition Is_from_spec :=
     GLOBALS ()
     SEP (weak_derives P (memory_block sh n start * TT) && emp;
          weak_derives P (valid_pointer v * TT) && emp; P)
-  POST [tint]
+  POST [ tint ]
     EX b: {v_in_range v start n} + {~ v_in_range v start n},
     PROP ()
     LOCAL (temp ret_temp (Vint (Int.repr (if b then 1 else 0))))
@@ -220,13 +138,12 @@ Definition forward_spec :=
       )
     GLOBALS ()
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g
       ; thread_info_rep sh t_info ti
       )
-  POST [tvoid]
+  POST [ tvoid ]
     EX g': HeapGraph,
     EX t_info': thread_info,
     EX roots': roots_t,
@@ -240,8 +157,7 @@ Definition forward_spec :=
       )
     LOCAL ()
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g'
       ; thread_info_rep sh t_info' ti
@@ -274,8 +190,7 @@ Definition forward_roots_spec :=
       )
     GLOBALS (gv)
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g
       ; thread_info_rep sh t_info ti
@@ -293,8 +208,7 @@ Definition forward_roots_spec :=
       )
     LOCAL ()
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g'
       ; thread_info_rep sh t_info' ti
@@ -328,8 +242,7 @@ Definition do_scan_spec :=
       )
     GLOBALS ()
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g
       ; thread_info_rep sh t_info ti
@@ -346,8 +259,7 @@ Definition do_scan_spec :=
       )
     LOCAL ()
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g'
       ; thread_info_rep sh t_info' ti
@@ -378,8 +290,7 @@ Definition do_generation_spec :=
       )
     GLOBALS (gv)
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g
       ; thread_info_rep sh t_info ti
@@ -395,8 +306,7 @@ Definition do_generation_spec :=
       )
     LOCAL ()
     SEP
-      ( all_string_constants rsh gv
-      ; fun_info_rep rsh f_info fi
+      ( fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g'
       ; thread_info_rep sh t_info' ti
@@ -405,8 +315,9 @@ Definition do_generation_spec :=
 Definition create_space_spec :=
   DECLARE _create_space
   WITH
-    sh: share, s: val, n: Z, gv: globals, rsh: share
-  PRE [ tptr space_type
+    gc_abort: val, sh: share, s: val, n: Z, gv: globals, rsh: share
+  PRE [ gc_abort_t
+      , tptr space_type
       , if Archi.ptr64 then tulong else tuint
       ]
     PROP
@@ -415,13 +326,14 @@ Definition create_space_spec :=
       ; 0 <= n < MAX_SPACE_SIZE
       )
     PARAMS
-      ( s
+      ( gc_abort
+      ; s
       ; if Archi.ptr64 then Vlong (Int64.repr n) else Vint (Int.repr n)
       )
     GLOBALS (gv)
     SEP
-      ( mem_mgr gv
-      ; all_string_constants rsh gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; data_at_ sh space_type s
       ; MSS_constant gv
       )
@@ -429,8 +341,8 @@ Definition create_space_spec :=
     EX p: val,
     PROP () LOCAL ()
     SEP
-      ( mem_mgr gv
-      ; all_string_constants rsh gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; MSS_constant gv
       ; malloc_token Ews (tarray int_or_ptr_type n) p
       ; data_at_ Ews (tarray int_or_ptr_type n) p
@@ -446,22 +358,22 @@ Definition create_space_spec :=
 
 Definition create_heap_spec :=
   DECLARE _create_heap
-  WITH sh: share, gv: globals
-  PRE []
+  WITH gc_abort: val, sh: share, gv: globals
+  PRE [gc_abort_t]
     PROP (readable_share sh)
-    PARAMS ()
+    PARAMS (gc_abort)
     GLOBALS (gv)
     SEP
-      ( mem_mgr gv
-      ; all_string_constants sh gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; MSS_constant gv
       )
   POST [tptr heap_type]
     EX h: val, EX p: val,
     PROP () LOCAL (temp ret_temp h)
     SEP
-      ( mem_mgr gv
-      ; all_string_constants sh gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; MSS_constant gv
       ; malloc_token Ews heap_type h
       ; data_at Ews
@@ -482,14 +394,14 @@ Definition create_heap_spec :=
 
 Definition make_tinfo_spec :=
   DECLARE _make_tinfo
-  WITH sh: share, gv: globals
-  PRE []
+  WITH gc_abort:val, sh: share, gv: globals
+  PRE [gc_abort_t]
     PROP (readable_share sh)
-    PARAMS ()
+    PARAMS (gc_abort)
     GLOBALS (gv)
     SEP
-      ( mem_mgr gv
-      ; all_string_constants sh gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; MSS_constant gv
       )
   POST [tptr thread_info_type]
@@ -498,8 +410,8 @@ Definition make_tinfo_spec :=
     EX p: val,
     PROP () LOCAL (temp ret_temp t)
     SEP
-      ( mem_mgr gv
-      ; all_string_constants sh gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; MSS_constant gv
       ; malloc_token Ews thread_info_type t
       ; data_at Ews
@@ -530,10 +442,11 @@ Definition make_tinfo_spec :=
 Definition resume_spec :=
   DECLARE _resume
   WITH
-    rsh: share, sh: share, gv: globals, fi: val, ti: val,
+    gc_abort: val, rsh: share, sh: share, gv: globals, fi: val, ti: val,
     g: HeapGraph, t_info: thread_info, f_info: fun_info,
     roots : roots_t
-  PRE [ tptr (if Archi.ptr64 then tulong else tuint)
+  PRE [ gc_abort_t
+      , tptr (if Archi.ptr64 then tulong else tuint)
       , tptr thread_info_type
       ]
     PROP
@@ -543,12 +456,13 @@ Definition resume_spec :=
       ; graph_gen_clear g O
       )
     PARAMS
-      ( fi
+      ( gc_abort
+      ; fi
       ; ti
       )
     GLOBALS (gv)
     SEP
-      ( all_string_constants rsh gv
+      ( func_ptr' gc_abort_spec gc_abort
       ; fun_info_rep rsh f_info fi
       ; graph_rep g
       ; thread_info_rep sh t_info ti
@@ -557,7 +471,7 @@ Definition resume_spec :=
     PROP (fun_word_size f_info <= space_capacity (heap_head (ti_heap t_info)))
     LOCAL ()
     SEP
-      ( all_string_constants rsh gv
+      ( func_ptr' gc_abort_spec gc_abort
       ; fun_info_rep rsh f_info fi
       ; graph_rep g
       ; before_gc_thread_info_rep sh t_info ti
@@ -566,10 +480,11 @@ Definition resume_spec :=
 Definition garbage_collect_spec :=
   DECLARE _garbage_collect
   WITH
-    rsh: share, sh: share, gv: globals, fi: val, ti: val,
+    gc_abort: val, rsh: share, sh: share, gv: globals, fi: val, ti: val,
     g: HeapGraph, t_info: thread_info, f_info: fun_info,
     roots : roots_t, outlier: outlier_t
-  PRE [ tptr (if Archi.ptr64 then tulong else tuint)
+  PRE [ gc_abort_t
+      , tptr (if Archi.ptr64 then tulong else tuint)
       , tptr thread_info_type
       ]
     PROP
@@ -580,12 +495,13 @@ Definition garbage_collect_spec :=
       ; heapgraph_can_copy g
       )
     PARAMS
-      ( fi
+      ( gc_abort
+      ; fi
       ; ti
       )
     GLOBALS (gv)
     SEP
-      ( all_string_constants rsh gv
+      ( func_ptr' gc_abort_spec gc_abort
       ; MSS_constant gv
       ; fun_info_rep rsh f_info fi
       ; outlier_rep outlier
@@ -605,9 +521,9 @@ Definition garbage_collect_spec :=
       )
     LOCAL ()
     SEP
-      ( mem_mgr gv
+      ( func_ptr' gc_abort_spec gc_abort
+      ; mem_mgr gv
       ; MSS_constant gv
-      ; all_string_constants rsh gv
       ; fun_info_rep rsh f_info fi
       ; outlier_rep outlier
       ; graph_rep g'
@@ -635,14 +551,8 @@ Definition free_heap_spec :=
   PROP () LOCAL () SEP ().
 
 Definition Gprog: funspecs := ltac:(with_library prog
-  [ test_int_or_ptr_spec
-  ; int_or_ptr_to_int_spec
-  ; int_or_ptr_to_ptr_spec
-  ; int_to_int_or_ptr_spec
-  ; ptr_to_int_or_ptr_spec
-  ; Is_block_spec
+  [ Is_block_spec
   ; Is_from_spec
-  ; abort_with_spec
   ; forward_spec
   ; forward_roots_spec
   ; do_scan_spec

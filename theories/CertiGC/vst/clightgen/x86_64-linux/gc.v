@@ -124,7 +124,6 @@ Definition _new : ident := $"new".
 Definition _new_addr_from_forwarded : ident := $"new_addr_from_forwarded".
 Definition _next : ident := $"next".
 Definition _num_allocs : ident := $"num_allocs".
-Definition _odata : ident := $"odata".
 Definition _old : ident := $"old".
 Definition _p : ident := $"p".
 Definition _p_cell : ident := $"p_cell".
@@ -1824,7 +1823,7 @@ Definition composites : list composite_definition :=
                          (Tcons (tptr tvoid)
                            (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
                          tvoid cc_default)) (Tcons (tptr tvoid) Tnil))) tvoid
-             cc_default))) :: (_odata, (tptr tvoid)) :: nil)
+             cc_default))) :: nil)
    noattr ::
  Composite _space Struct
    ((_start, (tptr (talignas 3%N (tptr tvoid)))) ::
@@ -2163,5 +2162,5 @@ Definition prog : Clight.program :=
 
 
 (*\nInput hashes (sha256):\n\ne2e015413f2a779bb796db6e9576e2e06aca933ddaf92d735b9983583191fcdd  src/c/include/coq-vsu-gc/src/gc.c
-fbae3a2ccb582c5d63744223a73f45bea50c22865538b0bb1a7171f185214b13  src/c/include/coq-vsu-gc/gc.h
+5129054c02a6fc187c9ef2b85d5547642d74b5a357e9f8e3897de569bff2ae74  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

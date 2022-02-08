@@ -123,7 +123,6 @@ Definition _main : ident := $"main".
 Definition _malloc : ident := $"malloc".
 Definition _n : ident := $"n".
 Definition _next : ident := $"next".
-Definition _odata : ident := $"odata".
 Definition _out : ident := $"out".
 Definition _p : ident := $"p".
 Definition _p_cell : ident := $"p_cell".
@@ -806,7 +805,7 @@ Definition composites : list composite_definition :=
                          (Tcons (tptr tvoid)
                            (Tcons (tptr (talignas 3%N (tptr tvoid))) Tnil))
                          tvoid cc_default)) (Tcons (tptr tvoid) Tnil))) tvoid
-             cc_default))) :: (_odata, (tptr tvoid)) :: nil)
+             cc_default))) :: nil)
    noattr ::
  Composite _space Struct
    ((_start, (tptr (talignas 3%N (tptr tvoid)))) ::
@@ -1213,5 +1212,5 @@ Definition prog : Clight.program :=
 
 (*\nInput hashes (sha256):\n\n0ba92d6dd1cf086392df1f6491e0f3e33aad2562966a383abf21c10690a2675b  src/c/include/coq-vsu-gc/src/certicoq_gc.c
 58b276737fd53c1ba1e9f79d19ff8c53c852c39ccd104fc18bd55e2746c65290  src/c/include/coq-vsu-gc/certicoq_gc.h
-fbae3a2ccb582c5d63744223a73f45bea50c22865538b0bb1a7171f185214b13  src/c/include/coq-vsu-gc/gc.h
+5129054c02a6fc187c9ef2b85d5547642d74b5a357e9f8e3897de569bff2ae74  src/c/include/coq-vsu-gc/gc.h
 a9b18c1959df2cb5404306021e5256eb25c78c20ef9ec326a1cac75cea375fe7  src/c/include/coq-vsu-gc/mem.h\n*)

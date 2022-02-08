@@ -41,7 +41,6 @@ typedef struct {
   gc_rt__num_allocs_t gc_rt__num_allocs;
   gc_rt__resume_t gc_rt__resume;
   gc_rt__root_ptr_iter_t gc_rt__root_ptr_iter;
-  void *odata;
 } gc_funs_t;
 
 
